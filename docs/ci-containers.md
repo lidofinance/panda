@@ -6,6 +6,9 @@ Lighthouse is built by **Publish Lighthouse images** (`.github/workflows/lightho
 packaged by **Publish Panda images** (`.github/workflows/images.yml`). Publishing a new Panda
 version pulls existing client images by digest; it never invokes the Rust compiler or `bake`.
 
+Each successful stable Panda publication also updates `panda-<profile>:latest` to the same image.
+Prereleases keep the existing `latest` tag unchanged.
+
 | Artifact                  | Example                                                 | Version source   |
 | ------------------------- | ------------------------------------------------------- | ---------------- |
 | Patched Pectra Lighthouse | `panda-lighthouse-pectra:v7.1.0-cfb1f7331064-b1-<hash>` | Upstream + baker |

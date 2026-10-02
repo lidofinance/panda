@@ -106,6 +106,9 @@ jobs:
           jq --arg digest "$DIGEST" '. + {digest: $digest}' \
             ".cache/containers/$PROFILE/$REVISION/release.json" > ".cache/container-reports/release-$PROFILE.json"
           echo "Use in services: \`$DIGEST\`" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$REVISION" != *-* ]]; then
+            docker buildx imagetools create --prefer-index=false --tag "${IMAGE%:*}:latest" "$DIGEST"
+          fi
       - name: Upload verification and release identity
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
