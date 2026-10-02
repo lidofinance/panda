@@ -3,9 +3,9 @@
   "bake": {
     "schema": 1,
     "profile": "gloas",
-    "tag": "ci-c7660efa51dc9304ccb373aea28f291bbc36c4c1",
-    "key": "af57d6c8ad7ea1c41e6791e330ab656e9a700b17bd245a4b5c9abbb418b4c20b",
-    "createdAt": "2026-10-01T09:01:17.224Z",
+    "tag": "ci-431fedb2ea69c8d946fc6fb1970c245b067713ac",
+    "key": "7bf0371640e6346d362e8ebc158e7a2d3c5346abc65da86cb6529fcc3e4c0501",
+    "createdAt": "2026-10-02T05:28:59.275Z",
     "recipe": {
       "schema": 1,
       "slotMs": 12000,
@@ -47,8 +47,8 @@
         "warp": "bakes/shared/tests/warp.ts",
         "warp-fast": "bakes/shared/tests/warp_fast.ts",
         "warp-economics": "bakes/shared/tests/warp_economics.ts",
-        "protocol": "bakes/shared/tests/protocol.ts",
-        "withdrawal": "bakes/shared/tests/withdrawal.ts",
+        "protocol": "bakes/shared/tests/protocol_test.ts",
+        "withdrawal": "bakes/shared/tests/withdrawal_test.ts",
         "deploy": "bakes/shared/tests/deploy.ts",
         "gloas": "bakes/gloas/tests/gloas.ts"
       },
@@ -104,8 +104,8 @@
     },
     "images": {
       "cl": {
-        "ref": "panda-lighthouse:bake-019d627589a59271a714598b",
-        "id": "sha256:c44634887be958f1c505c9034a91eca0ec68eeb084f311b742cca9e0b05638a4",
+        "ref": "panda-lighthouse:bake-b600b91a8e7025a0b755cff4",
+        "id": "sha256:375f8497c3249b81844346fb553ea44b3e364ce53382acd6939abacbf163f6ca",
         "platform": "linux/amd64"
       },
       "el": {
@@ -149,16 +149,16 @@
       },
       "baker": {
         "version": 1,
-        "hash": "60823965b5492398dacd5858bdadf693f3c6b1d50dcde8c66f34ae65121c00fa"
+        "hash": "fba1e3c33e391fbdda8f887f24e96e3b32fc29a96987147ad5e492ceb057fee2"
       },
       "platform": "linux/amd64",
-      "key": "019d627589a59271a714598b84e7fea849c38958d0b84ba045629c705c67e63e"
+      "key": "b600b91a8e7025a0b755cff43c4d3469a81d7574557b28f6dd07e1d6f5451718"
     }
   },
   "lighthouse": {
-    "image": "ghcr.io/eddort/panda-lighthouse-gloas:v8.2.2-2d281dfa1b40-b1-60823965b549",
-    "sourceCommit": "d46c593f181d6d0fbf23555883d86ffadc413954",
-    "digest": "ghcr.io/eddort/panda-lighthouse-gloas@sha256:9cb1a2d212acc26e0eaeb5c41bd4304b67829f475d3436ae16eaffa3c0501b04",
+    "image": "ghcr.io/lidofinance/panda-lighthouse-gloas:v8.2.2-2d281dfa1b40-b1-fba1e3c33e39",
+    "sourceCommit": "543910c72dde08de77670981dab600ea79e4fd12",
+    "digest": "ghcr.io/lidofinance/panda-lighthouse-gloas@sha256:04f498f21cf97b26320824f708fe2b01fb6e67711bbba2bfe9c2c083b5f0168b",
     "build": {
       "upstream": {
         "version": "8.2.2",
@@ -167,10 +167,10 @@
       },
       "baker": {
         "version": 1,
-        "hash": "60823965b5492398dacd5858bdadf693f3c6b1d50dcde8c66f34ae65121c00fa"
+        "hash": "fba1e3c33e391fbdda8f887f24e96e3b32fc29a96987147ad5e492ceb057fee2"
       },
       "platform": "linux/amd64",
-      "key": "019d627589a59271a714598b84e7fea849c38958d0b84ba045629c705c67e63e"
+      "key": "b600b91a8e7025a0b755cff43c4d3469a81d7574557b28f6dd07e1d6f5451718"
     }
   }
 }

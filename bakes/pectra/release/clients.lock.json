@@ -3,9 +3,9 @@
   "bake": {
     "schema": 1,
     "profile": "pectra",
-    "tag": "ci-e5945c0ac5e867933fd2278c5b149e7354cc0f40",
-    "key": "282e2e90b1b66feab052e62fac74ba0876ada078f178010abd8806c110a3f221",
-    "createdAt": "2026-10-01T09:09:55.207Z",
+    "tag": "ci-61fec8f4df890785a7c2c57e28c9e10806c27156",
+    "key": "c8c29cda30bdc68b98200713b759cf35dd36e8dbaa8312ccdbb19e498765125d",
+    "createdAt": "2026-10-02T05:25:53.552Z",
     "recipe": {
       "schema": 1,
       "slotMs": 12000,
@@ -40,8 +40,8 @@
         "warp": "bakes/shared/tests/warp.ts",
         "warp-fast": "bakes/shared/tests/warp_fast.ts",
         "warp-economics": "bakes/shared/tests/warp_economics.ts",
-        "protocol": "bakes/shared/tests/protocol.ts",
-        "withdrawal": "bakes/shared/tests/withdrawal.ts",
+        "protocol": "bakes/shared/tests/protocol_test.ts",
+        "withdrawal": "bakes/shared/tests/withdrawal_test.ts",
         "deploy": "bakes/shared/tests/deploy.ts"
       },
       "name": "pectra",
@@ -94,8 +94,8 @@
     },
     "images": {
       "cl": {
-        "ref": "panda-lighthouse:bake-b5eb07af624fcffa64f0ad84",
-        "id": "sha256:ad6bcb84cf80fdcb4e01b9108f1b9237dc5d9442696b62e75bdd74e9b6883784",
+        "ref": "panda-lighthouse:bake-b8156ab0dbe5a940a8197424",
+        "id": "sha256:b0ab937a7e8f7da8c31cfa7ced438bc03d34ce80fba814cf5f51af1ccbdb559d",
         "platform": "linux/amd64"
       },
       "el": {
@@ -139,16 +139,16 @@
       },
       "baker": {
         "version": 1,
-        "hash": "8a80605445c13b3f4d6920d427eb51a83e323360a3a614c14606ef25913b78c6"
+        "hash": "89084269efca57a28507ae8dc9e14e3d4d8298cc9ca4b2bb0a2fb2b10eeaa10c"
       },
       "platform": "linux/amd64",
-      "key": "b5eb07af624fcffa64f0ad84cfaf5987e34dd90028cbddaa549a2532a37b7b7b"
+      "key": "b8156ab0dbe5a940a81974245123d145413e206bc086edf004c2a48db47096b0"
     }
   },
   "lighthouse": {
-    "image": "ghcr.io/eddort/panda-lighthouse-pectra:v7.1.0-cfb1f7331064-b1-8a80605445c1",
-    "sourceCommit": "d46c593f181d6d0fbf23555883d86ffadc413954",
-    "digest": "ghcr.io/eddort/panda-lighthouse-pectra@sha256:d677b8d5a80ad1e7d786e76215e7269e11e645067d7ebbd710298f5e3c247d3e",
+    "image": "ghcr.io/lidofinance/panda-lighthouse-pectra:v7.1.0-cfb1f7331064-b1-89084269efca",
+    "sourceCommit": "543910c72dde08de77670981dab600ea79e4fd12",
+    "digest": "ghcr.io/lidofinance/panda-lighthouse-pectra@sha256:606d1f7724f96f403111af1b66a63cb382ed8b34a6722d9e80afb39624d8d1c5",
     "build": {
       "upstream": {
         "version": "7.1.0",
@@ -157,10 +157,10 @@
       },
       "baker": {
         "version": 1,
-        "hash": "8a80605445c13b3f4d6920d427eb51a83e323360a3a614c14606ef25913b78c6"
+        "hash": "89084269efca57a28507ae8dc9e14e3d4d8298cc9ca4b2bb0a2fb2b10eeaa10c"
       },
       "platform": "linux/amd64",
-      "key": "b5eb07af624fcffa64f0ad84cfaf5987e34dd90028cbddaa549a2532a37b7b7b"
+      "key": "b8156ab0dbe5a940a81974245123d145413e206bc086edf004c2a48db47096b0"
     }
   }
 }
