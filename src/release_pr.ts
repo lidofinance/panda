@@ -39,7 +39,7 @@ export interface ReleaseMerge {
 export function releaseBranch(version: string): string {
   pandaRevision(`refs/tags/${version}`);
   if (version !== version.trim()) throw new Error("Invalid release version");
-  return `codex/release-${version}`;
+  return `release-${version}`;
 }
 function assertCommit(commit: string): void {
   if (commit.length !== 40 || !/^[a-f0-9]{40}$/.test(commit)) {

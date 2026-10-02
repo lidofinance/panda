@@ -49,7 +49,7 @@ release**. Downloading artifacts, copying locks and pushing the release tag are 
    Git tags and missing unchanged locks are rejected before compilation.
 2. The workflow builds the exact `linux/amd64` Lighthouse images with their native Rust tests, or
    reuses the matching published images, and publishes them before any Panda profile tests. After
-   every selected profile succeeds, it opens a PR on `codex/release-<version>`. The PR contains
+   every selected profile succeeds, it opens a PR on `release-<version>`. The PR contains
    `bakes/<profile>/release/clients.lock.json` with the Lighthouse upstream/baker versions, image
    tags and immutable digests, plus `.github/panda-release.json` with the future Panda Git tag and
    hashes of the selected client locks. Its description lists the client versions and digests.
