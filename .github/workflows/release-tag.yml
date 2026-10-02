@@ -28,9 +28,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           persist-credentials: false
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
-        with:
-          deno-version: 2.9.7
+      - name: Install Deno
+        run: bash .github/scripts/setup-deno.sh
       - name: Validate merged pins, create the Git tag and trigger Panda publication
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
