@@ -1,11 +1,112 @@
 //! P1 component regression. Real EL/BN/VC restart is tested separately in restart.ts.
-use beacon_chain::test_utils::{BeaconChainHarness, SyncCommitteeStrategy};
+use beacon_chain::test_utils::{AttestationStrategy, BeaconChainHarness, SyncCommitteeStrategy};
 use fork_choice::ForkChoiceStore;
 use operation_pool::PersistedOperationPool;
 use state_processing::state_advance::complete_state_advance;
 use std::collections::HashSet;
 use store::StoreItem;
 use types::{EthSpec, ForkName, MainnetEthSpec, PayloadAttestationData, Slot};
+
+#[tokio::test]
+async fn persist_transfers_verified_naive_votes_without_an_aggregator_or_an_extra_block() {
+    type E = MainnetEthSpec;
+    // A real CL component fixture needs no execution service. Slot 32 crosses an epoch.
+    let spec = ForkName::Altair.make_genesis_spec(E::default_spec());
+    let harness = BeaconChainHarness::builder(MainnetEthSpec)
+        .spec(spec.into())
+        .deterministic_keypairs(64)
+        .fresh_ephemeral_store()
+        .build();
+    harness
+        .add_attested_block_at_slot(Slot::new(32), harness.get_current_state(), &[])
+        .await
+        .unwrap();
+    let chain = &harness.chain;
+    let head = chain.head_snapshot();
+    let unaggregated = harness.get_unaggregated_attestations(
+        &AttestationStrategy::AllValidators,
+        &head.beacon_state,
+        head.beacon_state_root(),
+        head.beacon_block_root,
+        Slot::new(32),
+    );
+    // Use ordinary gossip verification, but deliver no SignedAggregateAndProof.
+    harness.process_attestations(
+        unaggregated
+            .into_iter()
+            .map(|messages| (messages, None))
+            .collect(),
+        &head.beacon_state,
+    );
+    assert_eq!(
+        chain.op_pool.num_attestations(),
+        0,
+        "fixture already persisted the votes"
+    );
+    let naive: Vec<_> = chain
+        .naive_aggregation_pool
+        .read()
+        .iter()
+        .cloned()
+        .collect();
+    assert!(!naive.is_empty());
+    chain.persist_op_pool().unwrap();
+    let restored = chain
+        .store
+        .get_item::<PersistedOperationPool<E>>(&types::Hash256::ZERO)
+        .unwrap()
+        .unwrap()
+        .into_operation_pool()
+        .unwrap();
+    let persisted: Vec<_> = restored
+        .attestations
+        .read()
+        .iter()
+        .map(|att| att.clone_as_attestation())
+        .collect();
+    for attestation in &naive {
+        assert!(
+            persisted.contains(attestation),
+            "verified naive vote lost at checkpoint"
+        );
+    }
+    assert_eq!(
+        chain.head_snapshot().beacon_block_root,
+        head.beacon_block_root
+    );
+    assert_eq!(chain.head_snapshot().beacon_state.slot(), Slot::new(32));
+}
+
+#[test]
+fn panda_pool_rejects_corrupt_and_unknown_formats_but_reads_legacy() {
+    use operation_pool::{OperationPool, PersistedOperationPoolV20};
+    type E = MainnetEthSpec;
+    let legacy = PersistedOperationPoolV20::<E> {
+        attestations: vec![],
+        sync_contributions: vec![],
+        attester_slashings: vec![],
+        proposer_slashings: vec![],
+        voluntary_exits: vec![],
+        bls_to_execution_changes: vec![],
+        capella_bls_change_broadcast_indices: vec![],
+    };
+    let decoded = PersistedOperationPool::<E>::from_store_bytes(&legacy.as_store_bytes()).unwrap();
+    assert!(matches!(decoded, PersistedOperationPool::V20(_)));
+    let bytes =
+        PersistedOperationPool::from_operation_pool(&OperationPool::<E>::new()).as_store_bytes();
+    assert!(bytes.starts_with(b"PANDAOPPOOL\0"));
+    for length in 0..bytes.len() {
+        assert!(PersistedOperationPool::<E>::from_store_bytes(&bytes[..length]).is_err());
+    }
+    for offset in 0..bytes.len() {
+        let mut corrupt = bytes.clone();
+        corrupt[offset] ^= 0x80;
+        assert!(
+            PersistedOperationPool::<E>::from_store_bytes(&corrupt).is_err(),
+            "offset {offset}"
+        );
+    }
+}
 
 #[tokio::test]
 async fn completed_tail_drains_fork_choice_and_keeps_included_pool_votes() {
@@ -191,5 +292,40 @@ async fn persisted_pool_preserves_verified_ptc_for_the_next_block() {
     assert_eq!(
         after, before,
         "persisted operation pool lost verified next-slot PTC votes"
+    );
+    // Real store entrypoints must persist the same verified messages, and a failed write must
+    // propagate rather than report a successful save or erase the previous record.
+    use store::KeyValueStore;
+    use types::Hash256;
+    chain.persist_op_pool().unwrap();
+    let stored = chain
+        .store
+        .get_item::<PersistedOperationPool<E>>(&Hash256::ZERO)
+        .unwrap()
+        .unwrap()
+        .into_operation_pool()
+        .unwrap();
+    assert_eq!(
+        stored
+            .get_payload_attestations(&next_state, head.beacon_block_root, &chain.spec)
+            .unwrap(),
+        before
+    );
+    let previous = chain
+        .store
+        .hot_db
+        .get_bytes(store::DBColumn::OpPool, Hash256::ZERO.as_slice())
+        .unwrap();
+    chain.store.hot_db.inject_faults(true);
+    let failed = chain.persist_op_pool();
+    chain.store.hot_db.inject_faults(false);
+    assert!(failed.is_err(), "failed database write must be visible");
+    assert_eq!(
+        chain
+            .store
+            .hot_db
+            .get_bytes(store::DBColumn::OpPool, Hash256::ZERO.as_slice())
+            .unwrap(),
+        previous
     );
 }

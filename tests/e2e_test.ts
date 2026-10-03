@@ -13,6 +13,8 @@ const descriptions: Record<string, string> = {
   withdrawal: "signed voluntary exit and complete withdrawal",
   deploy: "sequential RPC and ethers contract deployments",
   gloas: "separate payload envelope, PTC votes and phase barriers",
+  restart:
+    "cold BN/VC and full-client restarts preserve blocks, PTC, economics and signing history",
   baseline: "ordinary unmodified clients produce an agreed execution payload",
   lifecycle: "CLI up/down/reset, ownership and profile mismatch rejection",
 };

@@ -32,11 +32,19 @@ await Deno.writeTextFile(
   inputs[bake.recipe.clockSource],
 );
 await Deno.writeTextFile(`${root}/beacon_node/beacon_chain/tests/panda_restart.rs`, test);
-await Deno.writeTextFile(
-  `${root}/beacon_node/beacon_chain/Cargo.toml`,
-  '\n[[test]]\nname = "panda_restart"\npath = "tests/panda_restart.rs"\n',
-  { append: true },
-);
+// New bakes already register this target in their archived patch. Historical
+// bakes need the declaration as part of this regression-only overlay.
+if (
+  !bake.recipe.nativeTests?.some((entry) =>
+    entry.package === "beacon_chain" && entry.target === "panda_restart"
+  )
+) {
+  await Deno.writeTextFile(
+    `${root}/beacon_node/beacon_chain/Cargo.toml`,
+    '\n[[test]]\nname = "panda_restart"\npath = "tests/panda_restart.rs"\n',
+    { append: true },
+  );
+}
 const evidence = {
   bakeKey: bake.key,
   upstream: bake.source.cl,

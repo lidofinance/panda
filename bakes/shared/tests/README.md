@@ -46,3 +46,9 @@ stage and fails on a failed nested step.
 Successful scenario evidence is written to `reports/profiles/<hardfork>/<bake>/protocol.json` and
 `withdrawal.json`. A targeted lifecycle run does not certify the full profile suite. Full
 verification also binds all reports to the bake key, run ID and current suite fingerprint.
+
+Gloas additionally registers `bakes/gloas/tests/restart.ts`. It compares real BN/VC and EL/BN/VC
+cold restarts at slots 3, 31, 32, 127 and 128 with independent uninterrupted networks, including
+signed blocks, PTC, subsequent transactions, participation, rewards, finality and retained signing
+protection. This fixture preserves existing client data; it does not provide a snapshot API. Run it
+directly with `PANDA_PROFILE=gloas PANDA_BAKE=<tag> deno run -A bakes/gloas/tests/restart.ts`.

@@ -150,3 +150,6 @@ edit('beacon_node/beacon_chain/src/beacon_chain.rs', '''                (
 
 # Local sync delivery after the profile-specific scheduling adaptations.
 patch_direct_sync(root, profile='gloas')
+
+from patch_checkpoint import apply as patch_checkpoint
+patch_checkpoint(root)

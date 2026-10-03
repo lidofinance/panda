@@ -4,7 +4,7 @@ import { Devnet, type WarpMode } from "../../../src/api.ts";
 import { captureWarpRewards } from "./warp_rewards.ts";
 import { account, privateKey } from "../../../src/config.ts";
 import { executionAt, finalizedExecutionHash } from "../../../src/consensus.ts";
-import { Infrastructure, LABEL, ROLE } from "../../../src/docker.ts";
+import { Infrastructure, LABEL } from "../../../src/docker.ts";
 import { Network } from "../../../src/network.ts";
 import { deadline, delay, json } from "../../../src/http.ts";
 import { report } from "./report.ts";
@@ -14,9 +14,8 @@ import {
   assertNoAttestationPenalties,
   assertSigningHistory,
   type AttestationReward,
-  type SigningHistory,
 } from "./warp_assertions.ts";
-import { clockEnvironment } from "../../../src/profiles.ts";
+import { exportSigningHistory } from "./signing_history.ts";
 
 export function warpScenario(mode: WarpMode, requestedSlots?: number) {
   const defaultSlots = mode === "honest" ? 1000 : 8192;
@@ -64,57 +63,12 @@ export async function runWarp(mode: WarpMode, requestedSlots?: number): Promise<
     );
     return validators;
   };
-  const exportHistory = async (): Promise<SigningHistory> => {
-    const containers = await infra.docker.listContainers({
-      filters: { label: [`${LABEL}=${initial.id}`, `${ROLE}=vc`] },
-    });
-    assert.equal(containers.length, 1);
-    const vc = infra.docker.getContainer(containers[0].Id);
-    assert.equal((await vc.inspect()).Config.Labels?.[LABEL], initial.id);
-    // Lighthouse holds an exclusive SQLite lock. Freeze the owned VC briefly and
-    // copy the database plus journal files; export from the copy, preserving live protection.
-    const snapshot = `${manifest.directory}/warp-slashing-snapshot`;
-    await Deno.mkdir(snapshot, { recursive: true });
-    await vc.pause();
-    try {
-      for (const suffix of ["", "-journal", "-wal", "-shm"]) {
-        const name = `slashing_protection.sqlite${suffix}`;
-        await Deno.remove(`${snapshot}/${name}`).catch((error) => {
-          if (!(error instanceof Deno.errors.NotFound)) throw error;
-        });
-        await Deno.copyFile(
-          `${manifest.directory}/validator-keys/keys/${name}`,
-          `${snapshot}/${name}`,
-        ).catch((error) => {
-          if (suffix === "" || !(error instanceof Deno.errors.NotFound)) throw error;
-        });
-      }
-    } finally {
-      await vc.unpause();
-    }
-    await infra.exec(vc, [
-      "env",
-      "-u",
-      clockEnvironment(manifest.bake.recipe).startMs,
-      "-u",
-      clockEnvironment(manifest.bake.recipe).port,
-      "lighthouse",
-      "--testnet-dir=/shared/metadata",
-      "account",
-      "validator",
-      "--validators-dir=/shared/warp-slashing-snapshot",
-      "slashing-protection",
-      "export",
-      "/shared/warp-signing-history.json",
-    ]);
-    return JSON.parse(await Deno.readTextFile(`${manifest.directory}/warp-signing-history.json`));
-  };
   await net.advanceUntil(
     async () => Number((await net.status()).finality.data.finalized.epoch) >= 2,
     { maxSlots: 160 },
   );
   await allUnslashed();
-  const beforeHistory = await exportHistory();
+  const beforeHistory = await exportSigningHistory(manifest);
   assert.equal(beforeHistory.data.length, manifest.config.validators);
   assertSigningHistory(beforeHistory);
   let previousHistory = beforeHistory;
@@ -322,7 +276,7 @@ export async function runWarp(mode: WarpMode, requestedSlots?: number): Promise<
       )).data.length,
       manifest.config.validators,
     );
-    const history = await exportHistory();
+    const history = await exportSigningHistory(manifest);
     assertSigningHistory(history, previousHistory, advanced.slot);
     previousHistory = history;
   }

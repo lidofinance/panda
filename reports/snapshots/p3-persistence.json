@@ -1,0 +1,246 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-02T12:00:38.556887+00:00",
+  "profile": "gloas",
+  "bake": "p3-persistence",
+  "bakeKey": "6e3bdd2927d87e250435fb39ca0ce836d5423c54c845033f647a2d6a54327caa",
+  "platform": "linux/arm64",
+  "lighthouse": {
+    "upstream": {
+      "version": "8.2.2",
+      "commit": "2d281dfa1b407f7c81cd123954a9fd18ee8f02d2",
+      "repository": "https://github.com/sigp/lighthouse.git"
+    },
+    "baker": {
+      "version": 2,
+      "hash": "574d044d8efb8b96901828d4e52be57bb532747fd81449575559ec7aa5c3298a"
+    },
+    "platform": "linux/arm64",
+    "key": "6bc5302772d8bac9a8a1224676d5f952fe1f9b351ad71944135f37eee107e22f"
+  },
+  "clientImages": {
+    "cl": "sha256:69a1bca182ec60e2e995feac613205dc473be9a3bb240656bcb43bf11f530d4e",
+    "el": "sha256:549317edd21bb0e720bf53459e353f4eee30acd3a99a89380f762c0b6cfe0e7e",
+    "genesis": "sha256:95d66723fab247e476861b7168e8b20150e85daeee734f2417a79c2db8e2b1a3",
+    "baseline": "sha256:e2ccd0b4a799d87de2bc89dd61e72bc3f4ae125c97d8bfcd3b1088a615b33fde"
+  },
+  "status": "verified-graceful-restart",
+  "scope": "Graceful completed-slot-tail restart with the same data, clock, genesis and keys; not a snapshot API or crash-recovery certification.",
+  "red": [
+    {
+      "bake": "ci-main-merge",
+      "behavior": "Persisted pool loses verified PTC aggregate",
+      "nativePassed": 1,
+      "nativeFailed": 1
+    },
+    {
+      "bake": "p3-ptc",
+      "behavior": "Cold BN/VC restart at slot 32 loses ordinary attestation in block 33"
+    },
+    {
+      "behavior": "Verified naive votes without aggregator are absent after persist_op_pool",
+      "nativePassed": 3,
+      "nativeFailed": 1
+    }
+  ],
+  "green": {
+    "persistenceNativePassed": 4,
+    "persistenceNativeFailed": 0,
+    "unitPassed": 114,
+    "unitFailed": 0,
+    "checkPassed": true,
+    "coldRestarts": [
+      {
+        "event": "restart-passed",
+        "profile": "gloas",
+        "bake": "p3-persistence",
+        "bakeKey": "6e3bdd2927d87e250435fb39ca0ce836d5423c54c845033f647a2d6a54327caa",
+        "restart": "cl",
+        "cuts": [
+          3,
+          31,
+          32,
+          127,
+          128
+        ],
+        "continuation": true,
+        "checkpoints": [
+          {
+            "cut": 3,
+            "beforeStateRoot": "0x67064b2891f0ad378860969267f79b6a75f8fc4df0912064f985983dd71075b4",
+            "nextStateRoot": "0x16f85af1e123f82520473428936338bd9976fa9f761c5303a7afcc0beab9e6c3",
+            "nextSignature": "0xa6f2cf1579277dbd85520942d2e866e92505d13034cf4972a5ac63ba7fdc6bef077989523a779c190a7655b40118ec0b12844994a7f3076405ec107a95c8e2bf05d82aac4a66a7d2b1888c18563ccb84f647eaf3d58ed2f5dcd6a4c6d61c1457"
+          },
+          {
+            "cut": 31,
+            "beforeStateRoot": "0x5730413308d52a85699a18dae0951bb7a8afa7aa25a3fe4ca1df1e155f8520ee",
+            "nextStateRoot": "0x3032109ca25fb0021f813f8dbfc2bcd1e2d6d251b1a34ed693b53a7347261af6",
+            "nextSignature": "0x805d6536e1ad407dee1dc3e0df7de15248f7ff8b64919b3261393a4bf8ff62fd48c082bc1b26c8cdc47b35d50ee1620218833f0048789f454aca1ba37d883abed6298b973b067aff4d46009407a625fb0f7729e91cfc53acc6db9e7042a1a1a6"
+          },
+          {
+            "cut": 32,
+            "beforeStateRoot": "0x3032109ca25fb0021f813f8dbfc2bcd1e2d6d251b1a34ed693b53a7347261af6",
+            "nextStateRoot": "0x5dd77bc7c7c50da1b95b0f19a0513a9b1d1a62e68cc486206f7463653f943672",
+            "nextSignature": "0x92466cb7104081dafbf2da5ef67e8e159a99597a49c1ff317dbdc1102772f3a396ae943aa973bb81ef25fecc25ca20d5007667bbae4a0f5c093acbfba6cfe6d17d8954c9ba3beebb2d0f51463a7fe8d63320e9ddc2092b5fecff1fc34281b7f5"
+          },
+          {
+            "cut": 127,
+            "beforeStateRoot": "0xa54c437fc54b4ec10ad71566f9c301cd75d346727ca1d3bf2ecc00d5581eae44",
+            "nextStateRoot": "0x786527df81e466b25d35b908eb34e55aaa2160d02362c8cbbd4748f45c2598bd",
+            "nextSignature": "0x8673945b2e1401e8498d8f80a1439052d3e1b49c23b067763237da5b4c62d181ae2f7f05ab4a2244a64e848604d7233900bd8b958f6b8067a6b2abf815a015b9c89fe82b46d056cc5c0d937dec6b012ece5856df65309da4f120022db1dc60ea"
+          },
+          {
+            "cut": 128,
+            "beforeStateRoot": "0x786527df81e466b25d35b908eb34e55aaa2160d02362c8cbbd4748f45c2598bd",
+            "nextStateRoot": "0x700cd09f4d491666d7c1ebf476ec0eb768faf0463084c7741188063d4fe2632a",
+            "nextSignature": "0x97ad2ae22ddf23d58878c443337fe979114fa37faff874cc667fa20ba937b4611df10411a14e5e01e9a4ec58dc76881c15bdc5e21ef807aefedcb73c419262616b78522d9a015fef5b8f1087e3ed2b3c5a42e2257f8667909073a6e91279ba8b"
+          }
+        ],
+        "final": {
+          "slot": "226",
+          "stateRoot": "0x6c277b38ab32e2c53a6c8c036afd6edea95d6fcf7fea1bb098fa2f1e09a1b4d8",
+          "finalized": {
+            "epoch": "5",
+            "root": "0x4b737f8f80d186add68cb19c7bdfea78d3460a2358fcd9b072760e7babb8d799"
+          },
+          "executionFinalized": "0x5c1c82c5a9f2b3ed7b6da8728311c3ca2a44157c6a0388c71f4543e427e79a6e",
+          "transaction": {
+            "blockHash": "0x7e8c51860975bc0c512fc0b7c38cd450e76e67ad90fe3a9c9c007fe24f754cef",
+            "blockNumber": "0x82",
+            "contractAddress": null,
+            "cumulativeGasUsed": "0x2ee0",
+            "effectiveGasPrice": "0x3b9aca21",
+            "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+            "gasUsed": "0x2ee0",
+            "logs": [],
+            "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "status": "0x1",
+            "to": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+            "transactionHash": "0xca72c436e29559986fb32dff6bb12ba9f7796a52286f76aa4fae0c5646e461b4",
+            "transactionIndex": "0x0",
+            "type": "0x2"
+          },
+          "signingValidators": 64
+        }
+      },
+      {
+        "event": "restart-passed",
+        "profile": "gloas",
+        "bake": "p3-persistence",
+        "bakeKey": "6e3bdd2927d87e250435fb39ca0ce836d5423c54c845033f647a2d6a54327caa",
+        "restart": "all",
+        "cuts": [
+          3,
+          31,
+          32,
+          127,
+          128
+        ],
+        "continuation": true,
+        "checkpoints": [
+          {
+            "cut": 3,
+            "beforeStateRoot": "0x67064b2891f0ad378860969267f79b6a75f8fc4df0912064f985983dd71075b4",
+            "nextStateRoot": "0x16f85af1e123f82520473428936338bd9976fa9f761c5303a7afcc0beab9e6c3",
+            "nextSignature": "0xa6f2cf1579277dbd85520942d2e866e92505d13034cf4972a5ac63ba7fdc6bef077989523a779c190a7655b40118ec0b12844994a7f3076405ec107a95c8e2bf05d82aac4a66a7d2b1888c18563ccb84f647eaf3d58ed2f5dcd6a4c6d61c1457"
+          },
+          {
+            "cut": 31,
+            "beforeStateRoot": "0x5730413308d52a85699a18dae0951bb7a8afa7aa25a3fe4ca1df1e155f8520ee",
+            "nextStateRoot": "0x3032109ca25fb0021f813f8dbfc2bcd1e2d6d251b1a34ed693b53a7347261af6",
+            "nextSignature": "0x805d6536e1ad407dee1dc3e0df7de15248f7ff8b64919b3261393a4bf8ff62fd48c082bc1b26c8cdc47b35d50ee1620218833f0048789f454aca1ba37d883abed6298b973b067aff4d46009407a625fb0f7729e91cfc53acc6db9e7042a1a1a6"
+          },
+          {
+            "cut": 32,
+            "beforeStateRoot": "0x3032109ca25fb0021f813f8dbfc2bcd1e2d6d251b1a34ed693b53a7347261af6",
+            "nextStateRoot": "0x5dd77bc7c7c50da1b95b0f19a0513a9b1d1a62e68cc486206f7463653f943672",
+            "nextSignature": "0x92466cb7104081dafbf2da5ef67e8e159a99597a49c1ff317dbdc1102772f3a396ae943aa973bb81ef25fecc25ca20d5007667bbae4a0f5c093acbfba6cfe6d17d8954c9ba3beebb2d0f51463a7fe8d63320e9ddc2092b5fecff1fc34281b7f5"
+          },
+          {
+            "cut": 127,
+            "beforeStateRoot": "0xa54c437fc54b4ec10ad71566f9c301cd75d346727ca1d3bf2ecc00d5581eae44",
+            "nextStateRoot": "0x786527df81e466b25d35b908eb34e55aaa2160d02362c8cbbd4748f45c2598bd",
+            "nextSignature": "0x8673945b2e1401e8498d8f80a1439052d3e1b49c23b067763237da5b4c62d181ae2f7f05ab4a2244a64e848604d7233900bd8b958f6b8067a6b2abf815a015b9c89fe82b46d056cc5c0d937dec6b012ece5856df65309da4f120022db1dc60ea"
+          },
+          {
+            "cut": 128,
+            "beforeStateRoot": "0x786527df81e466b25d35b908eb34e55aaa2160d02362c8cbbd4748f45c2598bd",
+            "nextStateRoot": "0x700cd09f4d491666d7c1ebf476ec0eb768faf0463084c7741188063d4fe2632a",
+            "nextSignature": "0x97ad2ae22ddf23d58878c443337fe979114fa37faff874cc667fa20ba937b4611df10411a14e5e01e9a4ec58dc76881c15bdc5e21ef807aefedcb73c419262616b78522d9a015fef5b8f1087e3ed2b3c5a42e2257f8667909073a6e91279ba8b"
+          }
+        ],
+        "final": {
+          "slot": "226",
+          "stateRoot": "0x6c277b38ab32e2c53a6c8c036afd6edea95d6fcf7fea1bb098fa2f1e09a1b4d8",
+          "finalized": {
+            "epoch": "5",
+            "root": "0x4b737f8f80d186add68cb19c7bdfea78d3460a2358fcd9b072760e7babb8d799"
+          },
+          "executionFinalized": "0x5c1c82c5a9f2b3ed7b6da8728311c3ca2a44157c6a0388c71f4543e427e79a6e",
+          "transaction": {
+            "blockHash": "0x7e8c51860975bc0c512fc0b7c38cd450e76e67ad90fe3a9c9c007fe24f754cef",
+            "blockNumber": "0x82",
+            "contractAddress": null,
+            "cumulativeGasUsed": "0x2ee0",
+            "effectiveGasPrice": "0x3b9aca21",
+            "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+            "gasUsed": "0x2ee0",
+            "logs": [],
+            "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "status": "0x1",
+            "to": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+            "transactionHash": "0xca72c436e29559986fb32dff6bb12ba9f7796a52286f76aa4fae0c5646e461b4",
+            "transactionIndex": "0x0",
+            "type": "0x2"
+          },
+          "signingValidators": 64
+        }
+      }
+    ],
+    "standaloneFastWarpPassed": true
+  },
+  "fullProfile": {
+    "status": "passed",
+    "report": "reports/profiles/gloas/p3-persistence/verification.json",
+    "previousAttempt": {
+      "status": "failed",
+      "passedScenarios": 10,
+      "failedScenarios": 1,
+      "runId": "a6a01c6e-50ff-42f3-866d-703394690d57",
+      "reason": "Geth image deleted from local Docker before fast scenario startup; matching delete/load events observed. Exact image ID restored from local archive and retained for verification."
+    },
+    "runId": "17a945d2-d5d4-4fc1-97fa-cbe928a23596",
+    "suiteHash": "9873d9cc25c0a399a16804c4fceee90d76a2fcda373a6f4224840e7c7d4d95f4",
+    "startedAt": "2026-10-02T11:44:24.545Z",
+    "finishedAt": "2026-10-02T11:58:01.415Z",
+    "elapsedMs": 816853.115958,
+    "scenarios": [
+      "baseline",
+      "lifecycle",
+      "e2e",
+      "warp",
+      "warp-fast",
+      "warp-economics",
+      "protocol",
+      "withdrawal",
+      "deploy",
+      "gloas",
+      "restart"
+    ],
+    "passedScenarios": 11,
+    "failedScenarios": 0
+  },
+  "limitations": [
+    "Full P3 checkpoint ACK and P2 admission/drain are not implemented.",
+    "Arbitrary crash recovery, missing operation-pool records and parked startup are not certified.",
+    "Old V20 records cannot reconstruct lost PTC; a pre-patch binary cannot read the new Panda pool envelope.",
+    "Pectra and linux/amd64 are not verified in this run."
+  ],
+  "cleanup": {
+    "checkedOwners": 50,
+    "remainingContainers": 0,
+    "remainingNetworks": 0,
+    "remainingVolumes": 0,
+    "verificationImageHolderRemoved": true
+  }
+}

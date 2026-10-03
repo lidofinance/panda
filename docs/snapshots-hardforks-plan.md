@@ -292,6 +292,10 @@ EL/BN/VC restart на хвосте слота 3 блок 4 теряет все 5
 
 ### P3. Сделать lossless native checkpoint и проверенный cold resume.
 
+Текущая работа над сохранением PTC и naive attestations, с RED/GREEN и границами проверки:
+[отчёт по persistence](snapshots-p3-persistence.md). Это часть P3; checkpoint ACK, admission/drain и
+parked startup остаются отдельными требованиями ниже.
+
 **Зависимости:** P0/P1/P2.
 
 **Исполнитель:** Lighthouse native + controller.
