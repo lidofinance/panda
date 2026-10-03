@@ -1,4 +1,5 @@
 import { argumentsFor } from "../src/arguments.ts";
+import { defaultProfile } from "../src/active_profiles.ts";
 import { bake } from "../src/baker.ts";
 import { profileName } from "../src/profiles.ts";
 const { flags, positional } = argumentsFor(Deno.args, [
@@ -15,7 +16,7 @@ const { flags, positional } = argumentsFor(Deno.args, [
   "go-image",
 ], ["replace"]);
 if (positional.length > 1) throw new Error("Usage: deno task bake <hardfork> [--tag <name>]");
-const result = await bake(profileName(positional[0] ?? "pectra"), {
+const result = await bake(profileName(positional[0] ?? defaultProfile), {
   tag: flags.tag,
   replace: flags.replace === "true",
   importCl: flags["import-cl"],

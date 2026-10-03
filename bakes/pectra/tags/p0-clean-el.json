@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "profile": "pectra",
+  "tag": "p0-clean-el",
+  "key": "c1a42c1f842567a4a5ba15a5012128231d127e01a3063dd0c7e2f1b8e496ad9e",
+  "createdAt": "2026-10-02T09:16:41.880Z",
+  "recipe": {
+    "schema": 1,
+    "slotMs": 12000,
+    "slotsPerEpoch": 32,
+    "tailMs": 11500,
+    "clockSource": "bakes/shared/controlled_clock.rs",
+    "clockTest": "bakes/shared/controlled_clock_test.rs",
+    "clockEnvPrefix": "PANDA",
+    "sourceFiles": [
+      "bakes/shared/native/verified_signature.rs",
+      "bakes/shared/native/sync_batch.rs",
+      "bakes/shared/native/direct_sync_test.rs"
+    ],
+    "nativeTests": [
+      {
+        "package": "bls",
+        "target": "panda_verified_signature"
+      },
+      {
+        "package": "beacon_chain",
+        "target": "panda_direct_sync"
+      }
+    ],
+    "runtime": "debian@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251",
+    "clRepository": "https://github.com/sigp/lighthouse.git",
+    "elRepository": "https://github.com/ethereum/go-ethereum.git",
+    "goBuilder": "golang:1.25-bookworm",
+    "tests": {
+      "baseline": "bakes/shared/tests/baseline.ts",
+      "lifecycle": "bakes/shared/tests/lifecycle.ts",
+      "e2e": "bakes/shared/tests/e2e.ts",
+      "warp": "bakes/shared/tests/warp.ts",
+      "warp-fast": "bakes/shared/tests/warp_fast.ts",
+      "warp-economics": "bakes/shared/tests/warp_economics.ts",
+      "protocol": "bakes/shared/tests/protocol_test.ts",
+      "withdrawal": "bakes/shared/tests/withdrawal_test.ts",
+      "deploy": "bakes/shared/tests/deploy.ts"
+    },
+    "name": "pectra",
+    "elFork": "prague",
+    "clFork": "electra",
+    "clRef": "cfb1f7331064b758c6786e4e1dc15507af5ff5d1",
+    "patch": "bakes/pectra/lighthouse.patch",
+    "rust": "rust@sha256:e51d0265072d2d9d5d320f6a44dde6b9ef13653b035098febd68cce8fa7c0bc4",
+    "elImage": "sha256:3f3d4a82b71796278b66f6f571bc7d3d52616df0a77c79b4c4cc51a5613be70e",
+    "genesisImage": "ethpandaops/ethereum-genesis-generator@sha256:683629884b35dce22e544663abd19ce5221ce65f9f0315e3971d66c67041bc1d",
+    "baselineImage": "sigp/lighthouse@sha256:870934e38931d1a0f6cf47ff976e246a08a4b5509b84ff585aa2233e76744aa8",
+    "phases": [
+      0,
+      4000,
+      6000,
+      8000,
+      9000,
+      11500
+    ],
+    "attestationMs": 4000,
+    "aggregateMs": 8000,
+    "churnLimitQuotient": 65536,
+    "engineMethods": [
+      "engine_forkchoiceUpdatedV3",
+      "engine_getPayloadV4",
+      "engine_newPayloadV4"
+    ],
+    "genesisEnv": {
+      "ELECTRA_FORK_EPOCH": "0",
+      "FULU_FORK_EPOCH": "18446744073709551615",
+      "GLOAS_FORK_EPOCH": "18446744073709551615",
+      "HEZE_FORK_EPOCH": "18446744073709551615",
+      "SLOT_DURATION_IN_SECONDS": "12"
+    },
+    "clVersion": "7.1.0",
+    "bakerVersion": 1,
+    "clockWait": true,
+    "directSync": true
+  },
+  "source": {
+    "cl": "cfb1f7331064b758c6786e4e1dc15507af5ff5d1",
+    "importedCl": "sha256:a7cd60b240167c8ef421db60fd44940f4e49e9a242b3eaf0b0356740818bbf4c"
+  },
+  "hashes": {
+    "bakes/pectra/lighthouse.patch": "9152a9cdf9628ca894ae5e413f535591d2d8d24012e1835ad41f4efbc9dec5b1",
+    "bakes/shared/controlled_clock.rs": "87f9d148b720af705dd8d8deb3c22a4a3e1441c7af4bc988dee566101bf2c692",
+    "bakes/shared/controlled_clock_test.rs": "5a36b0b2713c708bddefd7011a5f8c0fdd038974b149ad84baefd2fa11d89f9e",
+    "bakes/shared/native/verified_signature.rs": "6746df67b0cf6893d889b36aad83183c21a21a3e46d135ce035cce52617ecf3e",
+    "bakes/shared/native/sync_batch.rs": "0d421c3f1e4b23842cee5ee079347600dba316ea460cf070d768c88fab3f818f",
+    "bakes/shared/native/direct_sync_test.rs": "292afa5a59fa9e5f00bf12a92b01a51488903ae948455a08b311d52907b353c9"
+  },
+  "images": {
+    "cl": {
+      "ref": "sha256:a7cd60b240167c8ef421db60fd44940f4e49e9a242b3eaf0b0356740818bbf4c",
+      "id": "sha256:a7cd60b240167c8ef421db60fd44940f4e49e9a242b3eaf0b0356740818bbf4c",
+      "platform": "linux/arm64"
+    },
+    "el": {
+      "ref": "sha256:3f3d4a82b71796278b66f6f571bc7d3d52616df0a77c79b4c4cc51a5613be70e",
+      "id": "sha256:3f3d4a82b71796278b66f6f571bc7d3d52616df0a77c79b4c4cc51a5613be70e",
+      "platform": "linux/arm64"
+    },
+    "genesis": {
+      "ref": "ethpandaops/ethereum-genesis-generator@sha256:683629884b35dce22e544663abd19ce5221ce65f9f0315e3971d66c67041bc1d",
+      "id": "sha256:9eb052d4fda54a503b169cffeac016fd91b009446e315b718fc72978bb62dc25",
+      "digest": "ethpandaops/ethereum-genesis-generator@sha256:683629884b35dce22e544663abd19ce5221ce65f9f0315e3971d66c67041bc1d",
+      "platform": "linux/arm64"
+    },
+    "baseline": {
+      "ref": "sigp/lighthouse@sha256:870934e38931d1a0f6cf47ff976e246a08a4b5509b84ff585aa2233e76744aa8",
+      "id": "sha256:7db3c61689f48c60f4bff17da0ba8ba9cb9f7f4702c7489aaabdc7e157a9f247",
+      "digest": "sigp/lighthouse@sha256:870934e38931d1a0f6cf47ff976e246a08a4b5509b84ff585aa2233e76744aa8",
+      "platform": "linux/arm64"
+    }
+  },
+  "builders": {
+    "runtime": {
+      "ref": "debian@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251",
+      "id": "sha256:813cd0370d827a30abbef1cf99f88217f87fda9612dd5241c9015ba182d32428",
+      "digest": "debian@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251",
+      "platform": "linux/arm64"
+    },
+    "rust": {
+      "ref": "rust@sha256:e51d0265072d2d9d5d320f6a44dde6b9ef13653b035098febd68cce8fa7c0bc4",
+      "id": "sha256:0333b045ecc01d2f401777415e8e37ba6b7ba4d189cfbd71e73baca43a37cfcc",
+      "digest": "rust@sha256:e51d0265072d2d9d5d320f6a44dde6b9ef13653b035098febd68cce8fa7c0bc4",
+      "platform": "linux/arm64"
+    }
+  }
+}

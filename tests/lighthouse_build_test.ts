@@ -37,6 +37,12 @@ Deno.test("Lighthouse identity changes with either upstream or baker, independen
     const unchanged = await lighthouseBuild(elUpdate, "linux/amd64", root);
     assert.deepEqual(unchanged, initial);
     assert.notEqual(await clientBakeTag(elUpdate, unchanged), await clientBakeTag(recipe, initial));
+    const gloas = await lighthouseBuild(profiles.gloas, "linux/amd64", root);
+    await Deno.writeTextFile(
+      `${root}/src/active_profiles.ts`,
+      'export const activeProfiles = ["pectra", "gloas"];\n',
+    );
+    assert.deepEqual(await lighthouseBuild(profiles.gloas, "linux/amd64", root), gloas);
     await Deno.writeTextFile(`${root}/src/controller.ts`, "\n// new Panda controller release\n", {
       append: true,
     });
@@ -138,7 +144,7 @@ Deno.test("Lighthouse workflow derives upstream/baker tags without a manual revi
     }).output();
     assert.equal(result.success, true, new TextDecoder().decode(result.stderr));
     const matrix = JSON.parse((await Deno.readTextFile(output)).trim().slice("matrix=".length));
-    assert.equal(matrix.include.length, Object.keys(profiles).length);
+    assert.deepEqual(matrix.include.map((item: { profile: string }) => item.profile), ["gloas"]);
     for (const item of matrix.include) {
       assert.equal(item.tag, lighthouseTag(item.build));
       assert.equal(item.image, `ghcr.io/eddort/panda-lighthouse-${item.profile}:${item.tag}`);

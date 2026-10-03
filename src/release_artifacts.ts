@@ -1,4 +1,5 @@
 import type { ProfileName } from "./profiles.ts";
+import { activeProfiles } from "./active_profiles.ts";
 import type { GitHub } from "./release_pr.ts";
 
 interface Artifact {
@@ -26,7 +27,7 @@ export async function latestPublishedLocks(
   api: GitHub,
   repository: string,
   branch: string,
-  profiles: readonly ProfileName[],
+  profiles: readonly ProfileName[] = activeProfiles,
 ): Promise<PublishedLockArtifact[]> {
   if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repository)) {
     throw new Error("Invalid GitHub repository");

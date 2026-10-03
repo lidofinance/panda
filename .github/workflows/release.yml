@@ -36,7 +36,7 @@ jobs:
         run: bash .github/scripts/setup-deno.sh
       - name: Validate the release version and branch
         run: deno run -A scripts/release_pr.ts check
-      - name: Find the latest published client lock for every profile
+      - name: Find the latest published client lock for every active profile
         run: deno run -A scripts/release_artifacts.ts
       - name: Download the selected immutable lock artifacts
         run: |

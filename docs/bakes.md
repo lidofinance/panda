@@ -13,6 +13,11 @@ Both profiles use the mainnet preset: 12-second slots and 32-slot epochs. Gloas 
 experimental implementation in `bakes/gloas/recipe.json`. Compatibility with another upstream commit
 requires verification with the test suite.
 
+Current development and CI focus on Gloas. Pectra is temporarily paused in `src/active_profiles.ts`;
+its recipes and historical artifacts remain readable. Explicit local Pectra runs are still possible,
+but release workflows reject the paused profile. Both `bake` and its `build:clients` alias default
+to Gloas when no hardfork is specified; an explicit local profile takes precedence.
+
 ## Hardfork layout
 
 Recipes, patches, profile-specific Rust sources and additional tests live in `bakes/<hardfork>/`.
@@ -26,10 +31,10 @@ recorded in the [relocation report](bake-layout-verification.md).
 ## Build, verify and start
 
 ```sh
-deno task bake pectra --replace
+deno task bake gloas --replace
 deno task bake gloas --tag experiment-2
 
-deno task test:profile pectra
+deno task test:profile gloas
 deno task test:profile gloas --bake experiment-2
 
 deno task bakes
@@ -46,7 +51,7 @@ jobs are a separate setting; they do not determine the Docker CPU limit.
 
 On a new machine, `--replace` builds local artifacts from the pinned recipe: committed manifests may
 refer to images from another host, and Git does not transfer `.cache/`. For an existing local tag,
-`deno task bake pectra` reuses its pinned artifacts.
+`deno task bake gloas` reuses its pinned artifacts.
 
 ```ts
 import { Devnet } from "../src/api.ts";
@@ -58,11 +63,12 @@ await net.setAutomine(true);
 ```
 
 `PANDA_PROFILE` and `PANDA_BAKE` select the same settings through the environment, including for
-individual `e2e:*` tasks. Explicit API/CLI options take precedence. The default is `pectra:default`.
-The validator lifecycle commands `test:protocol`, `e2e:protocol` and `e2e:withdrawal` instead cover
-all registered hardfork profiles when `PANDA_PROFILE` is unset, using the selected bake tag for
-each. See the [readable protocol suites](../bakes/shared/tests/README.md) for their steps and
-selection. `build:clients` is an alias for `bake`.
+individual `e2e:*` tasks. Explicit API/CLI options take precedence. The runtime default is
+`gloas:default`. The validator lifecycle commands `test:protocol`, `e2e:protocol` and
+`e2e:withdrawal` instead cover all active hardfork profiles (currently Gloas only) when
+`PANDA_PROFILE` is unset, using the selected bake tag for each. See the
+[readable protocol suites](../bakes/shared/tests/README.md) for their steps and selection.
+`build:clients` is an alias for `bake`.
 
 ## Other EL and CL versions
 

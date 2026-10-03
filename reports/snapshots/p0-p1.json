@@ -1,0 +1,333 @@
+{
+  "scope": "P0-P1 investigation, not a full profile or snapshot certification",
+  "baseCommit": "0acee41",
+  "date": "2026-10-02",
+  "platform": "linux/arm64",
+  "imageChecks": [
+    {
+      "profile": "gloas",
+      "tag": "ci-main-merge",
+      "key": "d769395a4ea4f4f4d3290b54aefa32780d32410248518ea319648353ab18fb86",
+      "images": {
+        "cl": {
+          "id": "sha256:785a764262c37ae8c924aff90ac18f911eabe401faf7a075ef4917f8f2b7d3a9",
+          "platform": "linux/arm64"
+        },
+        "el": {
+          "id": "sha256:50acd60c272047362ff5369de1eae09dc0094ba714eeff0f88e8ab64d53903e5",
+          "platform": "linux/arm64"
+        },
+        "genesis": {
+          "id": "sha256:95d66723fab247e476861b7168e8b20150e85daeee734f2417a79c2db8e2b1a3",
+          "platform": "linux/arm64"
+        },
+        "baseline": {
+          "id": "sha256:e2ccd0b4a799d87de2bc89dd61e72bc3f4ae125c97d8bfcd3b1088a615b33fde",
+          "platform": "linux/arm64"
+        }
+      },
+      "nativeInputsMatch": true
+    },
+    {
+      "profile": "gloas",
+      "tag": "p0-clean-el",
+      "key": "c5647def7a020af6cce9920db5c97fd0ecaf559daff2d41379009a56e3d7635f",
+      "images": {
+        "cl": {
+          "id": "sha256:785a764262c37ae8c924aff90ac18f911eabe401faf7a075ef4917f8f2b7d3a9",
+          "platform": "linux/arm64"
+        },
+        "el": {
+          "id": "sha256:549317edd21bb0e720bf53459e353f4eee30acd3a99a89380f762c0b6cfe0e7e",
+          "platform": "linux/arm64"
+        },
+        "genesis": {
+          "id": "sha256:95d66723fab247e476861b7168e8b20150e85daeee734f2417a79c2db8e2b1a3",
+          "platform": "linux/arm64"
+        },
+        "baseline": {
+          "id": "sha256:e2ccd0b4a799d87de2bc89dd61e72bc3f4ae125c97d8bfcd3b1088a615b33fde",
+          "platform": "linux/arm64"
+        }
+      },
+      "nativeInputsMatch": true
+    },
+    {
+      "profile": "pectra",
+      "tag": "ci-main-merge",
+      "key": "5ef3ac09acd8852fb5eecd18b081a13400f69d6c6dff3bbb8ef7100d44fbeed9",
+      "images": {
+        "cl": {
+          "id": "sha256:a7cd60b240167c8ef421db60fd44940f4e49e9a242b3eaf0b0356740818bbf4c",
+          "platform": "linux/arm64"
+        },
+        "el": {
+          "id": "sha256:ea50b83fb38e42aa9fbcacedb276fec522778d5fb0bc480e9d1adcf386b60308",
+          "platform": "linux/arm64"
+        },
+        "genesis": {
+          "id": "sha256:9eb052d4fda54a503b169cffeac016fd91b009446e315b718fc72978bb62dc25",
+          "platform": "linux/arm64"
+        },
+        "baseline": {
+          "id": "sha256:7db3c61689f48c60f4bff17da0ba8ba9cb9f7f4702c7489aaabdc7e157a9f247",
+          "platform": "linux/arm64"
+        }
+      },
+      "nativeInputsMatch": true
+    },
+    {
+      "profile": "pectra",
+      "tag": "p0-clean-el",
+      "key": "c1a42c1f842567a4a5ba15a5012128231d127e01a3063dd0c7e2f1b8e496ad9e",
+      "images": {
+        "cl": {
+          "id": "sha256:a7cd60b240167c8ef421db60fd44940f4e49e9a242b3eaf0b0356740818bbf4c",
+          "platform": "linux/arm64"
+        },
+        "el": {
+          "id": "sha256:3f3d4a82b71796278b66f6f571bc7d3d52616df0a77c79b4c4cc51a5613be70e",
+          "platform": "linux/arm64"
+        },
+        "genesis": {
+          "id": "sha256:9eb052d4fda54a503b169cffeac016fd91b009446e315b718fc72978bb62dc25",
+          "platform": "linux/arm64"
+        },
+        "baseline": {
+          "id": "sha256:7db3c61689f48c60f4bff17da0ba8ba9cb9f7f4702c7489aaabdc7e157a9f247",
+          "platform": "linux/arm64"
+        }
+      },
+      "nativeInputsMatch": true
+    }
+  ],
+  "buildMetadata": {
+    "gloasOriginalEL": {
+      "vcs.revision": "5d8fd6b6082f9aa330dbaf5df52dfcfdb445f186",
+      "vcs.time": "2026-09-29T07:22:50Z",
+      "vcs.modified": "true"
+    },
+    "pectraOriginalEL": {
+      "vcs.revision": "36b2371c59cd91a9b1da062b3e382f05a6d8687e",
+      "vcs.time": "2025-05-05T14:19:58Z",
+      "vcs.modified": "true"
+    },
+    "pectraCleanEL": {
+      "vcs.revision": "36b2371c59cd91a9b1da062b3e382f05a6d8687e",
+      "vcs.time": "2025-05-05T14:19:58Z",
+      "vcs.modified": "false"
+    },
+    "gloasGenesis": {
+      "vcs.revision": "9bbbf55fa9603b4c2e656fe7c441a340ea61f6d6",
+      "vcs.time": "2026-08-24T14:22:49Z",
+      "vcs.modified": "false"
+    },
+    "pectraGenesis": {
+      "vcs.revision": "f6489518ba1e70bd8b073387119692f264b3b368",
+      "vcs.time": "2025-04-02T15:40:45Z",
+      "vcs.modified": "false"
+    },
+    "gloasCleanEL": {
+      "vcs.revision": "5d8fd6b6082f9aa330dbaf5df52dfcfdb445f186",
+      "vcs.time": "2026-09-29T07:22:50Z",
+      "vcs.modified": "false"
+    }
+  },
+  "checks": [
+    {
+      "command": "deno task check",
+      "result": "passed"
+    },
+    {
+      "command": "deno task test",
+      "result": "passed",
+      "passed": 109,
+      "failed": 0,
+      "ignored": 13
+    },
+    {
+      "command": "PANDA_PROFILE=gloas PANDA_BAKE=ci-main-merge deno run -A bakes/shared/tests/restart.ts cl",
+      "bakeKey": "d769395a4ea4f4f4d3290b54aefa32780d32410248518ea319648353ab18fb86",
+      "result": "expected-red",
+      "beforeSlot": 3,
+      "afterSlot": 4,
+      "checkpointEqual": true,
+      "bodyDifferences": [
+        "payload_attestations"
+      ],
+      "uninterruptedStateRoot": "0x89e1b2b18be8ef982d2a3a0ee18e7fbff09c29a1083308596860801000b8d8e5",
+      "resumedStateRoot": "0x5f2ac24c60a6c1a96e4b4c5c6ce2afaf41424bb6f5046ae58627387b3adf6291"
+    },
+    {
+      "command": "PANDA_PROFILE=gloas PANDA_BAKE=ci-main-merge deno run -A bakes/shared/tests/restart.ts all",
+      "bakeKey": "d769395a4ea4f4f4d3290b54aefa32780d32410248518ea319648353ab18fb86",
+      "result": "expected-red",
+      "beforeSlot": 3,
+      "afterSlot": 4,
+      "checkpointEqual": true,
+      "bodyDifferences": [
+        "payload_attestations"
+      ],
+      "uninterruptedStateRoot": "0x89e1b2b18be8ef982d2a3a0ee18e7fbff09c29a1083308596860801000b8d8e5",
+      "resumedStateRoot": "0x5f2ac24c60a6c1a96e4b4c5c6ce2afaf41424bb6f5046ae58627387b3adf6291"
+    },
+    {
+      "command": "PANDA_PROFILE=pectra PANDA_BAKE=ci-main-merge deno run -A bakes/shared/tests/restart.ts cl",
+      "bakeKey": "5ef3ac09acd8852fb5eecd18b081a13400f69d6c6dff3bbb8ef7100d44fbeed9",
+      "result": "passed",
+      "beforeSlot": 3,
+      "afterSlot": 4,
+      "checkpointEqual": true,
+      "bodyDifferences": [],
+      "uninterruptedStateRoot": "0x36f8badf7bba6e6c63024d4d3a4ccd6b09fc29458100eeff493cd2faff6ca32d",
+      "resumedStateRoot": "0x36f8badf7bba6e6c63024d4d3a4ccd6b09fc29458100eeff493cd2faff6ca32d"
+    },
+    {
+      "command": "PANDA_PROFILE=pectra PANDA_BAKE=ci-main-merge deno run -A bakes/shared/tests/restart.ts all",
+      "bakeKey": "5ef3ac09acd8852fb5eecd18b081a13400f69d6c6dff3bbb8ef7100d44fbeed9",
+      "result": "passed",
+      "beforeSlot": 3,
+      "afterSlot": 4,
+      "checkpointEqual": true,
+      "bodyDifferences": [],
+      "uninterruptedStateRoot": "0x36f8badf7bba6e6c63024d4d3a4ccd6b09fc29458100eeff493cd2faff6ca32d",
+      "resumedStateRoot": "0x36f8badf7bba6e6c63024d4d3a4ccd6b09fc29458100eeff493cd2faff6ca32d"
+    },
+    {
+      "command": "PANDA_PROFILE=gloas PANDA_BAKE=p0-clean-el deno run -A bakes/shared/tests/e2e.ts",
+      "bakeKey": "c5647def7a020af6cce9920db5c97fd0ecaf559daff2d41379009a56e3d7635f",
+      "result": "passed",
+      "slot": 129,
+      "finalizedEpoch": 2
+    },
+    {
+      "command": "PANDA_PROFILE=pectra PANDA_BAKE=p0-clean-el deno run -A bakes/shared/tests/e2e.ts",
+      "bakeKey": "c1a42c1f842567a4a5ba15a5012128231d127e01a3063dd0c7e2f1b8e496ad9e",
+      "result": "passed",
+      "slot": 129,
+      "finalizedEpoch": 2
+    },
+    {
+      "command": "PANDA_PROFILE=gloas PANDA_BAKE=ci-main-merge deno run -A bakes/shared/tests/admission.ts",
+      "bakeKey": "d769395a4ea4f4f4d3290b54aefa32780d32410248518ea319648353ab18fb86",
+      "result": "passed",
+      "invalidRejected": true,
+      "lostAckMined": true,
+      "acceptedCount": 80,
+      "acceptedOutsidePool": 16
+    },
+    {
+      "command": "PANDA_PROFILE=gloas PANDA_BAKE=p0-clean-el deno run -A bakes/shared/tests/admission.ts",
+      "bakeKey": "c5647def7a020af6cce9920db5c97fd0ecaf559daff2d41379009a56e3d7635f",
+      "result": "passed",
+      "invalidRejected": true,
+      "lostAckMined": true,
+      "acceptedCount": 80,
+      "acceptedOutsidePool": 16
+    },
+    {
+      "command": "PANDA_PROFILE=pectra PANDA_BAKE=p0-clean-el deno run -A bakes/shared/tests/admission.ts",
+      "bakeKey": "c1a42c1f842567a4a5ba15a5012128231d127e01a3063dd0c7e2f1b8e496ad9e",
+      "result": "passed",
+      "invalidRejected": true,
+      "lostAckMined": true,
+      "acceptedCount": 80,
+      "acceptedOutsidePool": 16
+    },
+    {
+      "command": "deno test -A bakes/shared/tests/fork_controller_test.ts",
+      "result": "expected-red",
+      "failures": [
+        "pre-Gloas inline payload decoded as Gloas envelope",
+        "pre-Gloas finalized checkpoint decoded as Gloas parent",
+        "Electra phase selects Gloas attestation mark"
+      ]
+    },
+    {
+      "command": "PANDA_BAKE=ci-main-merge deno run -A bakes/gloas/tests/restart_native.ts",
+      "result": "expected-red",
+      "passed": [
+        "completed tail drains fork choice; ordinary attestation/sync pool round-trip"
+      ],
+      "failed": [
+        "512 verified PTC positions become an empty list after production pool round-trip"
+      ]
+    },
+    {
+      "command": "PANDA_BAKE=ci-main-merge deno run -A bakes/gloas/tests/fork_genesis.ts",
+      "result": "expected-red",
+      "failure": "Geth rejects BPO at timestamp zero before future Osaka"
+    },
+    {
+      "command": "PANDA_BAKE=ci-main-merge deno run -A bakes/gloas/tests/fork_genesis.ts --aligned-bpo",
+      "bakeKey": "d769395a4ea4f4f4d3290b54aefa32780d32410248518ea319648353ab18fb86",
+      "result": "passed",
+      "schedule": {
+        "ELECTRA_FORK_EPOCH": "0",
+        "FULU_FORK_EPOCH": "2",
+        "GLOAS_FORK_EPOCH": "4",
+        "HEZE_FORK_EPOCH": "18446744073709551615"
+      },
+      "genesisStateHash": "7b90bf0cd9f7bbb9360211dc41cd8019fb2f534aaf979b1c0981224e26a2e064"
+    },
+    {
+      "command": "PANDA_PROFILE=gloas PANDA_BAKE=p0-clean-el deno run -A bakes/shared/tests/restart.ts all",
+      "bakeKey": "c5647def7a020af6cce9920db5c97fd0ecaf559daff2d41379009a56e3d7635f",
+      "result": "expected-red",
+      "checkpointEqual": true,
+      "nextMessageEqual": false,
+      "nextSignatureEqual": false,
+      "bodyDifferences": [
+        "payload_attestations"
+      ]
+    },
+    {
+      "command": "PANDA_PROFILE=pectra PANDA_BAKE=p0-clean-el deno run -A bakes/shared/tests/restart.ts all",
+      "bakeKey": "c1a42c1f842567a4a5ba15a5012128231d127e01a3063dd0c7e2f1b8e496ad9e",
+      "result": "passed",
+      "checkpointEqual": true,
+      "nextMessageEqual": true,
+      "nextSignatureEqual": true,
+      "bodyDifferences": []
+    },
+    {
+      "command": "PANDA_BAKE=p0-clean-el deno run -A bakes/gloas/tests/fork_genesis.ts --aligned-bpo",
+      "bakeKey": "c5647def7a020af6cce9920db5c97fd0ecaf559daff2d41379009a56e3d7635f",
+      "result": "passed",
+      "genesisStateHash": "7b90bf0cd9f7bbb9360211dc41cd8019fb2f534aaf979b1c0981224e26a2e064",
+      "clBpo": [
+        [
+          2,
+          15
+        ],
+        [
+          3,
+          21
+        ]
+      ],
+      "elOsakaTime": 2000000768,
+      "elAmsterdamTime": 2000001536
+    }
+  ],
+  "limitations": [
+    "No lossless checkpoint or snapshot API implemented",
+    "PTC persistence still requires P3",
+    "Controller fork dispatch still requires P7",
+    "No full test:profile certification for p0-clean-el",
+    "Raw private evidence remains in ignored .cache/p0-p1"
+  ],
+  "denoVersion": "2.9.7",
+  "nativeRegression": {
+    "testHash": "eb4e2e0ae326d1d13ce438b10f4b9f97f5d332b735fbb1ee69b09a7b4fad0ef5",
+    "upstream": "2d281dfa1b407f7c81cd123954a9fd18ee8f02d2",
+    "repeatableRunner": true,
+    "result": "1 passed; 1 failed at PTC round-trip assertion"
+  },
+  "cleanup": {
+    "experimentOwners": 39,
+    "remainingContainers": 0,
+    "remainingNetworks": 0,
+    "remainingRuntimeVolumes": 0,
+    "builderCachesRetained": true
+  }
+}

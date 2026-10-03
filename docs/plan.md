@@ -1,5 +1,8 @@
 # Panda project plan
 
+The current plan for snapshots and hardfork transitions, including prerequisites and review results,
+is in [Snapshots and hardfork transitions](snapshots-hardforks-plan.md).
+
 Recorded status as of September 29, 2026. The first working version was implemented and verified on
 macOS arm64 with Docker Desktop. The current priority is to consolidate the selected stable version.
 Further optimization was paused at the user's request; the later stages below remain possible future

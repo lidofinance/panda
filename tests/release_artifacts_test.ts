@@ -42,6 +42,19 @@ class ArtifactAPI implements GitHub {
   }
 }
 
+Deno.test("default release needs only Gloas even when Pectra locks are expired or absent", async () => {
+  for (const pectra of [[], [{ ...artifact(3, "pectra"), expired: true }]]) {
+    const api = new ArtifactAPI();
+    api.artifacts = [...pectra, artifact(2, "gloas")];
+    assert.deepEqual(await latestPublishedLocks(api, repository, "main"), [
+      { profile: "gloas", artifactId: 2, runId: 2 },
+    ]);
+    assert.deepEqual(api.calls.filter((path) => path.includes("/actions/runs/")), [
+      `/repos/${repository}/actions/runs/2`,
+    ]);
+  }
+});
+
 Deno.test("latest client locks survive a failed PR job and may come from separate profile runs", async () => {
   const api = new ArtifactAPI();
   api.artifacts.push(artifact(3, "pectra"));

@@ -3,8 +3,8 @@ import { scenarioArguments } from "../scripts/scenario_runner.ts";
 import { testProfiles } from "../bakes/shared/tests/test_steps.ts";
 import { profiles } from "../src/profiles.ts";
 
-Deno.test("protocol lifecycles cover every registered hardfork, with an explicit CI selector", () => {
-  assert.deepEqual(testProfiles(undefined), Object.keys(profiles));
+Deno.test("protocol lifecycles default to active Gloas, with an explicit historical profile selector", () => {
+  assert.deepEqual(testProfiles(undefined), ["gloas"]);
   for (const profile of Object.keys(profiles)) assert.deepEqual(testProfiles(profile), [profile]);
   assert.throws(() => testProfiles("unsupported"), /Unknown hardfork/);
 });
@@ -16,8 +16,8 @@ Deno.test("profile wrapper forwards both its default and an explicitly selected 
     const harness = `${directory}/runner_test.ts`;
     const catalog = new URL("../src/profiles.ts", import.meta.url).href;
     const runner = new URL("./e2e_test.ts", import.meta.url).href;
-    for (const selected of [undefined, "gloas"]) {
-      const expected = selected ?? "pectra";
+    for (const selected of [undefined, "pectra"]) {
+      const expected = selected ?? "gloas";
       await Deno.writeTextFile(
         fixture,
         `Deno.test("selected profile", () => {
@@ -31,9 +31,9 @@ Deno.test("profile wrapper forwards both its default and an explicitly selected 
         `import { profiles } from ${JSON.stringify(catalog)};
         Deno.env.delete("PANDA_PROFILE");
         ${selected ? `Deno.env.set("PANDA_PROFILE", ${JSON.stringify(selected)});` : ""}
-        Object.assign(profiles[${JSON.stringify(expected)}], {
-          tests: { protocol: ${JSON.stringify(fixture)} }
-        });
+        for (const recipe of Object.values(profiles)) {
+          Object.assign(recipe, { tests: { protocol: ${JSON.stringify(fixture)} } });
+        }
         await import(${JSON.stringify(runner)});`,
       );
       const result = await new Deno.Command(Deno.execPath(), {

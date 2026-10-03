@@ -1,8 +1,9 @@
-import { profileName, profiles } from "../../../src/profiles.ts";
+import { profileName } from "../../../src/profiles.ts";
+import { activeProfiles } from "../../../src/active_profiles.ts";
 
-/** Direct lifecycle runs cover every supported hardfork; profile CI selects exactly one. */
+/** Direct lifecycle runs cover active hardforks; an explicit selection can check older artifacts. */
 export function testProfiles(selected: string | undefined) {
-  return selected === undefined ? Object.keys(profiles).map(profileName) : [profileName(selected)];
+  return selected === undefined ? activeProfiles : [profileName(selected)];
 }
 
 /** Deno steps return false on failure; stop dependent stages before mutating a broken fixture. */

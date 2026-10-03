@@ -56,9 +56,9 @@ The first Lighthouse build takes time; client compilation is separate from ordin
 
 ```sh
 deno task smoke:docker
-deno task bake pectra --tag local
-deno task test:profile pectra --bake local
-deno task up --profile pectra --bake local
+deno task bake gloas --tag local
+deno task test:profile gloas --bake local
+deno task up --profile gloas --bake local
 ```
 
 HTTP JSON-RPC and Beacon API share `http://127.0.0.1:8545`: use `/` for JSON-RPC and the standard
@@ -67,7 +67,7 @@ APIs on ports 5052 and 5062. See [client APIs and logs](docs/ci-containers.md#cl
 for port mappings, the VC token and `panda logs el|cl|vc`.
 
 Press Ctrl-C to stop and clean up, or run `deno task down` in another terminal.
-`deno task reset --profile pectra --bake local` starts again with fresh state. Use `PANDA_ID` and
+`deno task reset --profile gloas --bake local` starts again with fresh state. Use `PANDA_ID` and
 `PANDA_PORT` for separate instances.
 
 ## TypeScript API
@@ -77,7 +77,7 @@ From a TypeScript file in the repository root, using the bake built above:
 ```ts
 import { Devnet } from "./src/api.ts";
 
-await using net = await Devnet.start({ id: "my-test", profile: "pectra", bake: "local" });
+await using net = await Devnet.start({ id: "my-test", profile: "gloas", bake: "local" });
 
 const chainId = await net.rpc<string>("eth_chainId");
 const validators = await net.beacon("/eth/v1/beacon/states/head/validators");

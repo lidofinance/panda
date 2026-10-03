@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { profileName, profiles } from "../src/profiles.ts";
+import { defaultProfile } from "../src/active_profiles.ts";
 import { scenarioArguments } from "../scripts/scenario_runner.ts";
-const profile = profileName(Deno.env.get("PANDA_PROFILE") ?? "pectra");
+const profile = profileName(Deno.env.get("PANDA_PROFILE") ?? defaultProfile);
 const descriptions: Record<string, string> = {
   e2e: "time travel, pause, automine, finality and external indexer",
   warp: "honest 1000-slot jumps preserve every duty, economics and signing history",

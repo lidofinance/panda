@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       profile:
-        description: Registered hardfork name, or all. Run this workflow on a vX.Y.Z Git tag.
+        description: Active hardfork name, or all (currently Gloas only). Run on a vX.Y.Z Git tag.
         required: true
         default: all
         type: string

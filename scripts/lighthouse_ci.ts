@@ -1,8 +1,9 @@
 import { atomicJson } from "../src/artifacts.ts";
+import { activeProfileName, selectActiveProfiles } from "../src/active_profiles.ts";
 import { type PublishedClients, validatePublishedClients } from "../src/client_release.ts";
 import { Infrastructure } from "../src/docker.ts";
 import { clientBakeTag, lighthouseBuild, lighthouseTag } from "../src/lighthouse_build.ts";
-import { profileName, profiles, readBake } from "../src/profiles.ts";
+import { profiles, readBake } from "../src/profiles.ts";
 import { publishedDigest, registryAuth } from "../src/registry.ts";
 import { lighthouseImage } from "../src/release.ts";
 import { validateLighthousePublication } from "../src/lighthouse_publish.ts";
@@ -24,9 +25,7 @@ const plan = async (profile: keyof typeof profiles) => {
   };
 };
 if (command === "matrix") {
-  const selected = selection === "all"
-    ? Object.keys(profiles).map(profileName)
-    : [profileName(selection)];
+  const selected = selectActiveProfiles(selection);
   const include = await Promise.all(selected.map(plan));
   await Deno.writeTextFile(
     Deno.env.get("GITHUB_OUTPUT")!,
@@ -34,7 +33,7 @@ if (command === "matrix") {
     { append: true },
   );
 } else if (command === "resolve") {
-  const selected = await plan(profileName(selection));
+  const selected = await plan(activeProfileName(selection));
   const digest = await publishedDigest(selected.image);
   await Deno.writeTextFile(Deno.env.get("GITHUB_OUTPUT")!, `digest=${digest ?? ""}\n`, {
     append: true,
@@ -47,7 +46,7 @@ if (command === "matrix") {
     }),
   );
 } else if (command === "publish") {
-  const selected = await plan(profileName(selection));
+  const selected = await plan(activeProfileName(selection));
   const { profile, image, build } = selected;
   const bake = await readBake(profile, selected.bake);
   const infra = new Infrastructure(`bake-${build.key.slice(0, 24)}`);

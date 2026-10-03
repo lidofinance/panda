@@ -1,5 +1,5 @@
 import { type PublishedClients, readPublishedClients } from "../src/client_release.ts";
-import { profileName, profiles } from "../src/profiles.ts";
+import { activeProfiles, selectActiveProfiles } from "../src/active_profiles.ts";
 import {
   type GitHub,
   GitHubError,
@@ -42,12 +42,12 @@ const api: GitHub = {
     return await response.json();
   },
 };
-const allClients = async () =>
+const activeClients = async () =>
   Object.fromEntries(
     await Promise.all(
-      Object.keys(profiles).map(async (
+      activeProfiles.map(async (
         name,
-      ) => [name, await readPublishedClients(profileName(name))]),
+      ) => [name, await readPublishedClients(name)]),
     ),
   );
 if (command === "tag") {
@@ -64,7 +64,7 @@ if (command === "tag") {
     throw new Error("Release checkout must be the exact PR merge commit");
   }
   const plan = JSON.parse(await Deno.readTextFile(releasePlanPath));
-  await releaseMergedPullRequest(api, event, plan, await allClients());
+  await releaseMergedPullRequest(api, event, plan, await activeClients());
   console.log(`Release ${plan.version} is tagged; Panda publication is scheduled.`);
 } else {
   const version = Deno.env.get("PANDA_VERSION")!;
@@ -73,18 +73,16 @@ if (command === "tag") {
     throw new Error("Start a Lighthouse release from the repository default branch");
   }
   const selection = Deno.env.get("PROFILE") ?? "all";
-  const selected = selection === "all"
-    ? Object.keys(profiles).map(profileName)
-    : [profileName(selection)];
+  const selected = selectActiveProfiles(selection);
   if (command === "check") {
     await requireUnusedTag(api, repository, version);
-    // A first release needs all profiles; later releases can update just one.
-    for (const name of Object.keys(profiles).map(profileName)) {
+    // A first release needs all active profiles; later releases can update just one.
+    for (const name of activeProfiles) {
       if (!selected.includes(name)) await readPublishedClients(name);
     }
   } else {
     const clients: Record<string, PublishedClients> = {};
-    for (const name of Object.keys(profiles).map(profileName)) {
+    for (const name of activeProfiles) {
       clients[name] = selected.includes(name)
         ? JSON.parse(
           await Deno.readTextFile(`.cache/release-locks/lighthouse-lock-${name}/clients.lock.json`),

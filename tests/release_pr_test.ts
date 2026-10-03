@@ -22,7 +22,7 @@ const version = "v0.1.0";
 
 async function clients(): Promise<Record<string, PublishedClients>> {
   const result: Record<string, PublishedClients> = {};
-  for (const profile of Object.keys(profiles) as (keyof typeof profiles)[]) {
+  for (const profile of ["gloas"] as const) {
     const bake = await readBake(profile, "panda");
     bake.recipe.clVersion = profiles[profile].clVersion;
     bake.recipe.bakerVersion = profiles[profile].bakerVersion;
@@ -127,10 +127,15 @@ function event(): ReleaseMerge {
   };
 }
 
-Deno.test("release PR carries all published client pins and the intended tag, without publishing Panda", async () => {
+Deno.test("release PR carries only active Gloas pins and the intended tag, without publishing Panda", async () => {
   const selected = await clients();
   const release = await prepareRelease(version, source, selected);
-  for (const profile of Object.keys(profiles) as (keyof typeof profiles)[]) {
+  assert.deepEqual(Object.keys(release.plan.clients), ["gloas"]);
+  assert.deepEqual(
+    Object.keys(release.files).sort(),
+    [releasePlanPath, clientLockPath("gloas")].sort(),
+  );
+  for (const profile of ["gloas"] as const) {
     assert.deepEqual(JSON.parse(release.files[clientLockPath(profile)]), selected[profile]);
   }
   assert.equal(JSON.parse(release.files[releasePlanPath]).version, version);
@@ -151,7 +156,11 @@ Deno.test("release preparation rejects missing profiles, mutable clients and inv
     await assert.rejects(() => prepareRelease(invalid, source, selected));
   }
   await assert.rejects(() => prepareRelease(version, "main", selected));
-  await assert.rejects(() => prepareRelease(version, source, { gloas: selected.gloas }));
+  await assert.rejects(() => prepareRelease(version, source, {}));
+  // Even a stale Pectra entry must not leak into the release PR.
+  await assert.rejects(() =>
+    prepareRelease(version, source, { ...selected, pectra: selected.gloas })
+  );
   selected.gloas.lighthouse.digest = "ghcr.io/eddort/panda-lighthouse-gloas:latest";
   await assert.rejects(() => prepareRelease(version, source, selected));
 });
@@ -239,7 +248,7 @@ Deno.test("release trigger rejects unmerged, foreign or changed PR data before c
     if (kind === "branch") changedEvent.pull_request.head.ref = "feature/unrelated";
     if (kind === "sha") changedEvent.pull_request.merge_commit_sha = "main";
     if (kind === "locks") changedClients.gloas.bake.createdAt = "changed after publication";
-    if (kind === "profiles") delete changedClients.pectra;
+    if (kind === "profiles") delete changedClients.gloas;
     const api = new FakeGitHub();
     await assert.rejects(() => releaseMergedPullRequest(api, changedEvent, plan, changedClients));
     assert.equal(api.calls.length, 0, kind);
