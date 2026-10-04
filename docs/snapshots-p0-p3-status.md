@@ -4,7 +4,8 @@ Recorded on 2026-10-04. **P0–P3 are accepted locally for Gloas on Linux ARM64:
 passed 13 scenarios with 0 failures in 911.669 s (15 min 11 s).** P0–P1 established the baseline and
 reproduced the persistence defect. P2 implements lifecycle, storage and admission; P3 implements
 verified clean checkpoint and resume. Pectra is deferred. Reusable snapshot archives and hardfork
-transitions remain separate, unimplemented P4+ stages in the [plan](snapshots-hardforks-plan.md).
+transitions remain unimplemented; their stages are in the [snapshot plan](snapshots-plan.md) and
+[hardfork transition plan](hardforks-plan.md).
 
 For usage, see [lifecycle and persistent storage](lifecycle.md). Historical evidence is recorded in
 [P0–P1](snapshots-p0-p1.md) and the [initial persistence fix](snapshots-p3-persistence.md).

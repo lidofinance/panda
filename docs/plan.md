@@ -1,7 +1,15 @@
 # Panda project plan
 
-The current plan for snapshots and hardfork transitions, including prerequisites and review results,
-is in [Snapshots and hardfork transitions](snapshots-hardforks-plan.md).
+Current implementation plans, with prerequisites, status and acceptance criteria:
+
+- [Snapshots](snapshots-plan.md): creation, restore, recovery and consumer reset.
+- [Hardfork transitions](hardforks-plan.md): schedules, honest/fast crossing and combined snapshot
+  tests.
+
+Snapshot work as of October 4, 2026: **P4 is accepted; P5 is the current stage**. Independent
+contract storage, receipt and Beacon SSZ checks, seven persistence failures and eight real creation
+process-loss cuts passed. Finish P5's filesystem cleanup and remaining recovery/container checks,
+then P9 and P10. The snapshot plan records the executed evidence and unchecked acceptance items.
 
 Current P0–P3 acceptance, completed checks and audit:
 [verification report](snapshots-p0-p3-status.md).

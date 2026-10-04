@@ -206,3 +206,39 @@ Deno.test("a partial copy stays inactive and cannot overwrite its own incomplete
     await assert.rejects(infra.copyGeneration(store, source, destination), /empty/i);
   });
 });
+
+Deno.test("copy refuses changed source or damaged destination bytes without publishing them", async (t) => {
+  for (const changed of ["source", "destination"] as const) {
+    await t.step(changed, async () => {
+      await fixture(async ({ store, infra, source, destination }) => {
+        const from = join(store.generationPath(source.generation), "el", "database");
+        const to = join(store.generationPath(destination.generation), "el", "database");
+        await Deno.writeTextFile(from, "checkpoint bytes");
+        const originalCopy = Deno.copyFile;
+        Deno.copyFile = async (sourcePath, targetPath) => {
+          if (String(sourcePath) === from && changed === "source") {
+            // A stopped phase must not turn an unobserved concurrent edit into a valid copy.
+            await Deno.writeTextFile(from, "different bytes!");
+          }
+          await originalCopy(sourcePath, targetPath);
+          if (String(targetPath) === to && changed === "destination") {
+            await Deno.writeTextFile(to, "damaged");
+          }
+        };
+        try {
+          await assert.rejects(
+            infra.copyGeneration(store, source, destination),
+            /changed|integrity|copy/i,
+          );
+        } finally {
+          Deno.copyFile = originalCopy;
+        }
+        assert.deepEqual(await store.active(), source);
+        assert.equal(
+          await Deno.readTextFile(from),
+          changed === "source" ? "different bytes!" : "checkpoint bytes",
+        );
+      });
+    });
+  }
+});

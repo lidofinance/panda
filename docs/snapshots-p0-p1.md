@@ -1,9 +1,10 @@
 # P0–P1: pinned builds, state inventory and regressions
 
 Historical checkpoint: 2026-10-02, based on `main` at `0acee41`. This records the preparatory stages
-of the [plan](snapshots-hardforks-plan.md), before P2–P3 implementation. For completed work and
-current limits, see the [P0–P3 verification report](snapshots-p0-p3-status.md). The failures below
-remain evidence about the original builds; they are not the status of the final r5 bake.
+of the [snapshot plan](snapshots-plan.md) and [hardfork transition plan](hardforks-plan.md), before
+P2–P3 implementation. For completed work and current limits, see the
+[P0–P3 verification report](snapshots-p0-p3-status.md). The failures below remain evidence about the
+original builds; they are not the status of the final r5 bake.
 
 Checks used Deno 2.9.7 and Docker on `linux/arm64`. Original logs and network data are in ignored
 `.cache/p0-p1/` and `.panda/`. Public measurements are in

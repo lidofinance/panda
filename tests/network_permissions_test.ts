@@ -5,9 +5,75 @@ import { Infrastructure } from "../src/docker.ts";
 import { type Manifest, Network } from "../src/network.ts";
 import { clockEnvironment, type ProfileName, readBake } from "../src/profiles.ts";
 import { depositValidator } from "../bakes/shared/tests/deposit_fixture.ts";
+import { deadline } from "../src/http.ts";
 
 type Options = Parameters<Infrastructure["container"]>[1];
 const user = () => `${Deno.uid()}:${Deno.gid()}`;
+
+Deno.test("discarded fast skip settles its in-flight Docker mutation before allowing cleanup", async (t) => {
+  for (const boundary of ["stop", "remove", "create", "start"] as const) {
+    await t.step(boundary, () =>
+      fixture("gloas", async (network, manifest, created) => {
+        const abort = new AbortController();
+        const entered = Promise.withResolvers<void>();
+        const release = Promise.withResolvers<void>();
+        const calls: string[] = [];
+        const mutation = async (name: string) => {
+          calls.push(name);
+          if (name === boundary) {
+            entered.resolve();
+            await release.promise;
+          }
+        };
+        const original = created.get("vc")!;
+        const docker = network.infra.docker;
+        docker.listContainers = (() =>
+          Promise.resolve([{ Id: "old-vc" }])) as typeof docker.listContainers;
+        docker.getContainer = (() => ({
+          inspect: () =>
+            Promise.resolve({
+              Image: original.Image,
+              Config: original,
+              HostConfig: original.HostConfig,
+            }),
+          stop: () => mutation("stop"),
+          remove: () => mutation("remove"),
+        })) as unknown as typeof docker.getContainer;
+        network.infra.container = (async () => {
+          await mutation("create");
+          return { start: () => mutation("start") };
+        }) as unknown as typeof network.infra.container;
+        const nowMs = manifest.config.genesisTime * 1000 + 1000 * 12_000 + 11_500;
+        globalThis.fetch = (() =>
+          Promise.resolve(Response.json({ marks: { skip_ready: 1000 } }))) as typeof fetch;
+        let settled = false;
+        const work = network.skipValidator(manifest, nowMs, abort.signal).then(
+          () => {
+            settled = true;
+          },
+          (error) => {
+            settled = true;
+            throw error;
+          },
+        );
+        const failed = assert.rejects(work, /discard old branch/);
+        await deadline(entered.promise, 1000, "Docker mutation entered");
+        abort.abort(new Error("discard old branch"));
+        await Promise.resolve();
+        const settledEarly = settled;
+        release.resolve();
+        await deadline(failed, 1000, "Docker mutation settles before restore");
+        assert.equal(settledEarly, false);
+        assert.deepEqual(
+          calls,
+          ["stop", "remove", "create", "start"].slice(
+            0,
+            ["stop", "remove", "create", "start"].indexOf(boundary) + 1,
+          ),
+        );
+      }));
+  }
+});
 
 Deno.test("client databases use an owned persistent generation, not disposable volumes", async () => {
   await fixture("gloas", (_network, manifest, created) => {

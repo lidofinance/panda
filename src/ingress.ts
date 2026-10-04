@@ -110,6 +110,11 @@ export class Ingress {
     for (const stream of this.streams) stream.abort(new Error("Panda session entered maintenance"));
     // The proxy releases each stream lease only after upstream cancellation has completed.
   }
+  /** Discard requests only for an explicit branch replacement, never for snapshot creation. */
+  cancelPending(reason: Error): void {
+    for (const request of this.finite) request.abort(reason);
+    for (const stream of this.streams) stream.abort(reason);
+  }
   private async drain(timeoutMs: number): Promise<void> {
     if (!this.finite.size && !this.streams.size) return;
     const idle = Promise.withResolvers<void>();
@@ -123,7 +128,12 @@ export class Ingress {
       this.drained.delete(idle.resolve);
     }
   }
-  maintenance<T>(name: string, work: () => Promise<T>, timeoutMs = defaultTimeoutMs()): Promise<T> {
+  maintenance<T>(
+    name: string,
+    work: () => Promise<T>,
+    timeoutMs = defaultTimeoutMs(),
+    beforeDrain?: () => Promise<void>,
+  ): Promise<T> {
     this.pendingMaintenance++;
     this.phase = "maintenance";
     this.abortStreams();
@@ -131,6 +141,7 @@ export class Ingress {
       this.operation = name;
       this.phase = "maintenance";
       try {
+        await beforeDrain?.();
         await this.drain(timeoutMs);
         const result = await work();
         this.phase = "parked";

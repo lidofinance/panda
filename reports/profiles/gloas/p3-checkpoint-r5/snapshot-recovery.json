@@ -1,0 +1,50 @@
+{
+  "passed": true,
+  "cuts": [
+    {
+      "stage": "accepted",
+      "elapsedMs": 17796.661709000004,
+      "generation": "2675b429-80c4-452d-a208-123c8bdf1626"
+    },
+    {
+      "stage": "preparing",
+      "elapsedMs": 17777.254542000002,
+      "generation": "da641bc6-3590-4ea8-a14b-98f3f3960c99"
+    },
+    {
+      "stage": "prepared",
+      "elapsedMs": 23912.548875000008,
+      "generation": "ff7dcd13-be3a-42ae-89a6-bbc421acd049"
+    },
+    {
+      "stage": "source-stopping",
+      "elapsedMs": 24125.052874999994,
+      "generation": "f919fdf0-fffe-4de9-b57b-dd41d2a8dd97"
+    },
+    {
+      "stage": "source-stopped",
+      "elapsedMs": 25202.427540999997,
+      "generation": "1b570b5b-3cca-4f39-af01-2aa1cdfb0c39"
+    },
+    {
+      "stage": "candidate-verified",
+      "elapsedMs": 30032.447375000003,
+      "generation": "ce1b4d9a-7538-4d0d-a15e-b64768e0625e"
+    },
+    {
+      "stage": "committed",
+      "elapsedMs": 30322.396957999998,
+      "generation": "990dd78c-51f8-414a-9c1f-9202e5f84aa8"
+    },
+    {
+      "stage": "published",
+      "elapsedMs": 29819.848375,
+      "generation": "e74ae45e-043e-4a3e-b527-35dfb6741365"
+    }
+  ],
+  "elapsedMs": 219133.674375,
+  "profile": "gloas",
+  "bake": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "recordedAt": "2026-10-04T12:00:46.311Z"
+}

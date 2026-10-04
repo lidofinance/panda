@@ -33,6 +33,18 @@ Deno.test("immutable bake verification ignores other profiles, new build recipes
     });
     assert.equal(await pectra(), before.pectra);
     assert.notEqual(await gloas(), before.gloas);
+    const beforeCrashFixture = await gloas();
+    await Deno.writeTextFile(
+      `${root}/bakes/gloas/tests/snapshot_process.ts`,
+      "\n// changed crash boundary\n",
+      { append: true },
+    );
+    assert.notEqual(
+      await gloas(),
+      beforeCrashFixture,
+      "The child-process crash fixture belongs to the snapshot suite fingerprint",
+    );
+    assert.equal(await pectra(), before.pectra);
     const changedGloas = await gloas();
     for (const profile of ["pectra", "gloas"]) {
       const path = `${root}/bakes/${profile}/recipe.json`;

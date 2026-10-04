@@ -6,7 +6,13 @@ import { finished, pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
 import type { BakedImage } from "./profiles.ts";
 import { join } from "node:path";
-import { type ActiveGeneration, StateLock, type StateStore } from "./storage.ts";
+import {
+  type ActiveGeneration,
+  fileInventory,
+  StateLock,
+  type StateStore,
+  treeMetadata,
+} from "./storage.ts";
 import { deadline } from "./http.ts";
 
 export const LABEL = "io.panda.id";
@@ -49,6 +55,13 @@ export class Infrastructure {
     }
     this.labels[GENERATION] = generation;
   }
+  async assertGenerationUnused(generation: string): Promise<void> {
+    const clients = await this.docker.listContainers({
+      all: true,
+      filters: { label: [`${LABEL}=${this.id}`, `${GENERATION}=${generation}`] },
+    });
+    if (clients.length) throw new Error(`Generation ${generation} still has client containers`);
+  }
   /** Copy a stopped generation without publishing it. Failed copies remain inactive evidence. */
   async copyGeneration(
     store: StateStore,
@@ -83,54 +96,100 @@ export class Infrastructure {
           throw new Error("Cannot copy a generation with a live client");
         }
       }
-      for await (const entry of Deno.readDir(to)) {
-        if (entry.name === "owner.json") continue;
-        if (!["el", "bn", "shared"].includes(entry.name) || !entry.isDirectory || entry.isSymlink) {
-          throw new Error("Copy destination must be an empty owned generation");
-        }
-        for await (const _child of Deno.readDir(join(to, entry.name))) {
-          throw new Error("Copy destination must be empty");
-        }
-      }
-      const entries: { relative: string; info: Deno.FileInfo }[] = [];
-      const inspect = async (relative: string): Promise<void> => {
-        const path = join(from, relative);
-        const info = await Deno.lstat(path);
-        if (info.isSymlink || (!info.isDirectory && !info.isFile)) {
-          throw new Error("Unsupported link or special file in generation copy");
-        }
-        entries.push({ relative, info });
-        if (info.isDirectory) {
-          const names = [];
-          for await (const entry of Deno.readDir(path)) names.push(entry.name);
-          for (const name of names.sort()) {
-            if (!relative && name === "owner.json") continue;
-            await inspect(relative ? `${relative}/${name}` : name);
-          }
-        }
-      };
-      // Validate the complete source before writing any data into the destination.
-      await inspect("");
-      for (const { relative, info } of entries) {
-        const target = join(to, relative);
-        if (info.isDirectory) await Deno.mkdir(target, { recursive: true, mode: 0o700 });
-        else {
-          await Deno.copyFile(join(from, relative), target);
-          using file = await Deno.open(target, { read: true });
-          await file.sync();
-        }
-      }
-      // Apply directory modes after children are written, including read-only source trees.
-      for (const { relative, info } of entries.toReversed()) {
-        const target = join(to, relative);
-        if (info.uid !== null && info.gid !== null) await Deno.chown(target, info.uid, info.gid);
-        if (info.mode !== null) await Deno.chmod(target, info.mode & 0o7777);
-        if (info.atime && info.mtime) await Deno.utime(target, info.atime, info.mtime);
-        using entry = await Deno.open(target, { read: true });
-        await entry.sync();
-      }
+      await this.copyTree(from, to);
     } finally {
       lock.release();
+    }
+  }
+  /** Copy immutable snapshot data into an inactive owned generation; the live source is untouched. */
+  async copySnapshot(
+    store: StateStore,
+    snapshot: string,
+    destination: ActiveGeneration,
+  ): Promise<void> {
+    if (store.id !== this.id || destination.id !== this.id) {
+      throw new Error("Snapshot copy ownership mismatch");
+    }
+    if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(snapshot)) {
+      throw new Error("Invalid snapshot ID");
+    }
+    const parent = join(await store.snapshotsDirectory(), snapshot);
+    const from = join(parent, "data");
+    for (const path of [parent, from]) {
+      const info = await Deno.lstat(path);
+      if (!info.isDirectory || info.isSymlink) throw new Error("Unsafe snapshot directory");
+    }
+    const to = await store.validate(destination);
+    if ((await store.active())?.generation === destination.generation) {
+      throw new Error("Snapshot destination must be inactive");
+    }
+    const clients = await this.docker.listContainers({
+      all: true,
+      filters: { label: [`${LABEL}=${this.id}`, `${GENERATION}=${destination.generation}`] },
+    });
+    if (clients.some((client) => !["created", "exited", "dead"].includes(client.State))) {
+      throw new Error("Cannot copy a generation with a live client");
+    }
+    await this.copyTree(from, to);
+  }
+  private async copyTree(from: string, to: string): Promise<void> {
+    for await (const entry of Deno.readDir(to)) {
+      if (entry.name === "owner.json") continue;
+      if (!["el", "bn", "shared"].includes(entry.name) || !entry.isDirectory || entry.isSymlink) {
+        throw new Error("Copy destination must be an empty owned generation");
+      }
+      for await (const _child of Deno.readDir(join(to, entry.name))) {
+        throw new Error("Copy destination must be empty");
+      }
+    }
+    const entries: { relative: string; info: Deno.FileInfo }[] = [];
+    const inspect = async (relative: string): Promise<void> => {
+      const path = join(from, relative);
+      const info = await Deno.lstat(path);
+      if (info.isSymlink || (!info.isDirectory && !info.isFile)) {
+        throw new Error("Unsupported link or special file in generation copy");
+      }
+      entries.push({ relative, info });
+      if (info.isDirectory) {
+        const names = [];
+        for await (const entry of Deno.readDir(path)) names.push(entry.name);
+        for (const name of names.sort()) {
+          if (!relative && name === "owner.json") continue;
+          await inspect(relative ? `${relative}/${name}` : name);
+        }
+      }
+    };
+    // Validate the complete source before writing any data into the destination.
+    await inspect("");
+    const inventory = async (root: string) => {
+      const files = await fileInventory(root);
+      const metadata = await treeMetadata(root);
+      // The destination has its own ownership marker, which is deliberately not copied.
+      delete files["owner.json"];
+      delete metadata["owner.json"];
+      return JSON.stringify({ files, metadata });
+    };
+    const expected = await inventory(from);
+    for (const { relative, info } of entries) {
+      const target = join(to, relative);
+      if (info.isDirectory) await Deno.mkdir(target, { recursive: true, mode: 0o700 });
+      else {
+        await Deno.copyFile(join(from, relative), target);
+        using file = await Deno.open(target, { read: true });
+        await file.sync();
+      }
+    }
+    // Apply directory modes after children are written, including read-only source trees.
+    for (const { relative, info } of entries.toReversed()) {
+      const target = join(to, relative);
+      if (info.uid !== null && info.gid !== null) await Deno.chown(target, info.uid, info.gid);
+      if (info.mode !== null) await Deno.chmod(target, info.mode & 0o7777);
+      if (info.atime && info.mtime) await Deno.utime(target, info.atime, info.mtime);
+      using entry = await Deno.open(target, { read: true });
+      await entry.sync();
+    }
+    if (await inventory(from) !== expected || await inventory(to) !== expected) {
+      throw new Error("Generation copy integrity failure: source or copied files changed");
     }
   }
   private get filters() {
@@ -369,8 +428,8 @@ export class Infrastructure {
     if (status.ExitCode !== 0) throw new Error(`exec failed (${status.ExitCode}): ${output}`);
     return output;
   }
-  async cleanup(): Promise<void> {
-    const filters = this.filters;
+  async cleanup(scope: "generation" | "network" = "generation"): Promise<void> {
+    const filters = scope === "network" ? { label: [`${LABEL}=${this.id}`] } : this.filters;
     const errors: unknown[] = [];
     const attempt = async (fn: () => Promise<unknown>) => {
       try {

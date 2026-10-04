@@ -6,9 +6,11 @@ import { Controller } from "./controller.ts";
 import { Infrastructure, LABEL, ROLE } from "./docker.ts";
 import { defaultTimeoutMs, json, rpc } from "./http.ts";
 import { Network } from "./network.ts";
-import { stateDirectory, StateLock } from "./storage.ts";
+import { stateDirectory, StateLock, StateStore } from "./storage.ts";
+import { SnapshotStore } from "./snapshots.ts";
+import { SnapshotJournal } from "./snapshot_operations.ts";
 
-const { flags, positional } = argumentsFor(Deno.args, ["profile", "bake"]);
+const { flags, positional } = argumentsFor(Deno.args, ["profile", "bake", "operation"]);
 const [command = "up", argument] = positional;
 const id = Deno.env.get("PANDA_ID") ?? "local";
 const config = configuration({
@@ -33,6 +35,24 @@ async function endpoint(): Promise<string | undefined> {
     if (error instanceof Deno.errors.NotFound) return;
     throw error;
   }
+}
+async function liveController(): Promise<Devnet | undefined> {
+  const url = await endpoint();
+  if (!url) return;
+  const net = new Devnet(url);
+  let status: Awaited<ReturnType<Devnet["lifecycle"]>>;
+  try {
+    status = await net.lifecycle();
+  } catch (error) {
+    await net.close();
+    if (error instanceof TypeError || error instanceof Deno.errors.ConnectionRefused) return;
+    throw error;
+  }
+  if (status?.id !== id) {
+    await net.close();
+    throw new Error("Controller ownership mismatch");
+  }
+  return net;
 }
 async function down(): Promise<void> {
   const url = await endpoint();
@@ -78,13 +98,25 @@ async function down(): Promise<void> {
   }
   await new Network(config).stop();
 }
-async function up(mode: "new" | "resume" = "new"): Promise<void> {
+async function up(
+  mode: "new" | "resume" | "recover" | { snapshot: string } = "new",
+): Promise<void> {
+  if (typeof mode === "object" && (flags.profile || flags.bake)) {
+    throw new Error(
+      "Snapshot startup uses its recorded configuration; omit profile/bake overrides",
+    );
+  }
   const old = await endpoint();
   if (old) {
     try {
       const status = await new Devnet(old).lifecycle();
       if (status.id !== id) throw new Error("Controller ownership mismatch");
-      if (status.profile !== config.profile || status.bake !== config.bake) {
+      if (typeof mode === "object") {
+        throw new Error("Controller is already running; use snapshot restore <id>");
+      }
+      if (
+        mode !== "recover" && (status.profile !== config.profile || status.bake !== config.bake)
+      ) {
         throw new Error(
           `Running ${status.profile}:${status.bake}; requested ${config.profile}:${config.bake}. Use another PANDA_ID or stop this network first.`,
         );
@@ -105,12 +137,22 @@ async function up(mode: "new" | "resume" = "new"): Promise<void> {
   Deno.addSignalListener("SIGINT", stop);
   Deno.addSignalListener("SIGTERM", stop);
   try {
-    controller = await Controller.start(config, mode);
+    controller = typeof mode === "object"
+      ? await Controller.fromSnapshot(mode.snapshot, id, flags.operation)
+      : mode === "recover"
+      ? await Controller.recover(id, abort.signal)
+      : await Controller.start(config, mode, abort.signal);
     const port = Number(Deno.env.get("PANDA_PORT") ?? 8545);
     const url = controller.serve(port);
     await Deno.writeTextFile(endpointFile, JSON.stringify({ url, id, pid: Deno.pid }));
     console.log(
-      JSON.stringify({ event: "ready", url, beacon: url, id, time: controller.time.timestamp }),
+      JSON.stringify({
+        event: controller.lifecycle().ready ? "ready" : "recovery-required",
+        url,
+        beacon: url,
+        id,
+        time: controller.lifecycle().now,
+      }),
     );
     if (!abort.signal.aborted) {
       await Promise.race([
@@ -122,7 +164,8 @@ async function up(mode: "new" | "resume" = "new"): Promise<void> {
     }
   } finally {
     try {
-      await controller?.close();
+      if (mode === "recover" || typeof mode === "object") await controller?.closePreserving();
+      else await controller?.close();
     } finally {
       Deno.removeSignalListener("SIGINT", stop);
       Deno.removeSignalListener("SIGTERM", stop);
@@ -141,6 +184,9 @@ switch (command) {
   case "open":
     await up("resume");
     break;
+  case "recover":
+    await up("recover");
+    break;
   case "down":
     await down();
     break;
@@ -148,6 +194,44 @@ switch (command) {
     await down();
     await up();
     break;
+  case "snapshot": {
+    const action = argument ?? "list";
+    const reference = positional[2];
+    if (action === "open" && reference) {
+      await up({ snapshot: reference });
+      break;
+    }
+    await using net = await liveController();
+    let result: unknown;
+    if (net) {
+      if (action === "create") result = await net.createSnapshot({ operationId: flags.operation });
+      else if (action === "restore" && reference) {
+        result = await net.restoreSnapshot(reference, { operationId: flags.operation });
+      } else if (action === "remove" && reference) {
+        result = await net.removeSnapshot(reference, { operationId: flags.operation });
+      } else if (action === "list") result = await net.listSnapshots();
+      else if (action === "operation" && reference) result = await net.snapshotOperation(reference);
+      else {throw new Error(
+          "Use snapshot create, restore <id>, remove <id>, list or operation <id>",
+        );}
+    } else {
+      const store = new StateStore(id);
+      if (action === "list") result = await new SnapshotStore(store, new Infrastructure(id)).list();
+      else if (action === "operation" && reference) {
+        result = await new SnapshotJournal(store).read(reference);
+      } else if (action === "remove" && reference) {
+        result = await new SnapshotJournal(store).remove(
+          new SnapshotStore(store, new Infrastructure(id)),
+          reference,
+          flags.operation ?? crypto.randomUUID(),
+        );
+      } else {throw new Error(
+          "Start the controller first, or use snapshot open <id> for an offline artifact",
+        );}
+    }
+    console.log(JSON.stringify(result));
+    break;
+  }
   case "diagnose": {
     const network = new Network(config);
     await network.saveLogs();

@@ -28,6 +28,8 @@ export interface Manifest {
 export class Network {
   engine?: EngineGate;
   private lock?: StateLock;
+  private candidate?: { sourceGeneration?: string; manifest?: Manifest };
+  private recovery = false;
   private get lockOwned(): boolean {
     return this.lock !== undefined;
   }
@@ -42,6 +44,70 @@ export class Network {
   constructor(readonly config: Config) {
     this.infra = new Infrastructure(config.id);
     this.store = new StateStore(config.id);
+  }
+  /** Own unclean/offline state without opening databases or starting any client. */
+  async enterRecovery(signal?: AbortSignal): Promise<Bake> {
+    signal?.throwIfAborted();
+    if (this.lockOwned) throw new Error("Network ownership is already held");
+    await this.store.initialize();
+    this.lock = await StateLock.acquire(`${this.store.root}/network.lock`);
+    try {
+      signal?.throwIfAborted();
+      const active = await this.store.active();
+      if (active && JSON.stringify(active.config) !== JSON.stringify(this.config)) {
+        throw new Error("Recovery configuration mismatch");
+      }
+      const bake = await readBake(this.config.profile, this.config.bake);
+      if (
+        this.config.mode !== "controlled" || bake.recipe.checkpointAbi !== 1 ||
+        active && active.bakeKey !== bake.key
+      ) {
+        throw new Error("Recovery requires the exact checkpoint-capable bake");
+      }
+      signal?.throwIfAborted();
+      this.generation = active;
+      if (active) this.infra.useGeneration(active.generation);
+      this.recovery = true;
+      return bake;
+    } catch (error) {
+      this.releaseLock();
+      throw error;
+    }
+  }
+  /** A recovery-only service can detach without claiming an unverified clean checkpoint. */
+  releaseRecovery(): void {
+    if (!this.recovery) throw new Error("Network is not in recovery mode");
+    this.releaseLock();
+  }
+  /** Start an isolated restore candidate. It cannot sign until the controller validates and commits it. */
+  async startCandidate(value: ActiveGeneration, signal?: AbortSignal): Promise<Manifest> {
+    if (this.generation || this.lockOwned || this.candidate) {
+      throw new Error("Candidate requires an unused Network instance");
+    }
+    this.candidate = {};
+    this.generation = value;
+    this.infra.useGeneration(value.generation);
+    return await this.start("resume", signal);
+  }
+  /** Called only after parked native state, time and EL/CL anchors have been validated. */
+  async commitCandidate(): Promise<void> {
+    if (!this.lockOwned || !this.candidate?.manifest || !this.generation) {
+      throw new Error("No started candidate to commit");
+    }
+    if ((await this.store.active())?.generation !== this.candidate.sourceGeneration) {
+      throw new Error("Active generation changed before candidate commit");
+    }
+    const manifest = this.candidate.manifest;
+    try {
+      await this.store.write(this.generation);
+    } finally {
+      // A rename may win even when its fsync/ack fails. Once published, fail() must mark the
+      // candidate faulted; it must never silently make the old signed branch authoritative again.
+      if ((await this.store.active())?.generation === this.generation.generation) {
+        this.candidate = undefined;
+      }
+    }
+    await durableJson(`${this.store.root}/manifest.json`, manifest);
   }
   async start(mode: "new" | "resume" | "auto" = "new", signal?: AbortSignal): Promise<Manifest> {
     signal?.throwIfAborted();
@@ -68,7 +134,13 @@ export class Network {
     signal?.throwIfAborted();
     const resume = mode === "resume" || mode === "auto" && active !== undefined;
     if (resume) {
-      this.generation = await this.store.resumable();
+      if (this.candidate) {
+        if (active?.generation === this.generation!.generation) {
+          throw new Error("Candidate must be an inactive generation");
+        }
+        this.candidate.sourceGeneration = active?.generation;
+        this.generation = await this.store.validateCheckpoint(this.generation!);
+      } else this.generation = await this.store.resumable();
       if (JSON.stringify(this.generation.config) !== JSON.stringify(this.config)) {
         throw new Error("Preserved generation configuration mismatch");
       }
@@ -124,7 +196,7 @@ export class Network {
       const generationPath = await this.store.validate(this.generation);
       const directory = this.directory;
       signal?.throwIfAborted();
-      await this.store.write({ ...this.generation, phase: "starting" });
+      await this.setPhase("starting");
       signal?.throwIfAborted();
       if (resume) {
         const expected = this.generation.checkpoint!.sharedFiles;
@@ -376,7 +448,8 @@ export class Network {
         );
       }
       signal?.throwIfAborted();
-      await durableJson(`${this.store.root}/manifest.json`, manifest);
+      if (this.candidate) this.candidate.manifest = manifest;
+      else await durableJson(`${this.store.root}/manifest.json`, manifest);
       signal?.throwIfAborted();
       if (!resume) await this.setPhase("running");
       signal?.throwIfAborted();
@@ -467,7 +540,9 @@ export class Network {
       checkpoint: checkpoint ?? this.generation.checkpoint,
       error,
     };
-    await this.store.write(next);
+    if (this.candidate) {
+      if (phase === "running") throw new Error("Candidate must be committed before running");
+    } else await this.store.write(next);
     this.generation = next;
   }
   private async validateValidatorData(): Promise<void> {
@@ -515,6 +590,7 @@ export class Network {
     };
   }
   async preserve(checkpoint: Checkpoint, timeoutMs = defaultTimeoutMs()): Promise<void> {
+    if (this.candidate) throw new Error("Candidate must be committed before preserve");
     if (!this.lockOwned || !this.generation) {
       throw new Error("Network is not owned by this controller");
     }
@@ -537,7 +613,7 @@ export class Network {
     }
   }
   /** Failed resume retains evidence and data; it must never silently become a fresh network. */
-  async fail(error: unknown): Promise<void> {
+  async fail(error: unknown, scope: "generation" | "network" = "generation"): Promise<void> {
     const errors: unknown[] = [];
     try {
       for (
@@ -548,7 +624,7 @@ export class Network {
               : Promise.resolve(),
           () => this.saveLogs(),
           () => this.engine?.close(),
-          () => this.infra.cleanup(),
+          () => this.infra.cleanup(scope),
         ]
       ) {
         try {
@@ -567,28 +643,61 @@ export class Network {
       );
     }
   }
-  async skipValidator(manifest: Manifest, nowMs: number): Promise<void> {
+  /** Explicit restore abandons the authoritative runtime but retains its files as evidence. */
+  async discard(): Promise<void> {
+    if (!this.lockOwned) {
+      await this.store.initialize();
+      this.lock = await StateLock.acquire(`${this.store.root}/network.lock`);
+    }
+    try {
+      const active = await this.store.active();
+      this.generation = active;
+      if (active) this.infra.useGeneration(active.generation);
+      // A killed pre-commit controller can leave clients for an inactive candidate. The owner
+      // lock excludes another live controller; explicit restore abandons every runtime of this id.
+      await this.fail(new Error("Branch discarded by explicit snapshot restore"), "network");
+    } finally {
+      this.releaseLock();
+    }
+  }
+  async skipValidator(manifest: Manifest, nowMs: number, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
     const started = performance.now();
     const listed = await this.infra.docker.listContainers({
       all: true,
       filters: { label: [`${LABEL}=${this.config.id}`, `${ROLE}=vc`] },
     });
+    signal?.throwIfAborted();
     if (listed.length !== 1) throw new Error("Expected exactly one owned validator client");
     const old = this.infra.docker.getContainer(listed[0].Id);
     const info = await old.inspect();
+    signal?.throwIfAborted();
     if (manifest.generation) this.infra.useGeneration(manifest.generation);
     await old.stop({ t: 10 });
+    signal?.throwIfAborted();
     const stopped = performance.now();
-    await json(`${manifest.bnClock}/advance/${nowMs}`, { method: "POST" });
+    await json(`${manifest.bnClock}/advance/${nowMs}`, {
+      method: "POST",
+      signal: withWatchdog(signal),
+    });
     if (manifest.bake.recipe.preparedSkip) {
       const slot = Math.floor((nowMs / 1000 - manifest.config.genesisTime) / 12);
-      await waitFor(`prepared empty-slot state at slot ${slot}`, async () => {
-        const clock = await json<{ marks: Record<string, number> }>(manifest.bnClock);
-        return clock.marks.skip_ready === slot ? true : undefined;
-      });
+      await waitFor(
+        `prepared empty-slot state at slot ${slot}`,
+        async () => {
+          const clock = await json<{ marks: Record<string, number> }>(manifest.bnClock, {
+            signal: withWatchdog(signal),
+          });
+          return clock.marks.skip_ready === slot ? true : undefined;
+        },
+        defaultTimeoutMs(),
+        signal,
+      );
     }
     const prepared = performance.now();
+    signal?.throwIfAborted();
     await old.remove();
+    signal?.throwIfAborted();
     const { startMs } = clockEnvironment(manifest.bake.recipe);
     const env = (info.Config.Env ?? []).filter((e) =>
       !e.startsWith(`${startMs}=`) && !e.startsWith("PANDA_CLOCK_PARKED=")
@@ -609,17 +718,29 @@ export class Network {
         ),
       },
     });
+    signal?.throwIfAborted();
     await replacement.start();
+    signal?.throwIfAborted();
     const ports = (await replacement.inspect()).NetworkSettings.Ports;
+    signal?.throwIfAborted();
     manifest.vcClock = `http://127.0.0.1:${ports["5059/tcp"]![0].HostPort}`;
     manifest.vc = `http://127.0.0.1:${ports["5062/tcp"]![0].HostPort}`;
     await durableJson(`${this.store.root}/manifest.json`, manifest);
-    await waitFor("validator restarted after skipped slots", async () => {
-      const clock = await json<{ nowMs: number; marks: Record<string, number> }>(manifest.vcClock);
-      return clock.nowMs === nowMs && clock.marks.ready === 0 && clock.marks.indices !== undefined
-        ? true
-        : undefined;
-    });
+    signal?.throwIfAborted();
+    await waitFor(
+      "validator restarted after skipped slots",
+      async () => {
+        const clock = await json<{ nowMs: number; marks: Record<string, number> }>(
+          manifest.vcClock,
+          { signal: withWatchdog(signal) },
+        );
+        return clock.nowMs === nowMs && clock.marks.ready === 0 && clock.marks.indices !== undefined
+          ? true
+          : undefined;
+      },
+      defaultTimeoutMs(),
+      signal,
+    );
     console.log(JSON.stringify({
       event: "slots-skipped",
       id: this.config.id,
@@ -631,6 +752,11 @@ export class Network {
     }));
   }
   async stop(): Promise<void> {
+    if (this.candidate) {
+      // Candidate cleanup owns only its own clients and keeps both database generations.
+      if (this.lockOwned) await this.fail(new Error("Restore candidate abandoned"));
+      return;
+    }
     if (!this.lockOwned) {
       await this.store.initialize();
       this.lock = await StateLock.acquire(`${this.store.root}/network.lock`);
@@ -647,7 +773,7 @@ export class Network {
         try {
           await this.engine?.close();
         } finally {
-          await this.infra.cleanup();
+          await this.infra.cleanup("network");
           if (active) {
             await this.store.destroy(active);
             this.generation = undefined;

@@ -1,9 +1,10 @@
 # Stop and resume
 
 Controlled Gloas networks with bakes declaring `checkpointAbi: 1` support a clean stop and cold
-resume. Historical bakes without that capability cannot produce a verified checkpoint. Reusable
-snapshot archives and hardfork schedules are later work in the
-[implementation plan](snapshots-hardforks-plan.md).
+resume. Historical bakes without that capability cannot produce a verified checkpoint. Snapshot
+implementation and its remaining acceptance gates are tracked in the
+[snapshot plan](snapshots-plan.md). Dynamic schedules are separate work in the
+[hardfork transition plan](hardforks-plan.md).
 
 ## SDK and local controller
 
@@ -35,7 +36,8 @@ even if Geth's txpool is empty. Panda never retries a submission automatically.
 
 An owning SDK's `close()` (including `await using`) destroys its active runtime. A borrowed
 `new Devnet(url)` connection's `close()` only disconnects that client. CLI `down`, `reset` and the
-local foreground controller's Ctrl-C retain destructive semantics for active runtime data.
+ordinary `up`/`open` foreground controller's Ctrl-C retain destructive semantics for active runtime
+data. The recovery entrypoints below preserve their state on SIGTERM.
 
 ```sh
 deno run -A src/cli.ts stop
@@ -46,6 +48,65 @@ deno run -A src/cli.ts resume
 `Devnet.open(config)` and `deno run -A src/cli.ts open --profile gloas --bake local` open an
 existing clean checkpoint when there is no current owning controller. They never create fresh
 genesis as a fallback. Use the same ID, configuration, exact bake and native platform.
+
+## Snapshot development API
+
+The current implementation supports create, list, live restore, remove, operation lookup and offline
+startup. Interrupted-copy cleanup, complete crash-stage coverage and the protocol release gates are
+still open; see the snapshot plan before treating this as a released feature.
+
+```ts
+const snapshot = await net.createSnapshot(); // Healthy network at a completed slot tail.
+await net.advanceSlots(10);
+await net.restoreSnapshot(snapshot);
+console.log(await net.listSnapshots());
+await net.removeSnapshot(snapshot); // Deletes the archive; the restored network keeps running.
+```
+
+Creation resumes the source at the same time and restores its automine setting. Restore returns to
+the saved time with automine off, replaces the active generation and retains the archive for reuse.
+It cancels work from the discarded branch and can recover after a detected advancement/client
+failure. The public URLs remain stable; restart external waits, filters, subscriptions and consumer
+caches. Oracle/indexer databases are outside Panda's snapshot.
+
+For a stopped owner, including after owning `close()` removed its runtime:
+
+```ts
+await using restored = await Devnet.fromSnapshot(snapshot, { id: "resume-example" });
+```
+
+The stored configuration and exact bake are authoritative. This factory takes an owner ID, not chain
+overrides. A second live owner is refused. `close()` removes only the active runtime; the snapshot
+remains in the owner's persistent directory.
+
+```sh
+PANDA_ID=resume-example deno run -A src/cli.ts snapshot create
+PANDA_ID=resume-example deno run -A src/cli.ts snapshot restore <snapshot-id>
+PANDA_ID=resume-example deno run -A src/cli.ts snapshot list
+PANDA_ID=resume-example deno run -A src/cli.ts snapshot open <snapshot-id>
+PANDA_ID=resume-example deno run -A src/cli.ts snapshot remove <snapshot-id>
+```
+
+`snapshot open` starts an offline snapshot in a foreground controller. `recover` starts a foreground
+recovery service for an existing unclean generation, without opening its databases. Both preserve
+state on SIGTERM; use `down` for explicit destruction of the active runtime.
+
+`snapshot list`, `snapshot operation` and `snapshot remove` also work without a live controller.
+Removal is serialized with capture/restore, deletes only the selected archive, and retains a small
+deletion record so interrupted deletion can finish safely. A removed ID cannot be recreated. A
+terminal failed removal keeps its recorded error; retry with a new operation ID to finish cleanup.
+An interrupted running removal can continue with the same operation ID.
+
+Archive integrity covers file bytes, names, permissions, numeric ownership and empty directories.
+Restore rejects changed metadata as well as changed database files. Snapshot storage is private and
+contains disposable validator keys; keep it outside Git and ordinary CI evidence uploads.
+
+SDK mutations accept `{ operationId: "<uuid>" }`; CLI mutations accept `--operation <uuid>`. An
+operation ID identifies one request; the snapshot ID identifies the reusable archive. Replaying the
+same operation returns its recorded outcome without another restore. Use a new operation ID for
+another restore. After a lost response, inspect `snapshotOperation(id)` or
+`snapshot operation <id>`; the SDK also attempts this read-only reconciliation. Interrupted requests
+retain their stage and require an explicit new restore instead of silently repeating uncertain work.
 
 ## Persistent container service
 
@@ -74,8 +135,10 @@ interrupted resume retains its existing generation as faulted; it never falls ba
 Interrupted startup exits with an error and does not publish readiness or claim a clean checkpoint.
 
 A refused save, client crash, SIGKILL or exhausted shutdown budget is not a clean checkpoint. The
-next start refuses unverified active data rather than silently creating genesis or rolling back.
-Keep the volume for diagnosis. Reusable archive recovery is part of the later snapshot API.
+next start exposes a recovery service with `ready: false` and `recoveryRequired: true`. It reports
+the active generation, leaves protocol time unset and refuses ordinary client commands. List saved
+snapshots and explicitly restore one through the same control API. It does not create fresh genesis
+or silently roll back. The equivalent local entrypoint is `deno run -A src/cli.ts recover`.
 
 The volume contains private keys, passwords, signing history and databases; do not publish it as an
 ordinary CI log artifact. Local state defaults to ignored `.panda/<id>`; `PANDA_DATA_DIR` changes

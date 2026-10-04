@@ -59,7 +59,7 @@ try {
   relays.push(tcpRelay(() => beacon, 5052));
   relays.push(tcpRelay(() => validator, 5062));
   console.log(JSON.stringify({
-    event: "ready",
+    event: controller.lifecycle().ready ? "ready" : "recovery-required",
     id,
     url: "http://127.0.0.1:8545",
     beacon: "http://127.0.0.1:5052",

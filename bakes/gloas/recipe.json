@@ -77,7 +77,10 @@
     "gloas": "bakes/gloas/tests/gloas.ts",
     "restart": "bakes/gloas/tests/restart.ts",
     "resume": "bakes/gloas/tests/resume.ts",
-    "blob-checkpoint": "bakes/gloas/tests/blob_checkpoint.ts"
+    "blob-checkpoint": "bakes/gloas/tests/blob_checkpoint.ts",
+    "snapshots": "bakes/gloas/tests/snapshots.ts",
+    "snapshot-recovery": "bakes/gloas/tests/snapshot_recovery.ts",
+    "snapshot-creation": "bakes/gloas/tests/snapshot_creation.ts"
   },
   "name": "gloas",
   "elFork": "amsterdam",

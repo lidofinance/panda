@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Devnet } from "../src/api.ts";
+import { Devnet, SnapshotRequestError } from "../src/api.ts";
 import { Controller } from "../src/controller.ts";
 
 // SDK transport/lifecycle adapter tests. Real checkpoint continuity has its own EL/CL suite.
@@ -137,5 +137,32 @@ Deno.test("SDK open preserves restored data if publishing its local HTTP endpoin
     assert.deepEqual(calls, ["preserve"]);
   } finally {
     Controller.start = original;
+  }
+});
+
+Deno.test("snapshot response reconciliation refuses an operation ID belonging to another payload", async () => {
+  const id = crypto.randomUUID();
+  const server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, async (request) => {
+    const { method } = await request.json();
+    if (method === "snapshotOperation") {
+      return Response.json({
+        result: {
+          id,
+          state: "succeeded",
+          request: { kind: "remove", snapshotId: crypto.randomUUID() },
+          result: "previous unrelated success",
+        },
+      });
+    }
+    return new Response("Snapshot operation ID already belongs to a different request", {
+      status: 409,
+    });
+  });
+  const api = new Devnet(`http://127.0.0.1:${server.addr.port}`);
+  try {
+    await assert.rejects(api.createSnapshot({ operationId: id }), SnapshotRequestError);
+  } finally {
+    await api.close();
+    await server.shutdown();
   }
 });

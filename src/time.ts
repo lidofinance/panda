@@ -19,6 +19,7 @@ export function warpMode(options: unknown = {}): WarpMode {
 export interface TimeBackend {
   move(nowMs: number, phase?: number): Promise<void>;
   skip?(nowMs: number): Promise<void>;
+  cancel?(reason: Error): void;
 }
 export class Serial {
   private tail: Promise<unknown> = Promise.resolve();
@@ -67,6 +68,7 @@ export class Timeline {
   }
   stop(): void {
     this.stopped = true;
+    this.backend.cancel?.(new Error("Panda session stopped"));
   }
   private fail(error: unknown): void {
     this.fault = error;

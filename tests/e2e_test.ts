@@ -18,6 +18,11 @@ const descriptions: Record<string, string> = {
   resume: "managed checkpoint and resume preserve blocks, PTC, economics and signing history",
   "blob-checkpoint":
     "blob checkpoint preserves verified columns, envelopes and uninterrupted continuation",
+  snapshots:
+    "reusable snapshots preserve chain state and signing history through restore and removal",
+  "snapshot-recovery": "explicit restore recovers every journal boundary after controller SIGKILL",
+  "snapshot-creation":
+    "snapshot publication and source data survive controller SIGKILL during creation",
   baseline: "ordinary unmodified clients produce an agreed execution payload",
   lifecycle: "CLI up/down/reset, ownership and profile mismatch rejection",
 };

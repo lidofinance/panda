@@ -1,5 +1,5 @@
 import { type ExecutionBlock } from "./consensus.ts";
-import { rpc } from "./http.ts";
+import { rpc, withWatchdog } from "./http.ts";
 import { type Timeline } from "./time.ts";
 
 export interface PoolTransaction {
@@ -27,6 +27,7 @@ export function executable(
     BigInt(tx.gas) <= gasLimit && balance >= BigInt(tx.value) + BigInt(tx.gas) * fee;
 }
 export class Automine {
+  private readonly cancelled = new AbortController();
   enabled = false;
   error?: string;
   private running = false;
@@ -50,19 +51,23 @@ export class Automine {
     this.running = true;
     this.active = this.drain().catch((error) => {
       this.handled = this.requested;
-      this.error = String(error);
-      console.error(JSON.stringify({ event: "automine-error", error: this.error }));
+      if (!this.stopped) {
+        this.error = String(error);
+        console.error(JSON.stringify({ event: "automine-error", error: this.error }));
+      }
     }).finally(() => {
       this.running = false;
       if (this.requested > this.handled) this.start();
     });
   }
+  private rpc<T>(method: string, args: unknown[] = []): Promise<T> {
+    return rpc<T>(this.el, method, args, withWatchdog(this.cancelled.signal));
+  }
   async candidates(): Promise<string[]> {
-    const pool = await rpc<{ pending: Record<string, Record<string, PoolTransaction>> }>(
-      this.el,
+    const pool = await this.rpc<{ pending: Record<string, Record<string, PoolTransaction>> }>(
       "txpool_content",
     );
-    const head = await rpc<ExecutionBlock & { gasUsed: string }>(this.el, "eth_getBlockByNumber", [
+    const head = await this.rpc<ExecutionBlock & { gasUsed: string }>("eth_getBlockByNumber", [
       "latest",
       false,
     ]);
@@ -75,8 +80,8 @@ export class Automine {
     const result: string[] = [];
     for (const [sender, entries] of Object.entries(pool.pending)) {
       const [nonce, balance] = await Promise.all([
-        rpc<string>(this.el, "eth_getTransactionCount", [sender, "latest"]),
-        rpc<string>(this.el, "eth_getBalance", [sender, "latest"]),
+        this.rpc<string>("eth_getTransactionCount", [sender, "latest"]),
+        this.rpc<string>("eth_getBalance", [sender, "latest"]),
       ]);
       const first = Object.values(entries).find((tx) => BigInt(tx.nonce) === BigInt(nonce));
       if (first && executable(first, BigInt(nonce), BigInt(balance), nextFee, gasLimit)) {
@@ -107,6 +112,7 @@ export class Automine {
   async stop(): Promise<void> {
     this.stopped = true;
     this.enabled = false;
+    this.cancelled.abort(new Error("Panda automine stopped"));
     await this.active;
   }
 }

@@ -134,6 +134,38 @@ export async function fileInventory(
   return result;
 }
 
+/** Bind access rights and empty directories too; timestamps change during ordinary reads. */
+export async function treeMetadata(root: string): Promise<
+  Record<string, {
+    type: "file" | "directory";
+    mode: number | null;
+    uid: number | null;
+    gid: number | null;
+  }>
+> {
+  const result: Awaited<ReturnType<typeof treeMetadata>> = {};
+  async function visit(relative: string): Promise<void> {
+    const path = join(root, relative);
+    const info = await Deno.lstat(path);
+    if (info.isSymlink || (!info.isDirectory && !info.isFile)) {
+      throw new Error(`Unsupported entry in persisted state: ${relative}`);
+    }
+    result[relative || "."] = {
+      type: info.isDirectory ? "directory" : "file",
+      mode: info.mode === null ? null : info.mode & 0o7777,
+      uid: info.uid,
+      gid: info.gid,
+    };
+    if (info.isDirectory) {
+      const names = [];
+      for await (const entry of Deno.readDir(path)) names.push(entry.name);
+      for (const name of names.sort()) await visit(relative ? `${relative}/${name}` : name);
+    }
+  }
+  await visit("");
+  return result;
+}
+
 /** One owner, one active generation. Snapshot storage is deliberately outside destroy(). */
 export class StateStore {
   readonly root: string;
@@ -179,6 +211,13 @@ export class StateStore {
     }
     return join(this.root, "generations", generation);
   }
+  async snapshotsDirectory(): Promise<string> {
+    await directory(this.root);
+    await this.validateOwner();
+    const path = join(this.root, "snapshots");
+    await directory(path);
+    return path;
+  }
   async validate(value: ActiveGeneration): Promise<string> {
     if (value.schema !== 1 || value.id !== this.id || value.config?.id !== this.id) {
       throw new Error("Generation ownership/schema mismatch");
@@ -220,15 +259,15 @@ export class StateStore {
     return value;
   }
   /** Allocate an owned, inactive destination. Only write() publishes it as active. */
-  async allocate(config: Config, bakeKey: string): Promise<ActiveGeneration> {
+  async allocate(
+    config: Config,
+    bakeKey: string,
+    allocating: (value: ActiveGeneration) => Promise<void> = () => Promise.resolve(),
+  ): Promise<ActiveGeneration> {
     if (config.id !== this.id) throw new Error("Generation configuration ownership mismatch");
     await this.initialize();
     const generation = crypto.randomUUID();
-    const path = this.generationPath(generation);
-    await createDirectory(path);
-    for (const name of ["el", "bn", "shared"]) await createDirectory(join(path, name));
-    await durableJson(join(path, "owner.json"), { schema: 1, id: this.id, generation });
-    return {
+    const value: ActiveGeneration = {
       schema: 1,
       id: this.id,
       generation,
@@ -236,6 +275,13 @@ export class StateStore {
       bakeKey,
       phase: "starting",
     };
+    // Persist the destination in the operation before even an incomplete directory can exist.
+    await allocating(value);
+    const path = this.generationPath(generation);
+    await createDirectory(path);
+    for (const name of ["el", "bn", "shared"]) await createDirectory(join(path, name));
+    await durableJson(join(path, "owner.json"), { schema: 1, id: this.id, generation });
+    return value;
   }
   async write(value: ActiveGeneration): Promise<void> {
     await this.validate(value);
@@ -244,6 +290,10 @@ export class StateStore {
   async resumable(): Promise<ActiveGeneration> {
     const value = await this.active();
     if (!value) throw new Error("No preserved active generation");
+    return await this.validateCheckpoint(value);
+  }
+  async validateCheckpoint(value: ActiveGeneration): Promise<ActiveGeneration> {
+    await this.validate(value);
     if (value.phase !== "stopped" || value.checkpoint?.abi !== 1) {
       throw new Error(
         "Active generation is unclean or lacks a verified checkpoint; use down/reset",
@@ -271,5 +321,55 @@ export class StateStore {
     using root = await Deno.open(this.root, { read: true });
     await root.sync();
     await Deno.remove(path, { recursive: true });
+  }
+
+  /** Caller holds network ownership and a durable journal reference to this inactive directory. */
+  async discardInactive(generation: string, allocated: boolean): Promise<void> {
+    await this.validateOwner();
+    await directory(this.root);
+    const parent = join(this.root, "generations");
+    await directory(parent);
+    const path = this.generationPath(generation);
+    if ((await this.active())?.generation === generation) {
+      throw new Error("Cannot discard the active generation");
+    }
+    const trash = join(parent, `.discarded-${generation}`);
+    let exists = false;
+    try {
+      await directory(path);
+      exists = true;
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    if (exists) {
+      try {
+        const owner = JSON.parse(await this.readFile(join(path, "owner.json")));
+        if (owner.schema !== 1 || owner.id !== this.id || owner.generation !== generation) {
+          throw new Error("Discarded generation ownership mismatch");
+        }
+      } catch (error) {
+        // A journaled allocation may have died before writing its ownership marker.
+        if (!allocated || !(error instanceof Deno.errors.NotFound)) throw error;
+      }
+      try {
+        await Deno.lstat(trash);
+        throw new Error("Discarded generation destination already exists");
+      } catch (error) {
+        if (!(error instanceof Deno.errors.NotFound)) throw error;
+      }
+      await Deno.rename(path, trash);
+      using parentDirectory = await Deno.open(parent, { read: true });
+      await parentDirectory.sync();
+    }
+    try {
+      // The durable journal still authorizes this path after partial unlink removed owner.json.
+      await directory(trash);
+      await treeMetadata(trash);
+      await Deno.remove(trash, { recursive: true });
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    using parentDirectory = await Deno.open(parent, { read: true });
+    await parentDirectory.sync();
   }
 }

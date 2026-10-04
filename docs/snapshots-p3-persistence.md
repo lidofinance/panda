@@ -1,9 +1,11 @@
 # Gloas: PTC and attestation persistence across cold restart
 
 Historical checkpoint: 2026-10-02. This records the first persistence fix for the defect reproduced
-in [P0–P1](snapshots-p0-p1.md), part of [P3](snapshots-hardforks-plan.md). It did not by itself
-implement a public snapshot API or complete P3. The later lifecycle, admission and checkpoint work
-is covered by the [current P0–P3 verification report](snapshots-p0-p3-status.md).
+in [P0–P1](snapshots-p0-p1.md), part of
+[snapshot P3](snapshots-plan.md#p3-implement-a-lossless-native-checkpoint-and-verified-cold-resume).
+It did not by itself implement a public snapshot API or complete P3. The later lifecycle, admission
+and checkpoint work is covered by the
+[current P0–P3 verification report](snapshots-p0-p3-status.md).
 
 ## Cause and fix
 

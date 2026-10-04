@@ -1,7 +1,33 @@
 import { type Config } from "./config.ts";
 import { Controller } from "./controller.ts";
+import type { SnapshotRestoreResult } from "./controller.ts";
 import { deadline, defaultTimeoutMs, json } from "./http.ts";
 import type { Checkpoint } from "./storage.ts";
+import type { SnapshotRef } from "./snapshots.ts";
+import {
+  operationId,
+  type SnapshotOperation,
+  SnapshotOperationError,
+  type SnapshotRequest,
+} from "./snapshot_operations.ts";
+export type { SnapshotRef } from "./snapshots.ts";
+export type { SnapshotRestoreResult } from "./controller.ts";
+export { SnapshotOperationError } from "./snapshot_operations.ts";
+export type { SnapshotOperation } from "./snapshot_operations.ts";
+export interface SnapshotOptions {
+  operationId?: string;
+}
+export interface SnapshotStartOptions extends SnapshotOptions {
+  /** Owner of the persistent state directory containing this snapshot. */
+  id: string;
+}
+
+export class SnapshotRequestError extends Error {
+  constructor(readonly operationId: string, cause: unknown) {
+    super(`Snapshot request ${operationId} has no confirmed outcome: ${String(cause)}`, { cause });
+    this.name = "SnapshotRequestError";
+  }
+}
 import type { WarpOptions } from "./time.ts";
 export type { WarpMode, WarpOptions } from "./time.ts";
 
@@ -23,14 +49,31 @@ export class Devnet {
   static async open(config: Partial<Config> = {}): Promise<Devnet> {
     return await Devnet.owned(config, "resume");
   }
+  static async fromSnapshot(
+    snapshot: SnapshotRef | string,
+    options: SnapshotStartOptions,
+  ): Promise<Devnet> {
+    const controller = await Controller.fromSnapshot(
+      typeof snapshot === "string" ? snapshot : snapshot.id,
+      options.id,
+      operationId(options.operationId ?? crypto.randomUUID()),
+    );
+    return await Devnet.attachOwned(controller, true);
+  }
   private static async owned(config: Partial<Config>, mode: "new" | "resume"): Promise<Devnet> {
     const controller = await Controller.start(config, mode);
+    return await Devnet.attachOwned(controller, mode === "resume");
+  }
+  private static async attachOwned(
+    controller: Controller,
+    preserveOnFailure: boolean,
+  ): Promise<Devnet> {
     try {
       const api = new Devnet(controller.serve(0));
       api.controller = controller;
       return api;
     } catch (error) {
-      if (mode === "resume") await controller.closePreserving();
+      if (preserveOnFailure) await controller.closePreserving();
       else await controller.close();
       throw error;
     }
@@ -69,6 +112,58 @@ export class Devnet {
   }
   resume(): Promise<void> {
     return this.call("resume");
+  }
+  private async snapshotCall<T>(
+    method: string,
+    params: unknown[],
+    id: string,
+    request: SnapshotRequest,
+  ): Promise<T> {
+    try {
+      return await this.call<T>(method, params);
+    } catch (cause) {
+      // Read-only reconciliation after a lost response. Never resend a mutation automatically.
+      const operation = await this.snapshotOperation(id).catch(() => undefined);
+      if (
+        operation && (operation.id !== id || operation.request.kind !== request.kind ||
+          operation.request.snapshotId !== request.snapshotId)
+      ) throw new SnapshotRequestError(id, cause);
+      if (operation?.state === "succeeded") return operation.result as T;
+      if (operation) throw new SnapshotOperationError(operation);
+      throw new SnapshotRequestError(id, cause);
+    }
+  }
+  createSnapshot(options: SnapshotOptions = {}): Promise<SnapshotRef> {
+    const id = operationId(options.operationId ?? crypto.randomUUID());
+    return this.snapshotCall("snapshotCreate", [id], id, { kind: "create" });
+  }
+  restoreSnapshot(
+    snapshot: SnapshotRef | string,
+    options: SnapshotOptions = {},
+  ): Promise<SnapshotRestoreResult> {
+    const id = operationId(options.operationId ?? crypto.randomUUID());
+    const snapshotId = typeof snapshot === "string" ? snapshot : snapshot.id;
+    return this.snapshotCall("snapshotRestore", [snapshotId, id], id, {
+      kind: "restore",
+      snapshotId,
+    });
+  }
+  listSnapshots(): Promise<SnapshotRef[]> {
+    return this.call("snapshotList");
+  }
+  removeSnapshot(
+    snapshot: SnapshotRef | string,
+    options: SnapshotOptions = {},
+  ): Promise<SnapshotRef> {
+    const id = operationId(options.operationId ?? crypto.randomUUID());
+    const snapshotId = typeof snapshot === "string" ? snapshot : snapshot.id;
+    return this.snapshotCall("snapshotRemove", [snapshotId, id], id, {
+      kind: "remove",
+      snapshotId,
+    });
+  }
+  snapshotOperation(id: string): Promise<SnapshotOperation | undefined> {
+    return this.call("snapshotOperation", [operationId(id)]);
   }
   get beaconUrl(): string {
     return `${this.url}/cl`;
