@@ -190,6 +190,10 @@ is honest by default; request `{ mode: "fast" }` explicitly for scenarios that a
 
 ## Client APIs and logs
 
+Checkpoint-capable Gloas images can retain the network across service restarts using a volume at
+`/data/panda`. See [persistent service lifecycle](lifecycle.md#persistent-container-service) for
+stop/resume conditions and the 120-second shutdown budget.
+
 Publish the ports needed by your test on loopback:
 
 | Container port | API                                                          | Authentication                |
@@ -218,9 +222,10 @@ curl --fail -H "Authorization: Bearer $PANDA_VC_TOKEN" \
 Obtain the token after the service becomes healthy. It belongs to this fresh network and is not
 printed in readiness logs. Port 5062 preserves Lighthouse authentication. After a fast warp replaces
 VC, new connections use its new internal port; the token persists for that network. Clients should
-reconnect if a request overlaps the restart. Use 5052 for long-lived Beacon event subscriptions; the
-compatibility proxy on 8545 retains its bounded HTTP request timeout. Protocol clocks and the Engine
-API remain private.
+reconnect if a request overlaps the restart. All three public ports use the managed request gate.
+Maintenance cancels Beacon event subscriptions; reconnect after resume. HTTP watchdogs remain
+bounded in real time. Protocol clocks, native checkpoint operations and the Engine API remain
+private.
 
 The outer service and its clients have separate logs. Use the bundled `panda` command inside the
 running service to read each client's stdout and stderr:
@@ -268,11 +273,12 @@ Docker socket. Controller Host/Origin checks and VC authentication still apply. 
 exact `io.panda.id` ownership. SIGTERM closes API connections, the controller and its resources
 before stopping the private daemon.
 
-Initial readiness requires block zero, slot zero and automine off. Health probes remain read-only
-while the suite controls time. Restarts start a fresh chain; daemon failure stops the service. Time
-control defaults to honest execution; skipped-slot jumps require explicit `mode: "fast"`. Both modes
-use the same client image. Fast verifier scenarios do not certify economics across the skipped
-interval. Full profile verification retains separate honest, fast and economics scenarios.
+Fresh startup requires block zero, slot zero and automine off. A checkpoint-capable service reopens
+its verified saved head/time on restart; an unclean generation is refused. Health probes remain
+read-only while the suite controls time; daemon failure stops the service. Time control defaults to
+honest execution; skipped-slot jumps require explicit `mode: "fast"`. Both modes use the same client
+image. Fast verifier scenarios do not certify economics across the skipped interval. Full profile
+verification retains separate honest, fast and economics scenarios.
 
 Deno 2.9.7 is inside the service. Base images use digests, direct npm dependencies use exact
 versions, and dependency caching uses `deno.lock` with `--frozen-lockfile`. Runtime uses

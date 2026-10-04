@@ -233,6 +233,7 @@ their fixes.
 ## Limitations
 
 HTTP JSON-RPC is supported. WebSocket, long-lived Beacon SSE, multiple beacon nodes and arbitrary
-external validators are unverified or unsupported in this version. After a crash, run
-`deno task down`, then `deno task up`: resuming existing state after a controller restart is not
-implemented. Geth's real-time transaction-pool expiry continues while protocol time is paused.
+external validators are unverified or unsupported in this version. A checkpoint-capable Gloas bake
+can reopen a clean stop; unclean active data is refused. See [stop/resume](lifecycle.md) before
+choosing between preserving existing data and destructive `down`/`up`. Geth's real-time
+transaction-pool expiry continues while protocol time is paused.

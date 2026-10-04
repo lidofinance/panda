@@ -1,0 +1,527 @@
+{
+  "event": "warp-measured",
+  "passed": true,
+  "mode": "fast",
+  "latencyBudgetMet": true,
+  "watchdogMs": 25000,
+  "environment": {
+    "architecture": "aarch64",
+    "dockerVersion": "29.8.1",
+    "dockerCpus": 6,
+    "dockerMemoryBytes": 8320028672,
+    "beaconCpuLimit": 2,
+    "beaconHierarchy": "--hierarchy-exponents=9,13,16,18,21",
+    "validators": 64,
+    "otherContainers": 1
+  },
+  "elapsedMs": 48546.101334000006,
+  "samples": [
+    {
+      "advanceMs": 7561.759749999997,
+      "slots": 8192,
+      "readyMs": 7697.4257499999985,
+      "targetSlot": 8320,
+      "receipt": {
+        "blockHash": "0x6ed3f5bdd5dc2333f72f39abe1f8d8f3c42c7248a35441737bfd39d6cdf080d4",
+        "blockNumber": "0x82",
+        "contractAddress": null,
+        "cumulativeGasUsed": "0x2ee0",
+        "effectiveGasPrice": "0x3b9aca21",
+        "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "gasUsed": "0x2ee0",
+        "logs": [],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "status": "0x1",
+        "to": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "transactionHash": "0xca72c436e29559986fb32dff6bb12ba9f7796a52286f76aa4fae0c5646e461b4",
+        "transactionIndex": "0x0",
+        "type": "0x2"
+      },
+      "syncBlocksChecked": 0,
+      "rewardEpochsChecked": 0,
+      "penaltiesAllowed": true,
+      "finalizedBefore": {
+        "epoch": "2",
+        "root": "0xc9b7f5e890694936280b0c0ccb1890101b603515edb36519638ceb0a0aba1639"
+      }
+    },
+    {
+      "advanceMs": 9001.273708,
+      "slots": 8192,
+      "readyMs": 9133.555666,
+      "targetSlot": 16576,
+      "receipt": {
+        "blockHash": "0x3f58144280be2384beaa6a5bd72bf9a72b56d047fc7f7e580ec96a8c423f3426",
+        "blockNumber": "0xc3",
+        "contractAddress": null,
+        "cumulativeGasUsed": "0x2ee0",
+        "effectiveGasPrice": "0x3b9aca07",
+        "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "gasUsed": "0x2ee0",
+        "logs": [],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "status": "0x1",
+        "to": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "transactionHash": "0x889435da152e5f26719fcc22fa8e151d6e081f9bac1ef40e98fd951c42f24d23",
+        "transactionIndex": "0x0",
+        "type": "0x2"
+      },
+      "syncBlocksChecked": 0,
+      "rewardEpochsChecked": 0,
+      "penaltiesAllowed": true,
+      "finalizedBefore": {
+        "epoch": "260",
+        "root": "0x999322589ef3c264f31579b6430abfa64401b3509e334b52200e265272d66a21"
+      }
+    }
+  ],
+  "validators": [
+    {
+      "index": "0",
+      "slashed": false,
+      "balance": "31321252228",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "1",
+      "slashed": false,
+      "balance": "31320911161",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "2",
+      "slashed": false,
+      "balance": "31321230682",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "3",
+      "slashed": false,
+      "balance": "31321284547",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "4",
+      "slashed": false,
+      "balance": "31321252228",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "5",
+      "slashed": false,
+      "balance": "31321614841",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "6",
+      "slashed": false,
+      "balance": "31321273774",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "7",
+      "slashed": false,
+      "balance": "31321273774",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "8",
+      "slashed": false,
+      "balance": "31321209136",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "9",
+      "slashed": false,
+      "balance": "31322264656",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "10",
+      "slashed": false,
+      "balance": "31321273774",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "11",
+      "slashed": false,
+      "balance": "31320921934",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "12",
+      "slashed": false,
+      "balance": "31321209136",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "13",
+      "slashed": false,
+      "balance": "31321636387",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "14",
+      "slashed": false,
+      "balance": "31321578424",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "15",
+      "slashed": false,
+      "balance": "31321571749",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "16",
+      "slashed": false,
+      "balance": "31320075688",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "17",
+      "slashed": false,
+      "balance": "31319723848",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "18",
+      "slashed": false,
+      "balance": "31320075688",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "19",
+      "slashed": false,
+      "balance": "31319659210",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "20",
+      "slashed": false,
+      "balance": "31319702302",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "21",
+      "slashed": false,
+      "balance": "31320086461",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "22",
+      "slashed": false,
+      "balance": "31319669983",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "23",
+      "slashed": false,
+      "balance": "31320043369",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "24",
+      "slashed": false,
+      "balance": "31320416755",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "25",
+      "slashed": false,
+      "balance": "31319669983",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "26",
+      "slashed": false,
+      "balance": "31320362890",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "27",
+      "slashed": false,
+      "balance": "31320043369",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "28",
+      "slashed": false,
+      "balance": "31319669983",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "29",
+      "slashed": false,
+      "balance": "31320054142",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "30",
+      "slashed": false,
+      "balance": "31320790141",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "31",
+      "slashed": false,
+      "balance": "31319637664",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "32",
+      "slashed": false,
+      "balance": "31321585306",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "33",
+      "slashed": false,
+      "balance": "31320935491",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "34",
+      "slashed": false,
+      "balance": "31321596079",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "35",
+      "slashed": false,
+      "balance": "31320913945",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "36",
+      "slashed": false,
+      "balance": "31321233466",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "37",
+      "slashed": false,
+      "balance": "31321596079",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "38",
+      "slashed": false,
+      "balance": "31320913945",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "39",
+      "slashed": false,
+      "balance": "31321233466",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "40",
+      "slashed": false,
+      "balance": "31321628398",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "41",
+      "slashed": false,
+      "balance": "31321265785",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "42",
+      "slashed": false,
+      "balance": "31320924718",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "43",
+      "slashed": false,
+      "balance": "31321937146",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "44",
+      "slashed": false,
+      "balance": "31321287331",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "45",
+      "slashed": false,
+      "balance": "31321244239",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "46",
+      "slashed": false,
+      "balance": "31321606852",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "47",
+      "slashed": false,
+      "balance": "31321233466",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "48",
+      "slashed": false,
+      "balance": "31321680871",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "49",
+      "slashed": false,
+      "balance": "31321594687",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "50",
+      "slashed": false,
+      "balance": "31321573141",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "51",
+      "slashed": false,
+      "balance": "31320901780",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "52",
+      "slashed": false,
+      "balance": "31320528394",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "53",
+      "slashed": false,
+      "balance": "31320847915",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "54",
+      "slashed": false,
+      "balance": "31321659325",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "55",
+      "slashed": false,
+      "balance": "31320901780",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "56",
+      "slashed": false,
+      "balance": "31321238749",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "57",
+      "slashed": false,
+      "balance": "31320560713",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "58",
+      "slashed": false,
+      "balance": "31321210528",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "59",
+      "slashed": false,
+      "balance": "31321627006",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "60",
+      "slashed": false,
+      "balance": "31321232074",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "61",
+      "slashed": false,
+      "balance": "31321242847",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "62",
+      "slashed": false,
+      "balance": "31320901780",
+      "status": "active_ongoing"
+    },
+    {
+      "index": "63",
+      "slashed": false,
+      "balance": "31321221301",
+      "status": "active_ongoing"
+    }
+  ],
+  "signedValidators": 64,
+  "status": {
+    "id": "warp-02ceb1cd",
+    "profile": "gloas",
+    "bake": "p3-checkpoint-r5",
+    "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+    "now": 2000199691.5,
+    "slot": 16640,
+    "automine": false,
+    "el": {
+      "baseFeePerGas": "0x7",
+      "blobGasUsed": "0x0",
+      "blockAccessListHash": "0xec1bd76c589c59e22ec375396ec8bafef4668dffbe2d7dee5b556cf5044d66e1",
+      "difficulty": "0x0",
+      "excessBlobGas": "0x0",
+      "extraData": "0xd983011107846765746889676f312e32352e3134856c696e7578",
+      "gasLimit": "0x943c97e",
+      "gasUsed": "0x0",
+      "hash": "0x2ddcf693a2d722df1eb311eea2075fd959a653f26f6cad394c83d988943160fa",
+      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "miner": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "mixHash": "0x5b9dba1bbbba534f806f7536505ba7e9a95d27b1e01c6074b8cf66f1d9edf7ed",
+      "nonce": "0x0000000000000000",
+      "number": "0x102",
+      "parentBeaconBlockRoot": "0xa7ead064a4f9c71dbc0574af19a9bc4d6e3df3b91c538260dc838f7ea1c1d29b",
+      "parentHash": "0xb61f9c4a60be60f367b6d46974f7ac4da15e8af35a54cc3f9d0bf77a12e1f4c1",
+      "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "requestsHash": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "size": "0x2a4",
+      "slotNumber": "0x4100",
+      "stateRoot": "0x5636f101a93cf31358579e688ccdccd4e7b79028b355d4ec45f6f7221ca6e1cc",
+      "timestamp": "0x7738a000",
+      "transactions": [],
+      "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "uncles": [],
+      "withdrawals": [],
+      "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+    },
+    "finality": {
+      "execution_optimistic": false,
+      "finalized": false,
+      "data": {
+        "previous_justified": {
+          "epoch": "518",
+          "root": "0x9d072eb1170a983222faef9bd6e8e9cf99038116b7f71dd7df487879b5630dc1"
+        },
+        "current_justified": {
+          "epoch": "519",
+          "root": "0x3da4796916380a4e2e3fca77d5ba4e632655b90ef17b9d13571577332c4294bd"
+        },
+        "finalized": {
+          "epoch": "518",
+          "root": "0x9d072eb1170a983222faef9bd6e8e9cf99038116b7f71dd7df487879b5630dc1"
+        }
+      }
+    }
+  },
+  "profile": "gloas",
+  "bake": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f",
+  "recordedAt": "2026-10-04T08:46:22.766Z"
+}

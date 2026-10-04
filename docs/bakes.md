@@ -84,7 +84,10 @@ deno task bake gloas --tag el-source --el-ref <commit-or-ref>
 deno task bake gloas --tag genesis-candidate --genesis-image <image-tag-or-digest>
 ```
 
-EL and genesis default to the recipe's pinned images. CL is built from its pinned commit with the
+Genesis defaults to the recipe's pinned image. EL uses `recipe.elRef` when present; otherwise it
+uses the pinned image. The Gloas recipe builds the clean Geth revision recorded during P0. An
+explicit `--el-ref` replaces the recipe ref; `--el-image` selects an image instead of a source
+build. The two explicit overrides cannot be combined. CL is built from its pinned commit with the
 profile patch and shared clock source. The builder runs the native Rust clock test before compiling
 Lighthouse. Git refs resolve to commits; Docker refs resolve to image IDs/digests and platforms. If
 a mutable Docker tag already exists locally, the builder pins that local image. Use a digest to
@@ -116,6 +119,21 @@ choose another tag. A new manifest is published atomically after a successful bu
 preserves the previous manifest. Locks protect tags and shared compiler caches against concurrent
 writes. Identical inputs under another tag reuse the built artifact. A running network keeps its own
 copy of the bake manifest.
+
+Source-built Geth has a separate `.cache/baker/execution/<key>.json` cache. Its key binds the
+repository and resolved commit, Go builder and runtime image IDs, their platform, and the explicit
+EL build revision. A Lighthouse source or patch change can therefore reuse Geth. Geth is compiled
+when those EL inputs change or no matching image can be restored; changing a mutable toolchain alias
+that still resolves to the same image does not invalidate it. Compiler command, environment or
+runtime installation changes require incrementing `EL_BUILD_REVISION` in `src/execution_build.ts`.
+
+Older complete bake artifacts can populate this cache only after their original build key, EL
+source, toolchain, runtime, platform and image owner have been verified. The migrated entry retains
+that bake as source proof, and new manifests keep `source.el`. Imported EL images without this
+provenance are not treated as source builds. Missing image bytes are a cache miss; conflicting
+metadata or image ownership is an error. Deleting the independent cache metadata can require a new
+compilation even when a newer complete bake still references the image. Existing immutable tags
+continue to reuse their pinned complete bake as before.
 
 The local `bake` command does not publish images. A manifest alone cannot transfer binaries to
 another machine. Use a separate build tag for another architecture; image identity and platform

@@ -1,0 +1,121 @@
+{
+  "event": "protocol-passed",
+  "passed": true,
+  "elapsedMs": 57194.4985,
+  "activated": {
+    "index": "64",
+    "balance": "32000000000",
+    "status": "active_ongoing",
+    "validator": {
+      "pubkey": "0xb9b4612a322847db7ec1df55d0b85c19aa9f106fd59950aa5a8486486df319c068be8550e9caafeb171800504f816bcd",
+      "withdrawal_credentials": "0x0009e86760a6d1ab82f4d29fabe6d43ee55ac33ac7069278be2a4e0ee637fb6f",
+      "effective_balance": "32000000000",
+      "slashed": false,
+      "activation_eligibility_epoch": "5",
+      "activation_epoch": "11",
+      "exit_epoch": "18446744073709551615",
+      "withdrawable_epoch": "18446744073709551615"
+    }
+  },
+  "source": {
+    "index": "0",
+    "balance": "0",
+    "status": "withdrawal_done",
+    "validator": {
+      "pubkey": "0xa39882700ed7f72fcdbac07081b7c0c912cb8647ed8494926e6c9c2fc1a7415c7c60e3afcc3d3278fe25b50b851c3ad5",
+      "withdrawal_credentials": "0x010000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "effective_balance": "0",
+      "slashed": false,
+      "activation_eligibility_epoch": "0",
+      "activation_epoch": "0",
+      "exit_epoch": "261",
+      "withdrawable_epoch": "517"
+    }
+  },
+  "target": {
+    "index": "1",
+    "balance": "62321465600",
+    "status": "active_ongoing",
+    "validator": {
+      "pubkey": "0x8efdefbccd6479b9953a5ec6416e6d48201865968567379b213040dbf0be7efa00d66343c21a7e801d6bfd7403cfcfa7",
+      "withdrawal_credentials": "0x020000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "effective_balance": "62000000000",
+      "slashed": false,
+      "activation_eligibility_epoch": "0",
+      "activation_epoch": "0",
+      "exit_epoch": "18446744073709551615",
+      "withdrawable_epoch": "18446744073709551615"
+    }
+  },
+  "status": {
+    "id": "protocol-bda9049b",
+    "profile": "gloas",
+    "bake": "p3-checkpoint-r5",
+    "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+    "now": 2000198539.5,
+    "slot": 16544,
+    "automine": false,
+    "el": {
+      "baseFeePerGas": "0x7",
+      "blobGasUsed": "0x0",
+      "blockAccessListHash": "0xee18f52473ccf256f9bcd914333c55ef82b2a2e3c53c9d8e2c822ec03df189f8",
+      "difficulty": "0x0",
+      "excessBlobGas": "0x0",
+      "extraData": "0xd983011107846765746889676f312e32352e3134856c696e7578",
+      "gasLimit": "0x8691e9f",
+      "gasUsed": "0x0",
+      "hash": "0xa27e6a8aba99e4343edd2c4632a7b246227e0abf784a898d7ef96fabf3731933",
+      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "miner": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "mixHash": "0x35a80682daa1367b25d10ca057be525ad007c3a7247539e535d56d50d25d7281",
+      "nonce": "0x0000000000000000",
+      "number": "0x165",
+      "parentBeaconBlockRoot": "0x4adff9060480a6e9e7d288f8e5e2b800d1719b68beb6fce023e4642db4ae4160",
+      "parentHash": "0x5bdd9c06563c01b1243243241b24def3d4260c972389dafa95ea17c6b586233b",
+      "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "requestsHash": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "size": "0x2c3",
+      "slotNumber": "0x40a0",
+      "stateRoot": "0xdde5e586970862047ba5c00f067958be5a2b76efa3a78820cd716b2e4c3c30bd",
+      "timestamp": "0x77389b80",
+      "transactions": [],
+      "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "uncles": [],
+      "withdrawals": [
+        {
+          "index": "0x15f1",
+          "validatorIndex": "0x0",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x2b129b85"
+        }
+      ],
+      "withdrawalsRoot": "0xa193aa9a6c345faede582ab91fc1cd8a4f28f9c6411a0a52bca59e471ba5e161"
+    },
+    "finality": {
+      "execution_optimistic": false,
+      "finalized": false,
+      "data": {
+        "previous_justified": {
+          "epoch": "10",
+          "root": "0xd61d532699e59a7a58375a4ac5496049d8d40d7b7b2356b6063ca000f7595fbb"
+        },
+        "current_justified": {
+          "epoch": "10",
+          "root": "0xd61d532699e59a7a58375a4ac5496049d8d40d7b7b2356b6063ca000f7595fbb"
+        },
+        "finalized": {
+          "epoch": "9",
+          "root": "0x87bafd511f5e445f83622f30b04cc7d0c9504c7036161d89bfda329a66de25af"
+        }
+      }
+    }
+  },
+  "churnLimitQuotient": 4,
+  "consolidationChurnLimitQuotient": 4,
+  "profile": "gloas",
+  "bake": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f",
+  "recordedAt": "2026-10-04T08:48:28.120Z"
+}

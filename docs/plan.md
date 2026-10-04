@@ -3,6 +3,9 @@
 The current plan for snapshots and hardfork transitions, including prerequisites and review results,
 is in [Snapshots and hardfork transitions](snapshots-hardforks-plan.md).
 
+Current P0–P3 acceptance, completed checks and audit:
+[verification report](snapshots-p0-p3-status.md).
+
 Recorded status as of September 29, 2026. The first working version was implemented and verified on
 macOS arm64 with Docker Desktop. The current priority is to consolidate the selected stable version.
 Further optimization was paused at the user's request; the later stages below remain possible future
@@ -99,10 +102,12 @@ These are correctness checks; their duration while compilation is running is not
    images match their sources and patches. Only macOS arm64 with Docker Desktop has been confirmed
    so far.
 
+Controlled Gloas bakes declaring `checkpointAbi: 1` now support clean stop and cold resume with the
+same compatible bake. Unclean data is refused. See
+[stop/resume and persistent storage](lifecycle.md) for the API, ownership and shutdown semantics.
+
 ## Possible later extensions
 
-- Resume existing state after a controller restart. Recovery currently uses `down` and a fresh
-  startup/reset; clock synchronization and incomplete phases need a separate design.
 - WebSocket JSON-RPC and long-lived Beacon SSE for services that need more than HTTP.
 - Multiple beacon nodes, external validators and transitions between Ethereum forks, with separate
   scheduler changes and e2e coverage.

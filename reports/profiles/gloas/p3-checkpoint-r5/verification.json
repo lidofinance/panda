@@ -1,0 +1,27 @@
+{
+  "profile": "gloas",
+  "tag": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f",
+  "suiteHash": "90ebf7455ea68a15e025fb737d2ee9b0a0c7eb002ed8d746f9bcd09a9902a1f6",
+  "startedAt": "2026-10-04T08:40:32.624Z",
+  "scenarios": [
+    "baseline",
+    "lifecycle",
+    "e2e",
+    "warp",
+    "warp-fast",
+    "warp-economics",
+    "protocol",
+    "withdrawal",
+    "deploy",
+    "gloas",
+    "restart",
+    "resume",
+    "blob-checkpoint"
+  ],
+  "finishedAt": "2026-10-04T08:55:44.251Z",
+  "elapsedMs": 911668.578167,
+  "passed": true,
+  "status": "passed"
+}

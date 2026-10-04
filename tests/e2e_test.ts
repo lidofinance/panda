@@ -15,6 +15,9 @@ const descriptions: Record<string, string> = {
   gloas: "separate payload envelope, PTC votes and phase barriers",
   restart:
     "cold BN/VC and full-client restarts preserve blocks, PTC, economics and signing history",
+  resume: "managed checkpoint and resume preserve blocks, PTC, economics and signing history",
+  "blob-checkpoint":
+    "blob checkpoint preserves verified columns, envelopes and uninterrupted continuation",
   baseline: "ordinary unmodified clients produce an agreed execution payload",
   lifecycle: "CLI up/down/reset, ownership and profile mismatch rejection",
 };

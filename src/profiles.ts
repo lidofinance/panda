@@ -23,6 +23,8 @@ export interface Recipe {
   sourceFiles?: string[];
   nativeTests?: { package: string; target: string }[];
   preparedSkip?: boolean;
+  /** Explicit durable checkpoint and parked startup ABI; absent on historical bakes. */
+  checkpointAbi?: number;
   runtime: string;
   clRepository: string;
   elRepository: string;
@@ -33,6 +35,8 @@ export interface Recipe {
   rust: string;
   goBuilder: string;
   elImage: string;
+  /** Default source build for future bakes; explicit --el-image selects an import instead. */
+  elRef?: string;
   genesisImage: string;
   baselineImage: string;
   phases: number[];

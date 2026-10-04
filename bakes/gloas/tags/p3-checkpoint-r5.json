@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "profile": "gloas",
+  "tag": "p3-checkpoint-r5",
+  "key": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "createdAt": "2026-10-04T06:07:59.912Z",
+  "recipe": {
+    "schema": 1,
+    "slotMs": 12000,
+    "slotsPerEpoch": 32,
+    "tailMs": 11500,
+    "clockSource": "bakes/shared/controlled_clock.rs",
+    "clockTest": "bakes/shared/controlled_clock_test.rs",
+    "clockEnvPrefix": "PANDA",
+    "sourceFiles": [
+      "bakes/shared/native/verified_signature.rs",
+      "bakes/shared/native/sync_batch.rs",
+      "bakes/gloas/native/weighted_selection.rs",
+      "bakes/gloas/native/prepare_skip.rs",
+      "bakes/shared/native/direct_sync_test.rs",
+      "bakes/gloas/native/persistence.rs",
+      "bakes/gloas/native/restart_test.rs",
+      "bakes/gloas/native/checkpoint.rs",
+      "bakes/gloas/native/admission_test.rs",
+      "bakes/gloas/native/signing_admission_test.rs",
+      "bakes/gloas/native/vc_admission.rs",
+      "bakes/gloas/patch_migrator.py",
+      "bakes/gloas/native/migrator_admission.rs",
+      "bakes/gloas/native/migrator_admission_test.rs",
+      "bakes/gloas/native/reconstruction_test.rs",
+      "bakes/gloas/native/blob_checkpoint_fixture.json",
+      "bakes/gloas/patch_reconstruction.py"
+    ],
+    "preparedSkip": true,
+    "nativeTests": [
+      {
+        "package": "bls",
+        "target": "panda_verified_signature"
+      },
+      {
+        "package": "types",
+        "target": "panda_weighted_selection"
+      },
+      {
+        "package": "beacon_chain",
+        "target": "panda_direct_sync"
+      },
+      {
+        "package": "beacon_chain",
+        "target": "panda_restart"
+      },
+      {
+        "package": "http_api",
+        "target": "panda_checkpoint_admission"
+      },
+      {
+        "package": "signing_method",
+        "target": "panda_signing_admission"
+      },
+      {
+        "package": "beacon_chain",
+        "target": "panda_migrator_admission"
+      },
+      {
+        "package": "beacon_chain",
+        "target": "panda_reconstruction"
+      }
+    ],
+    "runtime": "debian@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251",
+    "clRepository": "https://github.com/sigp/lighthouse.git",
+    "elRepository": "https://github.com/ethereum/go-ethereum.git",
+    "goBuilder": "golang@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437",
+    "tests": {
+      "baseline": "bakes/shared/tests/baseline.ts",
+      "lifecycle": "bakes/shared/tests/lifecycle.ts",
+      "e2e": "bakes/shared/tests/e2e.ts",
+      "warp": "bakes/shared/tests/warp.ts",
+      "warp-fast": "bakes/shared/tests/warp_fast.ts",
+      "warp-economics": "bakes/shared/tests/warp_economics.ts",
+      "protocol": "bakes/shared/tests/protocol_test.ts",
+      "withdrawal": "bakes/shared/tests/withdrawal_test.ts",
+      "deploy": "bakes/shared/tests/deploy.ts",
+      "gloas": "bakes/gloas/tests/gloas.ts",
+      "restart": "bakes/gloas/tests/restart.ts",
+      "resume": "bakes/gloas/tests/resume.ts",
+      "blob-checkpoint": "bakes/gloas/tests/blob_checkpoint.ts"
+    },
+    "name": "gloas",
+    "elFork": "amsterdam",
+    "clFork": "gloas",
+    "clRef": "2d281dfa1b407f7c81cd123954a9fd18ee8f02d2",
+    "patch": "bakes/gloas/lighthouse.patch",
+    "rust": "rust@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0",
+    "elImage": "ethpandaops/geth@sha256:bd9af83c652f8b24774245fb5122128298561fff38d2ae3cf9853be3273fea07",
+    "genesisImage": "ethpandaops/ethereum-genesis-generator@sha256:d3bb2d426b1b579207ade0f1cbc533eea8fd345c23c7708dc5eed072a1816651",
+    "baselineImage": "ethpandaops/lighthouse@sha256:61ee7093e24598f93319322bed4b40a7f80614b1f3f584e97ad7a0f7d612bf75",
+    "phases": [
+      0,
+      3000,
+      6000,
+      9000,
+      11500
+    ],
+    "attestationMs": 3000,
+    "aggregateMs": 6000,
+    "churnLimitQuotient": 32768,
+    "engineMethods": [
+      "engine_forkchoiceUpdatedV4",
+      "engine_getPayloadV6",
+      "engine_newPayloadV5"
+    ],
+    "genesisEnv": {
+      "ELECTRA_FORK_EPOCH": "0",
+      "FULU_FORK_EPOCH": "0",
+      "GLOAS_FORK_EPOCH": "0",
+      "HEZE_FORK_EPOCH": "18446744073709551615",
+      "SLOT_DURATION_IN_SECONDS": "12",
+      "SLOT_DURATION_MS": "12000"
+    },
+    "clVersion": "8.2.2",
+    "bakerVersion": 3,
+    "clockWait": true,
+    "directSync": true,
+    "checkpointAbi": 1,
+    "elRef": "5d8fd6b6082f9aa330dbaf5df52dfcfdb445f186"
+  },
+  "source": {
+    "cl": "2d281dfa1b407f7c81cd123954a9fd18ee8f02d2",
+    "el": "5d8fd6b6082f9aa330dbaf5df52dfcfdb445f186"
+  },
+  "hashes": {
+    "bakes/gloas/lighthouse.patch": "efc93c39cccc7345fef035ce545bbb97b25b82a4e318e4186e21fc1746fa5fd0",
+    "bakes/shared/controlled_clock.rs": "00406052ab94c409f544c137108439a2036cba96f36d2998096390f7ca9b1023",
+    "bakes/shared/controlled_clock_test.rs": "820136105de74be2b96f3cc859019a848149776719959e2c4474fa5529d4ff9a",
+    "bakes/shared/native/verified_signature.rs": "6746df67b0cf6893d889b36aad83183c21a21a3e46d135ce035cce52617ecf3e",
+    "bakes/shared/native/sync_batch.rs": "0d421c3f1e4b23842cee5ee079347600dba316ea460cf070d768c88fab3f818f",
+    "bakes/gloas/native/weighted_selection.rs": "e38a847e71364f1baa5a742e81b00fbcf5f11c3252708d9a4881b16dfdc426b3",
+    "bakes/gloas/native/prepare_skip.rs": "c6979a20ac079ab0768ff6335b1c5a11d9cd939b807d0ff1a3482507f8d09166",
+    "bakes/shared/native/direct_sync_test.rs": "292afa5a59fa9e5f00bf12a92b01a51488903ae948455a08b311d52907b353c9",
+    "bakes/gloas/native/persistence.rs": "4e1d1a98e32329ff98520d008ba2fb14972fc5bebe261cdf88e9a21a7832adfd",
+    "bakes/gloas/native/restart_test.rs": "fb31e2703709d14840d35abd511abbfbbff833e13bb58b770d25371e3e5b9cf2",
+    "bakes/gloas/native/checkpoint.rs": "ef2b1c2fee4cdaed1cb3e60f674110a0c4ef0e2f6f8da02e6b76120d59563a0a",
+    "bakes/gloas/native/admission_test.rs": "f0b356d6dd07026d76e8e3dca0b655e866f003b7b9f2e60b684cc4721c36f1a1",
+    "bakes/gloas/native/signing_admission_test.rs": "3b97fc876e848a48658c1edf4c6cc0acc336ea0e5dc3eefe48cbdb8aa8aca953",
+    "bakes/gloas/native/vc_admission.rs": "75589b0a4648cdcd916c35f03136468a30c69606bd622d871542f4aa7b0b7cb2",
+    "bakes/gloas/patch_migrator.py": "f56232decf318cd3d64550e8d27f6d8db2a375156ce4dd871d6423e56351a72e",
+    "bakes/gloas/native/migrator_admission.rs": "aa2fc9ee8231ba85ed04232d84dc31ca2f36d50d21ac5f018980dcfdb0576a3d",
+    "bakes/gloas/native/migrator_admission_test.rs": "198b663edd75b0135774e6850aa302aa69e81a8f974da29cea47ab586345b83e",
+    "bakes/gloas/native/reconstruction_test.rs": "5dde02de31eb9a3cf40962b37ad597dd37ca1dcc1d018d1ee79d45b288d9a6a7",
+    "bakes/gloas/native/blob_checkpoint_fixture.json": "7047f6eeb73ab1ed9ae57026e06a34d40c6a0ea09a9b8c6a0955b715201253d7",
+    "bakes/gloas/patch_reconstruction.py": "f3cf1e9a2e275e3e17754bc1284a08128f6f84fa3e02d6a99d3936cd34e96fbd"
+  },
+  "images": {
+    "cl": {
+      "ref": "panda-lighthouse:bake-2e0a7ac02b642eae108594f6",
+      "id": "sha256:940bf27d9dbfaa772a424035f0a3d93c1d39757feb75b6a5da7539420ce01224",
+      "platform": "linux/arm64"
+    },
+    "el": {
+      "ref": "panda-geth:bake-99731fca860167b37247ab2f",
+      "id": "sha256:b882c20ed0c3f59aa6b253fe94f56e33266f4c43720c41d064e127355b4b2208",
+      "platform": "linux/arm64"
+    },
+    "genesis": {
+      "ref": "ethpandaops/ethereum-genesis-generator@sha256:d3bb2d426b1b579207ade0f1cbc533eea8fd345c23c7708dc5eed072a1816651",
+      "id": "sha256:95d66723fab247e476861b7168e8b20150e85daeee734f2417a79c2db8e2b1a3",
+      "digest": "ethpandaops/ethereum-genesis-generator@sha256:d3bb2d426b1b579207ade0f1cbc533eea8fd345c23c7708dc5eed072a1816651",
+      "platform": "linux/arm64"
+    },
+    "baseline": {
+      "ref": "ethpandaops/lighthouse@sha256:61ee7093e24598f93319322bed4b40a7f80614b1f3f584e97ad7a0f7d612bf75",
+      "id": "sha256:e2ccd0b4a799d87de2bc89dd61e72bc3f4ae125c97d8bfcd3b1088a615b33fde",
+      "digest": "ethpandaops/lighthouse@sha256:61ee7093e24598f93319322bed4b40a7f80614b1f3f584e97ad7a0f7d612bf75",
+      "platform": "linux/arm64"
+    }
+  },
+  "builders": {
+    "runtime": {
+      "ref": "debian@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251",
+      "id": "sha256:813cd0370d827a30abbef1cf99f88217f87fda9612dd5241c9015ba182d32428",
+      "digest": "debian@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251",
+      "platform": "linux/arm64"
+    },
+    "rust": {
+      "ref": "rust@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0",
+      "id": "sha256:9ad0c47880881464036f8b5779f49a15d058154581404d0d50a20f9d11f3436e",
+      "digest": "rust@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0",
+      "platform": "linux/arm64"
+    },
+    "go": {
+      "ref": "golang@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437",
+      "id": "sha256:b1f8414d6136a1f98736f43ed031e667f81532184b5d491d25aee02bbaa9be03",
+      "digest": "golang@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437",
+      "platform": "linux/arm64"
+    }
+  },
+  "lighthouse": {
+    "upstream": {
+      "version": "8.2.2",
+      "commit": "2d281dfa1b407f7c81cd123954a9fd18ee8f02d2",
+      "repository": "https://github.com/sigp/lighthouse.git"
+    },
+    "baker": {
+      "version": 3,
+      "hash": "b7c2e5a065a795dc67588dfa167cd004e80fd85cd8de3801da0394990020b020"
+    },
+    "platform": "linux/arm64",
+    "key": "2e0a7ac02b642eae108594f61d761cdfe0473e6a47bcfe02db643f5665464653"
+  }
+}

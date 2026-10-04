@@ -46,6 +46,7 @@ export function milliseconds(seconds: number): number {
 /** Single writer for protocol time. Ambiguous partial progress faults until reset. */
 export class Timeline {
   readonly queue = new Serial();
+  onFault?: (error: unknown) => void;
   private fault?: unknown;
   private stopped = false;
   constructor(
@@ -67,6 +68,10 @@ export class Timeline {
   stop(): void {
     this.stopped = true;
   }
+  private fail(error: unknown): void {
+    this.fault = error;
+    this.onFault?.(error);
+  }
   async exclusive<T>(fn: () => Promise<T>): Promise<T> {
     return await this.queue.run(() => {
       this.assertHealthy();
@@ -87,7 +92,7 @@ export class Timeline {
         this.nowMs = at;
       }
     } catch (error) {
-      this.fault = error;
+      this.fail(error);
       throw error;
     }
   }
@@ -115,7 +120,7 @@ export class Timeline {
         await this.backend.skip(beforeDestination);
         this.nowMs = beforeDestination;
       } catch (error) {
-        this.fault = error;
+        this.fail(error);
         throw error;
       }
     }
@@ -166,7 +171,7 @@ export class Timeline {
         await this.backend.skip(target);
         this.nowMs = target;
       } catch (error) {
-        this.fault = error;
+        this.fail(error);
         throw error;
       }
     });

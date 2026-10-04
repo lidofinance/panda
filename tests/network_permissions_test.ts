@@ -9,6 +9,16 @@ import { depositValidator } from "../bakes/shared/tests/deposit_fixture.ts";
 type Options = Parameters<Infrastructure["container"]>[1];
 const user = () => `${Deno.uid()}:${Deno.gid()}`;
 
+Deno.test("client databases use an owned persistent generation, not disposable volumes", async () => {
+  await fixture("gloas", (_network, manifest, created) => {
+    assert.match(manifest.directory, /\/generations\/[a-f0-9-]+\/shared$/);
+    const generation = manifest.directory.slice(0, -"/shared".length);
+    assert(created.get("el")?.HostConfig?.Binds?.includes(`${generation}/el:/el`));
+    assert(created.get("bn")?.HostConfig?.Binds?.includes(`${generation}/bn:/bn`));
+    return Promise.resolve();
+  });
+});
+
 // Docker/HTTP adapter fixtures only: no daemon, client processes or consensus claims.
 async function fixture(
   profile: ProfileName,
@@ -41,10 +51,12 @@ async function fixture(
       start: async () => {
         if (role === "genesis") {
           for (const name of ["metadata", "jwt"]) {
-            await Deno.mkdir(`${directory}/${name}`, { recursive: true, mode: 0o700 });
+            await Deno.mkdir(`${network.directory}/${name}`, { recursive: true, mode: 0o700 });
           }
-          await Deno.writeTextFile(`${directory}/metadata/bootstrap_nodes.txt`, "fixture");
-          await Deno.writeTextFile(`${directory}/jwt/jwtsecret`, "ab".repeat(32), { mode: 0o600 });
+          await Deno.writeTextFile(`${network.directory}/metadata/bootstrap_nodes.txt`, "fixture");
+          await Deno.writeTextFile(`${network.directory}/jwt/jwtsecret`, "ab".repeat(32), {
+            mode: 0o600,
+          });
         }
       },
       wait: () => Promise.resolve({ StatusCode: 0 }),
@@ -98,7 +110,7 @@ for (const originalUser of ["1001:1234", "0:0"]) {
       const vc = created.get("vc")!;
       const { startMs, port } = clockEnvironment(manifest.bake.recipe);
       const nowMs = manifest.config.genesisTime * 1000 + 8192 * 12000;
-      const env = [`${port}=5059`, `${startMs}=11500`];
+      const env = [`${port}=5059`, `${startMs}=11500`, "PANDA_CLOCK_PARKED=1"];
       const docker = network.infra.docker;
       docker.listContainers = (() =>
         Promise.resolve([{ Id: "old-vc" }])) as typeof docker.listContainers;
@@ -121,7 +133,10 @@ for (const originalUser of ["1001:1234", "0:0"]) {
       const replacement = created.get("vc")!;
       assert.equal(replacement.User, originalUser);
       assert.deepEqual(replacement.HostConfig?.Binds, vc.HostConfig?.Binds);
-      assert.deepEqual(replacement.Cmd, vc.Cmd);
+      assert.deepEqual(
+        replacement.Cmd,
+        vc.Cmd?.filter((arg) => arg !== "--init-slashing-protection"),
+      );
       assert.deepEqual(replacement.Env, [`${port}=5059`, `${startMs}=${nowMs}`]);
     });
   });
@@ -144,6 +159,54 @@ Deno.test("deposit key generation uses the controller user for private host-read
       await assert.rejects(depositValidator(net, 64), (error) => error === stop);
       assert.equal(options?.User, user());
       assert.deepEqual(options?.HostConfig?.Binds, [`${manifest.directory}:/data`]);
+    } finally {
+      Infrastructure.prototype.container = original;
+    }
+  });
+});
+
+Deno.test("deposit key import uses managed VC admission with the validator token", async () => {
+  await fixture("pectra", async (_network, manifest) => {
+    const original = Infrastructure.prototype.container;
+    const stop = new Error("Stop before submitting the execution deposit");
+    const pubkey = `0x${"12".repeat(48)}`;
+    const directory = `${manifest.directory}/added-64`;
+    await Deno.mkdir(`${directory}/keys/${pubkey}`, { recursive: true });
+    await Deno.mkdir(`${directory}/secrets`, { recursive: true });
+    await Deno.mkdir(`${manifest.directory}/validator-keys/keys`, { recursive: true });
+    await Deno.writeTextFile(
+      `${directory}/deposit.json`,
+      JSON.stringify([{ pubkey: pubkey.slice(2) }]),
+    );
+    await Deno.writeTextFile(`${directory}/keys/${pubkey}/voting-keystore.json`, "{}");
+    await Deno.writeTextFile(`${directory}/secrets/${pubkey}`, "fixture-password");
+    await Deno.writeTextFile(
+      `${manifest.directory}/validator-keys/keys/api-token.txt`,
+      "fixture-token",
+    );
+    Infrastructure.prototype.container = (() =>
+      Promise.resolve({
+        start: async () => {},
+        wait: () => Promise.resolve({ StatusCode: 0 }),
+        remove: async () => {},
+      })) as unknown as typeof Infrastructure.prototype.container;
+    let imported: { url: string; options?: RequestInit } | undefined;
+    globalThis.fetch = ((url, options) => {
+      imported = { url: String(url), options };
+      return Promise.reject(stop);
+    }) as typeof fetch;
+    try {
+      const net = {
+        status: () => Promise.resolve({ id: manifest.config.id }),
+        validatorUrl: "http://managed-vc.invalid/vc",
+      } as unknown as Devnet;
+      await assert.rejects(depositValidator(net, 64), (error) => error === stop);
+      assert.equal(imported?.url, `${net.validatorUrl}/eth/v1/keystores`);
+      assert.equal(imported?.options?.method, "POST");
+      assert.equal(
+        new Headers(imported?.options?.headers).get("authorization"),
+        "Bearer fixture-token",
+      );
     } finally {
       Infrastructure.prototype.container = original;
     }

@@ -41,9 +41,10 @@ Engine API gate coordinates execution payload preparation with those phases. Sig
 execution validation and finality remain part of the real client pipeline.
 
 Hardfork profiles cover **Pectra (Prague/Electra)** and the pinned experimental **Gloas
-(Amsterdam/Gloas)** implementations. The default is Pectra. Both use the mainnet preset: 12-second
-slots, 32-slot epochs and an explicitly reduced default of 64 genesis validators. Network deadlines,
-JWT timestamps and watchdogs continue to use real time, including while protocol time is paused.
+(Amsterdam/Gloas)** implementations. Gloas is the current default; Pectra releases and CI are
+temporarily paused. Both use the mainnet preset: 12-second slots, 32-slot epochs and an explicitly
+reduced default of 64 genesis validators. Network deadlines, JWT timestamps and watchdogs continue
+to use real time, including while protocol time is paused.
 
 ## Requirements
 
@@ -93,6 +94,11 @@ await net.advanceUntil(
 `await using` cleans up the instance when the scope ends. To connect to an existing controller, use
 `new Devnet("http://127.0.0.1:8545")`; closing that connection does not stop the network.
 
+Checkpoint-capable Gloas builds also provide `net.stop()` and `net.resume()` to preserve and reopen
+the same network at an exact completed slot. See
+[stop/resume and persistent storage](docs/lifecycle.md) for lifecycle semantics, managed client URLs
+and Docker volume setup.
+
 Automine is off by default. Enable it with `await net.setAutomine(true)` to produce blocks for
 eligible pending transactions, then wait for receipts as usual. See the
 [deployment example](bakes/shared/tests/deploy.ts) for sequential contract deployment with ethers.
@@ -136,9 +142,10 @@ untrusted changes; the privileged CI image is not a sandbox for hostile code. Ke
 on loopback and never use real wallet keys. See [security boundaries](SECURITY.md).
 
 HTTP JSON-RPC is supported. WebSocket, long-lived Beacon SSE, multiple beacon nodes and arbitrary
-external validators are outside the current verified scope. Resuming an existing chain after a
-controller restart is not implemented; use `down` followed by `up` to start fresh. Geth's real-time
-transaction-pool expiry continues during a protocol pause.
+external validators are outside the current verified scope. Cold resume requires a clean checkpoint
+and its exact compatible bake; unclean data is refused. Reusable snapshot archives and hardfork
+transitions remain planned. Geth's real-time transaction-pool expiry continues during a protocol
+pause.
 
 ## Bake profiles
 

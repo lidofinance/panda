@@ -1,0 +1,61 @@
+{
+  "event": "lifecycle-passed",
+  "elapsedMs": 28351.316416,
+  "repeatedUp": true,
+  "repeatedDown": true,
+  "resetGenesis": "0x0ba7a8ae75439088094d035dfa9d54b49eb6e9c4de716f356d8dc0d97fdb9886",
+  "duplicateOwnerRejected": true,
+  "differentProfileRejected": true,
+  "borrowedClosePreservesService": true,
+  "snapshotDirectoryPreserved": true,
+  "managedLifecycle": {
+    "stableServiceStopResume": true,
+    "parkedAlreadyRunning": true,
+    "persistedOpen": true,
+    "saved": {
+      "now": 2000000059.5,
+      "slot": 4,
+      "executionHash": "0xa55f16939cb817f07ad2873b65dbbb4ccc1b9642d1a734054637d63a9960a424",
+      "executionNumber": "0x4",
+      "header": {
+        "root": "0x342b41ba0deb148a07e997676ec6b005d4ee76a27f2490f541db66f90b572c84",
+        "canonical": true,
+        "header": {
+          "message": {
+            "slot": "4",
+            "proposer_index": "60",
+            "parent_root": "0x869abc7ee5a85598259e0c8475c9b5f225c6572108f57cfaf629124da7419ea5",
+            "state_root": "0x16f85af1e123f82520473428936338bd9976fa9f761c5303a7afcc0beab9e6c3",
+            "body_root": "0xcaebaddc6b596ecdb563da2c43b741237f315917e5962ea7d5775d2397df9a92"
+          },
+          "signature": "0xa6f2cf1579277dbd85520942d2e866e92505d13034cf4972a5ac63ba7fdc6bef077989523a779c190a7655b40118ec0b12844994a7f3076405ec107a95c8e2bf05d82aac4a66a7d2b1888c18563ccb84f647eaf3d58ed2f5dcd6a4c6d61c1457"
+        }
+      },
+      "finality": {
+        "execution_optimistic": false,
+        "finalized": false,
+        "data": {
+          "previous_justified": {
+            "epoch": "0",
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "current_justified": {
+            "epoch": "0",
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "finalized": {
+            "epoch": "0",
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          }
+        }
+      }
+    },
+    "nextSlot": 5,
+    "uncleanOpenRefused": true
+  },
+  "profile": "gloas",
+  "bake": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f",
+  "recordedAt": "2026-10-04T08:41:38.792Z"
+}

@@ -1,4 +1,4 @@
-import { defaultTimeoutMs, HttpError, json, rpc, waitFor } from "./http.ts";
+import { defaultTimeoutMs, HttpError, json, rpc, waitFor, withWatchdog } from "./http.ts";
 import { type Manifest, Network } from "./network.ts";
 import { type TimeBackend, Timeline } from "./time.ts";
 import type { EngineGate } from "./engine.ts";
@@ -159,13 +159,20 @@ export class Consensus implements TimeBackend {
     if (this.engine) this.engine.nowMs = at;
     await new Network(this.manifest.config).skipValidator(this.manifest, at);
   }
-  static async connect(manifest: Manifest, engine?: EngineGate): Promise<Timeline> {
+  static async connect(
+    manifest: Manifest,
+    engine?: EngineGate,
+    signal?: AbortSignal,
+  ): Promise<Timeline> {
+    signal?.throwIfAborted();
     if (manifest.config.mode !== "controlled") {
       throw new Error("Time control requires the Lighthouse fork");
     }
     const backend = new Consensus(manifest, engine);
-    const bn = await backend.clock(manifest.bnClock);
-    const vc = await backend.clock(manifest.vcClock);
+    const bn = await json<ClockState>(manifest.bnClock, { signal: withWatchdog(signal) });
+    signal?.throwIfAborted();
+    const vc = await json<ClockState>(manifest.vcClock, { signal: withWatchdog(signal) });
+    signal?.throwIfAborted();
     if (bn.nowMs !== vc.nowMs) throw new Error("BN/VC clock mismatch; reset required");
     return new Timeline(
       manifest.config.genesisTime * 1000,

@@ -1,529 +1,455 @@
-# Снапшоты и переходы между хардфорками: план реализации
+# Snapshots and hardfork transitions: implementation plan
 
-Редакция 4, одобрена по результатам ревью. Основание: `main` на коммите `0acee41`, 2026-10-02.
+Revision 4, reviewed against `main` at `0acee41`, October 2, 2026. This English edition preserves
+its design decisions, dependencies and acceptance criteria.
 
-Статус: подготовительные P0–P1 выполнены. Проверки на реальных клиентах воспроизвели потерю PTC;
-входы, state inventory, команды и результаты находятся в [отчёте P0–P1](snapshots-p0-p1.md).
-Snapshot API и переходы ещё не реализованы.
+**P0–P3 are complete and accepted locally on Gloas/Linux ARM64.** See the
+[validation and review report](snapshots-p0-p3-status.md). Reusable snapshot archives and hardfork
+transitions are P4+ and are not implemented yet.
 
-Текущий рабочий профиль — только Gloas. Pectra временно исключена из CI, новых релизов и матрицы
-проверок по умолчанию через `src/active_profiles.ts`. Дальнейшие P2–P10 выполняются на Gloas;
-повторные сборки и проверки отдельного Pectra-профиля отложены. Исторические результаты P0–P1
-сохранены. Ранние эпохи Electra/Fulu в расписании Gloas-клиента остаются частью проверки переходов.
+| Stage  | Status                                                                                                       |
+| ------ | ------------------------------------------------------------------------------------------------------------ |
+| P0     | Build inputs and state inventory recorded; clean Geth built and checked.                                     |
+| P1     | PTC loss reproduced; behavioral RED and independent reference evidence retained.                             |
+| P2     | Generation storage, managed ingress/admission and SDK/CLI/container lifecycle verified.                      |
+| P3     | Native r5, cuts 3/31/32/127/128, blob/KZG, checkpoint refusal and continuation verified; full profile 13/13. |
+| P4–P10 | Planned; not started.                                                                                        |
 
-Все подготовительные работы ниже входят в реализацию. Выяснение версий, исправление клиентов и
-создание проверок — работа исполнителя, а не задача пользователя.
+Gloas is the only active profile. `src/active_profiles.ts` temporarily excludes Pectra from default
+CI, releases and verification. Historical P0–P1 results for both profiles remain available. Electra
+and Fulu phases within a Gloas-capable client's schedule remain part of future transition coverage.
+All prerequisites below belong to the implementation work, including client research and fixes.
 
-## 1. Результат для пользователя
+## 1. Intended behavior
 
-Снапшот: подготовить сеть и протокол один раз, сохранить, выполнить сценарий, восстановить ту же
-точку и выполнить другой сценарий. Возвращаются данные EL/CL/VC и протокольное время. Снимок
-многоразовый и переживает процесс при постоянном хранилище.
+A snapshot lets a test prepare the network and protocol once, save them, execute a scenario, restore
+the same point and execute another scenario. EL/CL/VC data and protocol time return to the saved
+values. Snapshots are reusable and survive process exit when stored persistently.
 
-Переход: задать расписание до запуска, начать с Pectra, пройти Fusaka, затем Gloas в той же цепочке.
-Клиенты знают все эти правила заранее. В момент активации образ не собирается и контейнеры не
-заменяются.
+A transition test defines a schedule before startup, starts at Pectra, crosses Fusaka and then Gloas
+in one chain. The clients support all those rules from the start. Crossing a boundary neither builds
+an image nor replaces a client binary.
 
-Комбинация: подготовить состояние перед обновлением, сохранить его, пройти обновление, проверить
-один сценарий, восстановиться и проверить другой. Расписание при restore не меняется.
+The combined workflow saves before an upgrade, crosses it, tests one outcome, restores and tests
+another outcome. Restore does not change the schedule.
 
-Первая версия: controlled-сеть Panda, mainnet timing, принадлежащие ей тестовые валидаторы,
-сохранение на завершённом хвосте слота, те же совместимые образы/платформа. Не включает hot/VM
-snapshots, baseline mode, внешний signer, перенос снимков между хостами, произвольные миграции
-клиентских БД или смену версии бинарника непосредственно на границе форка.
+Initial scope: controlled Panda networks, mainnet timing, disposable validators owned by the test,
+completed slot tails, and the same compatible images/platform. Hot or VM snapshots, baseline mode,
+remote signers, cross-host archive transfer, arbitrary database migrations and binary replacement at
+a fork boundary are outside this version.
 
-## 2. Проблема сохранения PTC
+## 2. The PTC persistence defect
 
-PTC — Payload Timeliness Committee. Валидаторы Gloas посылают подписанные сообщения о наличии
-execution payload и доступности blob-данных. Из этих сообщений формируются подтверждения для
-следующего блока.
+The Payload Timeliness Committee sends signed Gloas messages about execution payload availability
+and blob data availability. The next block uses those messages.
 
-В точном Lighthouse pin 2d281dfa1b407f7c81cd123954a9fd18ee8f02d2 пул payload_attestation_messages не
-входит в PersistedOperationPool и создаётся пустым после чтения БД. При этом
-get_payload_attestations для нового блока читает сообщения предыдущего слота.
+At Lighthouse pin `2d281dfa1b407f7c81cd123954a9fd18ee8f02d2`, `payload_attestation_messages` was
+absent from `PersistedOperationPool`. Loading the database created an empty pool, while
+`get_payload_attestations` needed messages from the preceding slot.
 
-В P1 подтверждено исполненными native и real-client regressions: после штатного BN/VC или полного
-EL/BN/VC restart на хвосте слота 3 блок 4 теряет все 512 PTC-позиций и получает другой state root.
-Сам блок строится, EL/CL остаются согласованы. Это потеря точного продолжения, а не доказательство
-остановки цепочки при любом restart. См. [границы и результаты проверки](snapshots-p0-p1.md).
+Executed native and real-client regressions reproduced this in P1. After either a BN/VC restart or
+an EL/BN/VC restart at slot 3's tail, block 4 lost all 512 PTC positions and had a different state
+root. The block still existed and EL/CL agreed. The defect was loss of exact continuation; it did
+not imply that every restart stopped the chain. See [P0–P1 evidence](snapshots-p0-p1.md).
 
-Решение включено в P1 и P3: сначала воспроизвести native regression с настоящими подписями, затем
-сохранить и восстановить недостающие данные, затем проверить реальный stop/resume и следующий блок.
+P1/P3 use real signed messages to reproduce the loss, persist the missing state, and compare the
+next real block against an independently running network.
 
-## 3. Выявленные препятствия и назначенные работы
+## 3. Findings and assigned prerequisites
 
-- R1. PTC теряется в сериализации op_pool — подтверждено источником. Действия P1/P3.
-- R2. При старте BN naive attestation/sync aggregation pools пустые. Часть аттестаций переносится в
-  постоянный op_pool только при создании следующего блока. Необходимость каждого буфера именно на
-  выбранном хвосте слота выясняется P0/P1; P3 сохраняет требуемые данные или переносит их обычным
-  проверенным путём без нового блока.
-- R2a. Pending payload envelopes, DA checker и pending payload caches сбрасываются при старте. P0
-  классифицирует их: кеш восстановить, незавершённую доставку завершить либо отказать; нельзя
-  потерять непроверенный payload/DA и назвать cut согласованным. Отсутствующий persisted op_pool при
-  restore не должен молча заменяться пустым.
-- R3. Очередь forkchoice attestations не записывается в persisted forkchoice. На нормальном хвосте
-  она может уже быть обработана, но это нужно проверить. Фактический forkchoice slot может опережать
-  protocol slot. P3 проверяет/сохраняет очередь и записывает реальный FC slot; не угадывает его из
-  времени.
-- R4. Network.start всегда создаёт genesis, stop удаляет volumes; время, completion marks и Engine
-  payload readiness находятся в памяти. Действия P2/P3: отдельный запуск существующих данных,
-  недеструктивная остановка, parked startup и новая сессия контроллера.
-- R5. Timeline lock не перекрывает EL/CL/VC RPC. Есть гонки automine/advance/import, прямые relays и
-  долгие SSE. Пустой EL txpool сам по себе может быть недостаточен: исследовательский Geth имеет
-  deferred local tracking, но его соответствие опубликованному образу не доказано. P2 ставит
-  управляемый вход и журнал незавершённых EL submissions, сохраняя обычную семантику Geth.
-- R6. Fresh VC разрешает создать новую slashing DB; это недопустимо при restore. Возврат старой сети
-  вместе с БД подписей создаёт альтернативную тестовую ветку, а не глобальную защиту от
-  противоречащих подписей. Действия P0/P3/P5.
-- R7. Ошибка persistence Lighthouse при shutdown может только попасть в лог. Успешное завершение
-  процесса не доказывает сохранность. P3 вводит явный checkpoint ACK, проверку записи и фактическое
-  восстановление.
-- R8. Копирование/restore могут оборваться на диске, в процессе запуска или после commit. P4/P5
-  вводят сохранение во временное место, контроль целостности, отдельную generation, журнал стадий и
-  однозначное recovery.
-- R9. Текущие fork phases, payload/finality decoding и часть параметров привязаны к profile
-  навсегда. Clock mark ABI отличается между сборками. P6/P7 разделяют семейство образов, active fork
-  и native ABI.
-- R10. Исследованный ранее Geth checkout не равен реальному образу. В реальном бинарнике revision
-  5d8fd6b6082f9aa330dbaf5df52dfcfdb445f186 и vcs.modified=true. P0 получает полный build diff либо
-  собирает новый Geth из известных входов.
-- R11. Внешний provider/оракул/индексатор помнит отменённые события и кеши. P9 поставляет
-  проверенный порядок сброса и пример fixture.
-- R12. Fast crossing может пропустить обязательную обработку границы или превысить requested
-  timestamp. P8 проверяет весь диапазон заранее и сохраняет точную цель времени.
-- R13. В P1 генератор с будущим Fulu и дефолтными BPO epochs создал порядок форков, отвергнутый
-  Geth. Явное согласование BPO epochs прошло. P6 компилирует и валидирует CL blob schedule, BPO и
-  соответствующие EL timestamps вместе с основными hardfork epochs.
+These were the initial findings and risks. Completed fixes are recorded in the validation report;
+source inspection alone is not considered verification.
 
-Это перечень найденных фактов и проверяемых рисков. Проверки неизвестного поведения также назначены
-этапам; ни один риск не считается исправленным по одному чтению кода.
+- R1: PTC messages were omitted from operation-pool serialization. Addressed in P1/P3.
+- R2: Naive attestation/sync aggregation pools start empty. Some verified votes enter the persistent
+  operation pool only when the next block is produced. P0/P1 identify the data needed at the chosen
+  cut; P3 preserves it or transfers it through the normal verified path without producing a block.
+- R2a: Pending envelopes, the DA checker and pending payload caches are reset on startup. P0
+  classifies each item: recreate a safe cache, finish delivery/verification, or refuse
+  checkpointing. Restore must reject missing persisted operation-pool data rather than silently
+  create an empty pool.
+- R3: Queued fork-choice attestations were not persisted. P3 proves that they are drained or saves
+  them, and records the actual fork-choice slot, which can be ahead of protocol time.
+- R4: The original lifecycle always generated genesis and deleted runtime volumes; clocks,
+  completion marks and Engine readiness lived in memory. P2/P3 add open-existing, stop-preserve,
+  parked startup and a new controller session.
+- R5: The Timeline lock does not cover EL/CL/VC RPC, direct relays or SSE. An empty txpool alone
+  does not prove that all accepted submissions are resolved. P2 adds managed ingress and a durable
+  submission ledger while retaining Geth's transaction semantics. Research-source behavior must be
+  reproduced on the selected binary before being called a binary defect.
+- R6: Fresh VC startup permits a new slashing database; restore must not. Restoring both chain state
+  and signing history creates another isolated test branch, not global protection against signing
+  conflicts across copied branches. Addressed in P0/P3/P5.
+- R7: Upstream shutdown can merely log persistence errors. P3 requires a successful checkpoint ACK,
+  durable readback and real continuation; exit code zero alone is insufficient.
+- R8: Capture/restore can fail during copying, startup or commit. P4/P5 use temporary artifacts,
+  integrity checks, separate generations, a durable operation journal and explicit recovery stages.
+- R9: Static profile phases, payload/finality decoding and clock mark ABIs do not provide dynamic
+  transitions. P6/P7 separate binary family, active fork and native ABI.
+- R10: The earlier research Geth checkout was not proof of the actual image's source. The old binary
+  reported revision `5d8fd6b6082f9aa330dbaf5df52dfcfdb445f186` with `vcs.modified=true`. P0 requires
+  its complete build diff or a new immutable build from known inputs.
+- R11: External providers, oracles and indexers retain reverted events and caches. P9 supplies and
+  executes a reset/replay fixture.
+- R12: Fast crossing could skip boundary work or overshoot the requested timestamp. P8 validates the
+  entire range before mutation and preserves the exact target time.
+- R13: The P1 generator's future Fulu schedule with default BPO epochs was rejected by Geth.
+  Explicit BPO alignment passed. P6 must compile CL blob schedules, BPO epochs and EL timestamps
+  together.
 
-## 4. Принятые решения
+## 4. Design decisions
 
-### 4.1 Сохранение и восстановление
+### 4.1 Capture and restore
 
-- Create разрешён только в healthy controlled сети на завершённом хвосте слота. Время ради save не
-  продвигается.
-- Нет pending/queued EL tx и принятых, но не разрешённых EL submissions. Неоднозначный результат RPC
-  блокирует create с конкретной причиной.
-- Поддерживаемые native CL операции (voluntary exits, BLS changes, slashings) сохраняются с
-  pool/state status и проходят round-trip/continuation проверки. Неизвестный тип либо недоказанная
-  persistence вызывают явный отказ. GET pool может содержать уже включённые операции до
-  pruning/finality; это не основание считать их неподтверждёнными. Решение основано на native
-  inventory и текущем state, а не просто на непустом HTTP-списке.
-- Очереди уже внутри consensus state (депозиты, консолидации, exits, withdrawals) сохраняются, их не
-  требуется опустошать.
-- Обычные protocol pools (attestation/sync/PTC) входят в продолжение; требование «все CL pools
-  пустые» запрещено.
-- Restore разрешён также после faulted advance и падения клиента. Он не проходит через
-  Timeline.assertHealthy. Незавершённая работа отменяемой ветки прекращается; новый checkpoint
-  проверяется отдельно.
-- Restore возвращает ровно сохранённое время, automine выключен. Save после успешного возобновления
-  возвращает прежнюю настройку automine.
+- Create requires a healthy controlled network at a completed slot tail. Saving never advances time.
+- Pending/queued EL transactions and unresolved accepted or ambiguous submissions block create with
+  a specific reason.
+- Supported native CL operations, including voluntary exits, BLS changes and slashings, retain their
+  pool/state status and pass round-trip and continuation tests. Unknown types or unproven
+  persistence cause refusal. A GET pool response may retain already-included operations until
+  pruning/finality; classify them using native inventory and current state, not merely a nonempty
+  HTTP list.
+- Deposits, consolidations, exits and withdrawals already queued in consensus state are preserved;
+  those queues need not be empty.
+- Ordinary attestation/sync/PTC pools are part of continuation. Requiring every CL pool to be empty
+  would discard valid protocol state.
+- Restore is available after a faulted advance or client crash without `Timeline.assertHealthy`.
+  Work from the abandoned branch is cancelled; the candidate checkpoint is validated independently.
+- Restore returns exactly the saved time with automine off. A successful create-and-resume restores
+  the original automine setting.
 
-### 4.2 Хранилище и lifecycle
+### 4.2 Storage and lifecycle
 
-- Один постоянный каталог Panda: служебный журнал, active-generation pointer, snapshots и данные
-  каждой generation (EL/BN/shared/VC). В Docker это один явно документированный volume /data/panda;
-  локально — ignored каталог Panda.
-- EL/BN/shared данные snapshot-capable сессий получают bindmount из собственных generation
-  directories. Старые runtime volumes автоматически не мигрируются; новая функциональность
-  включается для новой управляемой сети/проверенного snapshot.
-- Внутренний dockerd/image cache может пересоздаваться; точные клиентские образы загружаются из
-  закреплённых архивов. Snapshot не архивирует dockerd целиком.
-- Копирование через scoped helper в Infrastructure сохраняет необходимые права и проверяет пути
-  собственной generation. Docker-операции ограничены точным io.panda.id и generation label;
-  глобальный prune запрещён.
-- Публичный lifecycle определён: owning SDK.close (SDK сам запустил сеть) и CLI down удаляют active
-  runtime, snapshots остаются; borrowed SDK.close/disconnect только закрывает клиентское подключение
-  и не останавливает общий service; reset создаёт fresh generation. Persistent Docker service при
-  SIGTERM выполняет stop-preserve и verified checkpoint вместо destructive Controller.close в
-  finally. Следующий старт использует active pointer, а не безусловный fresh genesis. Graceful
-  shutdown имеет документированный бюджет; если его не хватило/процесс убит, состояние отмечается
-  unclean, lossless resume не объявляется.
-- Сохранённые snapshots переживают down/reset; удаление только явное.
-- Чистая остановка даёт проверенный resume checkpoint. После SIGKILL наличие файлов не считается
-  достаточным: вход остаётся закрыт, при недоказуемом состоянии требуется явное восстановление
-  сохранённого snapshot. Не происходит скрытого отката на старую точку.
+- One persistent Panda root holds the journal, active-generation pointer, snapshots and each
+  generation's EL/BN/shared/VC data. Container deployments use `/data/panda`; local data stays
+  ignored.
+- Snapshot-capable sessions bind-mount owned generation directories. Existing runtime volumes are
+  not migrated implicitly; capability starts with a new managed network or verified checkpoint.
+- Internal dockerd/image caches may be recreated from exact pinned image archives. A snapshot does
+  not archive the whole daemon.
+- Scoped `Infrastructure` copy helpers preserve permissions and validate owned paths. Every Docker
+  mutation is scoped to the exact `io.panda.id` and generation label. Global prune is prohibited.
+- Owning SDK `close()` and CLI `down` destroy the active runtime while retaining snapshots. Borrowed
+  `close()`/disconnect only closes that connection. `reset` creates a fresh generation.
+- Persistent-service SIGTERM performs stop-preserve and a verified checkpoint. A destructive
+  `Controller.close()` in `finally` must not erase durable state. Restart follows the active
+  pointer. Exhausting the documented shutdown budget or killing the process marks the state unclean.
+- Snapshots survive `down`/`reset` and are removed only explicitly.
+- A clean stop provides a verified resume checkpoint. After SIGKILL, database files alone are
+  insufficient: ingress remains closed and unproven state requires an explicitly chosen saved
+  snapshot. There is no hidden rollback.
 
-### 4.3 Входящие запросы и SDK
+### 4.3 Ingress, operations and SDK
 
-- Постоянный HTTP-сервис содержит сменяемую NetworkSession: manifest, Timeline, Automine, EngineGate
-  и клиенты.
-- Пользовательские EL/CL/VC URL стабильны. Локальный запуск и Docker используют один механизм
-  управляемых HTTP-frontends. Они считают активные запросы и закрывают SSE при замене сессии.
-- Внутренние upstream/clock ports остаются localhost-only в приватном runtime manifest, поскольку
-  нужны host-controller на Docker Desktop. Публичный manifest и SDK их не выдают. Собственные
-  fixtures переводятся на managed endpoints для пользовательских операций.
-- Только новые managed-ingress generations или проверенный checkpoint получают snapshot capability:
-  неизвестные принятые запросы старой живой сети нельзя восстановить задним числом.
-- Конкурентный прямой доступ локального администратора к внутренним портам во время checkpoint не
-  поддерживается. Это не защита от владельца компьютера.
-- Lifecycle/operation status остаётся доступен во время maintenance/fault без RPC к остановленным
-  клиентам и без Timeline.assertHealthy; показывает phase/result/error, readiness=false до publish.
-  Он нужен SDK для восстановления результата потерянного HTTP-ответа.
-- Maintenance закрывает приём новых операций, завершает уже принятые конечные запросы и отключает
-  automine вне Timeline lock. Save при неуспешном drain отказывает; не копирует неопределённое
-  состояние.
-- Узкий durable EL admission ledger: intent перед upstream, hash/result до успешного ACK.
-  Учитываются batches, notifications и неизвестный transport outcome. Записи завершаются при
-  canonical receipt, доказанном consumed nonce либо доказанном pre-admission rejection. Отдельное
-  terminal rejected допускается только по проверенной классификации exact pinned Geth (invalid
-  signature/invalid transaction и подтверждённые reject cases); произвольный RPC error не считается
-  доказательством отсутствия приёма. Accepted/ambiguous остаются unresolved. Записи не пропадают
-  только потому, что txpool стал пустым. Автоматической повторной отправки транзакций нет.
-- Публичные операции: create/list/restore/remove и start-from-snapshot. Archive import/export и
-  перенос между хостами отложены.
-- SnapshotRef — многоразовый снимок. Operation ID — один запрос. Повтор ID+payload возвращает
-  прежний результат; тот же ID с другим payload отклоняется; новый ID восстанавливает тот же снимок
-  заново.
-- После restore меняется generation; собственные SDK waits завершаются с понятной ошибкой, filter
-  IDs/SSE сбрасываются. Чужие библиотеки не объявляются автоматически очищенными.
+- The persistent HTTP service owns a replaceable `NetworkSession`: manifest, Timeline, Automine,
+  EngineGate and clients.
+- Public EL/CL/VC URLs remain stable. Local and container modes use the same managed frontends,
+  track active requests and close SSE during session replacement.
+- Private upstream/clock ports remain localhost-only for the host controller. The public manifest
+  and SDK omit them; fixtures use managed endpoints for user operations.
+- Only a new managed-ingress generation or verified checkpoint receives snapshot capability.
+  Previously accepted requests in an unmanaged live network cannot be reconstructed retroactively.
+- Concurrent administrator writes to private ports during checkpointing are unsupported; this is not
+  a security boundary against the machine's owner.
+- Lifecycle/operation status stays available during maintenance or faults without client RPC or a
+  healthy Timeline. It exposes phase/result/error and remains unready until publish, allowing the
+  SDK to recover the result of a lost HTTP response.
+- Maintenance closes admission, drains accepted finite requests and stops automine outside the
+  Timeline lock. A failed drain refuses save instead of copying uncertain state.
+- The EL ledger durably records intent before forwarding and hash/result before successful ACK. It
+  handles batches, notifications and unknown transport outcomes. Entries resolve on a canonical
+  receipt, a proven consumed nonce, or a proven pre-admission rejection. Terminal rejection uses a
+  tested classification for the exact pinned Geth, including invalid signatures/transactions; an
+  arbitrary RPC error is not proof of rejection. Accepted/ambiguous entries survive an empty txpool.
+  Panda never automatically resends a transaction.
+- Public operations will be create/list/restore/remove and start-from-snapshot. Archive
+  import/export and cross-host transport are deferred.
+- `SnapshotRef` identifies a reusable artifact; an operation ID identifies one request. Repeating
+  ID+payload returns its prior result, reusing an ID with another payload fails, and a new ID can
+  restore the same snapshot again.
+- Restore changes the generation. SDK waits fail explicitly, filters/SSE are reset, and external
+  libraries require their own cache reset.
 
 ### 4.4 Fork schedule
 
-- Profile/bake продолжают выбирать семейство бинарников. ActiveFork — отдельное поле status. По
-  умолчанию прежний single-fork genesis сохраняется.
-- Целевая переходная сеть с самого начала использует набор с поддержкой Gloas, но начинает с
-  Electra/Prague. Первый путь: Electra/Prague → Fulu/Osaka → Gloas/Amsterdam.
-- Schedule неизменяем после genesis и при restore. Один compiler создаёт CL epochs/versions и EL
-  timestamps. Отдельные pre-Gloas/Gloas churn constants; uint64/disabled epochs без потери точности;
-  реальные devnet fork versions записываются в identity.
-- Первый выпуск не меняет бинарники на границе. Новый schedule не требует нового образа; изменение
-  native поддержки требует нового immutable bake.
-- Исторические блоки, состояния и finalized checkpoint интерпретируются по собственному
-  fork/version/slot, а не текущему head.
-- Honest transitions обязательны. До поддержки fast crossing — явный отказ до любой мутации.
-  Завершённая fast поддержка описана в P8.
-
-### 4.5 Подписи и внешний мир
-
-- Restore — откат одноразовой изолированной тестовой ветки с подконтрольными devnet ключами. Внутри
-  каждой ветки реальная BLS/slashing protection остаётся включённой.
-- Разные подписанные ветки с одинаковыми ключами/genesis нельзя смешивать. Один активный экземпляр
-  lineage гарантируется только в управляемом хранилище; глобальная блокировка копий на других
-  компьютерах не обещается.
-- Проверить validator definitions: только local keystores, paths внутри принадлежащих Panda mounts,
-  полный key/password/slashing набор. Remote signer definitions и внешние bind paths отклоняются.
-- Импорт arbitrary external signer/key ownership не может быть установлен Panda. Для snapshot mode
-  используются объявленные disposable тестовые ключи; remote signers/внешние VC исключены, и их
-  конфигурации проверяются. Документированная ответственность не выдаётся за математическое
-  доказательство эксклюзивного владения.
-- Базы внешних оракулов и индексаторов не входят в снимок. P9 даёт готовую fixture и выполняет её
-  тест; пользователю не оставляется задача самостоятельно придумать порядок.
-
-## 5. Этапы, зависимости и условия завершения
-
-### P0. Зафиксировать проверяемые входы и полный состав состояния.
-
-**Зависимости:** нет.
-
-**Исполнитель:** bake/native + controller.
-
-Работы:
-
-- Сверить фактические image IDs/platforms с manifests, извлечь source/build metadata. Для modified
-  Geth получить полный diff; если получить невозможно — выбрать согласованный полный commit и
-  собрать новый immutable EL с явными patches. Не заменять текущие tags.
-- Проверить genesis shell/templates и сам CL genesis binary отдельно. Найденный shell совпадает с
-  source 51fb77af..., binary revision 9bbbf55fa9603b4c2e656fe7c441a340ea61f6d6; связать это с
-  выбранными входами.
-- Составить state inventory обоих профилей: EL databases/ancients/blob data/accepted work; BN
-  hot/cold DB, forkchoice queues, op_pool/naive/sync/PTC/custody; VC
-  keys/definitions/secrets/slashing; controller clock/session/admission.
-- Для каждого элемента выбрать «сохранить», «достоверно завершить до checkpoint», «воссоздать без
-  подписей», «запретить до save». Pending и retained already-included user CL operations перечислить
-  явно и различить по текущему state. Pending envelopes/DA должны быть завершены либо checkpoint
-  отказывает; missing persisted op_pool при restore — ошибка.
-- Зафиксировать версии snapshot schema, checkpoint/clock ABI, capability matrix; старый bake без
-  capability не выдаёт фиктивную поддержку. **Готовность:** inventory без неназначенных важных
-  элементов; exact build inputs либо конкретная новая сборка; список проверок и ожидаемые
-  наблюдаемые результаты. Это не gate, требующий уже работающего fork transition.
-
-### P1. Добавить минимальные воспроизводимые регрессии.
-
-**Зависимости:** P0.
-
-**Исполнитель:** native/test.
-
-Работы:
-
-- Native PTC test через существующий Lighthouse harness: настоящие BLS сообщения, обычный
-  import/verification, непустой pool, production serialize/decode, payload attestations следующего
-  слота. Проверить data/signatures и полные PTC bits, включая повторяющиеся committee indices.
-  Использовать подписывающий native harness, не helper с Signature::empty().
-- Аналогичные target checks для naive pools и FC queue определяют, что реально теряется на выбранном
-  cut. Не добавлять persistence для безвредных пересоздаваемых кешей только из-за default().
-- Узкий реальный stop/restart fixture работает напрямую с теми же клиентскими данными и точным
-  clock; не использует будущий snapshot API для доказательства snapshot. Сначала BN/VC restart при
-  работающем EL для локализации, затем полный stop EL/BN/VC. Отсутствующий API/import не считается
-  red.
-- Существующий генератор запускается с будущим schedule и проверяется полученный genesis/config;
-  static controller behavior получает focused phase/decoder regression.
-- Для EL admission воспроизводятся deferred/неоднозначные outcomes на фактически выбранном клиенте и
-  потеря ACK. Отдельно доказанный invalid/rejected tx не блокирует create, а unknown outcome
-  блокирует. Не объявлять research-source риск багом образа до воспроизведения. **Готовность:**
-  сохранённые команды, pin/key и наблюдаемые red результаты; проверки без реальной поломки отмечены
-  как coverage, а не сфабрикованный red.
-
-### P2. Подготовить lifecycle, постоянное хранилище и управляемый вход.
-
-**Зависимости:** P0; релевантные red из P1.
-
-**Исполнитель:** controller/Docker.
-
-Работы:
-
-- Разделить initialize-new/open-existing, stop-preserve/destroy; постоянный service и сменяемую
-  session. Привязать к публичным SDK.close/down/reset и persistent service SIGTERM/restart согласно
-  4.2; исключить удаление durable state из прежнего finally. Отдельные regressions на каждый
-  lifecycle entrypoint, включая owning close и borrowed close: первый удаляет только принадлежащий
-  active runtime, второй оставляет shared service работающим.
-- Реализовать layout generation bindmounts, ownership/path checks и helpers копирования. Исключить
-  использование свежего genesis при resume.
-- Общий maintenance/operation lock вне Timeline; корректный drain автомайна/запросов, отмена faulted
-  ветки для restore; managed EL/CL/VC frontends. Независимый status/operation endpoint доступен и
-  при неработающих клиентах; readiness отражает lifecycle, не висит на их RPC.
-- EL admission ledger с terminal confirmed/consumed/rejected и unresolved, проверенная классификация
-  отказов; перевод всех supported user ingress/fixtures на frontends. **Готовность:** гонки
-  save/advance/automine/import/shutdown не deadlock; acknowledged work не исчезает; незавершённый
-  drain даёт отказ; другая сеть не затронута. Native полнота продолжения ещё не считается
-  доказанной.
-
-### P3. Сделать lossless native checkpoint и проверенный cold resume.
-
-Текущая работа над сохранением PTC и naive attestations, с RED/GREEN и границами проверки:
-[отчёт по persistence](snapshots-p3-persistence.md). Это часть P3; checkpoint ACK, admission/drain и
-parked startup остаются отдельными требованиями ниже.
-
-**Зависимости:** P0/P1/P2.
-
-**Исполнитель:** Lighthouse native + controller.
-
-Работы:
-
-- Добавить явный Panda checkpoint с подтверждением успешной записи, а не разбор одного exit code.
-  Native writers/queues завершаются на согласованном cut; записываются фактические roots, FC slot,
-  время и нужные protocol pools.
-- Версионированные дополнительные checkpoint данные в BN storage сохраняют PTC и другие необходимые
-  буферы из inventory. Поддержанные пользовательские CL pools проходят сохранение/загрузку и
-  проверку дальнейшего включения ровно один раз; included-retained операции не считаются
-  неподтверждёнными. Pending envelopes/DA и неизвестные in-flight buffers нельзя молча отбросить.
-  Применяются обычные правила верификации; поддельные marks, пустые замены и отключение BLS
-  запрещены. Несогласованный/незавершённый checkpoint не считается usable.
-- Startup на сохранённом времени с parked duties до явного продолжения. EL/BN согласуются, VC
-  открывает существующую slashing DB без --init-slashing-protection. Missing/повреждённая БД —
-  отказ. Transient Engine payload IDs/сетевые handles/marks создаются заново, не копируются как
-  доказательство выполненной работы.
-- Чистая остановка VC→BN→EL с сохранением данных; реальный bounded watchdog без признания
-  force-killed checkpoint успешным.
-- Собрать новые native bakes для изменённых профилей, запускать native tests в составе сборки;
-  повторная сборка только при изменении native inputs.
-- Реальный stop/resume Gloas (Pectra отложена): одинаковые сохранённые
-  time/roots/checkpoints/signing history; затем следующий блок, полное участие, economics,
-  транзакция и финальность. **Готовность:** restart не теряет continuation. Reference — отдельно
-  запущенная свежая сеть с теми же входами, без использования новой snapshot реализации; проверка
-  подписей/переходов обычным pinned кодом. Равенство будущих hashes ожидается только при идентичных
-  block inputs; правила сравнения фиксируются до теста, не ослабляются после mismatch.
-
-### P4. Реализовать durable snapshot create.
-
-**Зависимости:** P2/P3.
-
-**Исполнитель:** controller/storage.
-
-Работы:
-
-- Общий gate/drain, проверка healthy/cut/pending EL admission/полноты CL checkpoint; capture anchors
-  после drain. Ожидаемые roots/storage/receipts/balances/SSZ state в тесте читаются напрямую до
-  snapshot независимо от manifest, который создаёт новая реализация.
-- Native checkpoint и чистая остановка, копирование только остановленных баз в temp snapshot.
-  Manifest: schema/ABI, точные images/platform, bakeKey, genesis/schedule/versions/constants, time,
-  EL/CL roots/checkpoints, file inventory/checksums.
-- В snapshot не попадают старые PID/locks/ports/host paths/transient handles. Права приватные;
-  snapshot не входит в Git и обычную загрузку CI logs.
-- Atomic publication, затем resume исходной сети. Если snapshot уже сохранён, а resume упал:
-  structured failure содержит snapshot ID, состояние stopped; снимок остаётся видимым и пригодным.
-  **Готовность:** неизменяемый многоразовый артефакт, никаких скрытых блоков/времени;
-  disk-full/copy/persistence failures не публикуют повреждённый snapshot.
-
-### P5. Реализовать restore, recovery и публичные команды.
-
-**Зависимости:** P4.
-
-**Исполнитель:** controller/API/CLI/container.
-
-Работы:
-
-- До остановки рабочей сети проверить manifest, checksums, совместимость и место на диске; запретить
-  chain/schedule overrides.
-- Restore работает и для faulted сети. Подготовить отдельную generation, не распаковывать поверх
-  active данных. Старые signers остановлены.
-- Запустить восстановленные клиенты parked, проверить реальные anchors/pools/keys/clocks до
-  публикации. Readiness не майнит блок и не отправляет тестовую транзакцию.
-- Durable operation journal + active pointer; commit/publish/cleanup. До commit прежняя generation
-  остаётся authoritative; после commit — новая. Здоровую исходную сеть можно вернуть только после
-  проверки; faulted исходник ready не объявляется. После опубликованных новых подписей
-  автоматический возврат назад запрещён.
-- После SIGKILL startup восстанавливает стадию, но не предполагает согласованный active checkpoint
-  только по наличию БД. При недоказуемом cut service сообщает recovery-required и ждёт явного
-  restore выбранного снимка.
-- Retry semantics: same operation ID+payload не выполняет restore повторно; новый ID к тому же
-  snapshot выполняет. Удаление используемого snapshot запрещено.
-- SDK/CLI create/list/restore/remove/start-from-snapshot используют один механизм. Docker mount
-  /data/panda и stable endpoints проверены; local SDK объект переживает замену session.
-  **Готовность:** create→mutate→restore→mutate→restore; faulted network→restore→next tx/finality;
-  process/container loss; lost HTTP response до/после commit; corrupt/missing files; чужие ресурсы
-  сохранены. Recovery table покрывает каждую стадию.
-
-### P6. Сделать расписание и согласованный genesis.
-
-**Зависимости:** P0/P1. Может разрабатываться независимо от artifact API P4/P5.
-
-**Исполнитель:** config/genesis.
-
-Работы:
-
-- Типизированный immutable schedule поддерживаемых пар форков; register capability отдельно от
-  profile/bake.
-- Один compiler генерирует CL epochs/fork versions, CL blob schedule, BPO epochs и все EL
-  timestamps, раздельные churn constants и exact uint64. Проверить порядок Osaka/BPO до Docker
-  mutation; не наследовать дефолтный BPO epoch 0 при будущем Fulu.
-- Реальный standalone genesis generator, geth init, decode CL genesis state точной версией: старт
-  действительно Electra, будущие Fulu/Gloas не активированы раньше времени.
-- Если generator/EL/CL несовместимы: локализовать компонент, закрепить известный source/patchset,
-  создать новый bake и повторить проверки. Не переключать silently на другой fork. **Готовность:**
-  валидные согласованные EL+CL genesis artifacts с будущим schedule. Здесь не требуется заранее
-  работающий Deno dynamic transition.
-
-### P7. Реализовать честные переходы.
-
-**Зависимости:** P6, необходимые P2/P3 native capabilities.
-
-**Исполнитель:** native/time/consensus.
-
-Работы:
-
-- Resolver активного fork по слоту; Timeline phases и Consensus expectations динамические. Clock
-  marks выбираются также по ABI бинарника.
-- Engine capability preflight для всего пути; правильные payload/envelope/PTC/finality rules.
-  Historical decoder использует объект, включая pre-fork finalized при post-fork head.
-- Native component regressions на границах, PTC service awakening перед Gloas, domains и cache
-  invalidation, proposer/attester/sync duties. Voluntary exit domain проверяется по исключению
-  EIP-7044.
-- Изменённые native inputs собираются в новый immutable bake; затем минимальный полный вертикальный
-  срез до первой границы, реальный первый переход и следующий. Нет кругового требования «сначала
-  пройти переход, потом реализовать его adapters».
-- Отдельно Electra→Fulu, Fulu→Gloas и вся цепочка; реальные blob tx/DA до и после Fulu; операции
-  протокола через границы, economics, signing и финальность. **Готовность:** реальный переход в
-  одной цепочке без замены binaries, согласованные EL/CL и корректные исторические запросы. Каждая
-  рекламируемая пара проверена точными image identities.
-
-### P8. Добавить fast crossing с точным временем.
-
-**Зависимости:** P7.
-
-**Исполнитель:** time/native.
-
-Работы:
-
-- До поддержки crossing — reject полного unsupported диапазона до изменения часов/VC.
-- После поддержки разбить skip по всем границам; последний pre-fork slot и первый post-fork epoch
-  обрабатываются honest. Пересекающиеся окна объединяются.
-- Окно применяется только к пересечению с [current,target]; requested timestamp никогда не
-  превышается. Следующие fast-команды, начавшиеся внутри окна, тоже выполняют честную часть.
-- Небезопасное начальное состояние отклоняется до mutation; проверенный recovery путь реализуется
-  явно.
-- Проверить mid-slot/exact boundary/несколько границ, первый tx после скачка, signing и resumed
-  finality. Сохранить существующие non-crossing budgets; время crossing измерить и до оптимизации
-  закрепить бюджет. Honest часть не превращает весь skipped диапазон в penalty-free. **Готовность:**
-  fast корректно проходит поддержанные переходы, не скрывает дополнительного времени; неподдержанное
-  не выполняется частично.
-
-### P9. Соединить функции и подготовить реальную fixture потребителя.
-
-**Зависимости:** P5/P7/P8.
-
-**Исполнитель:** integration/SDK docs.
-
-Работы:
-
-- Снимки до, после и внутри boundary window; переход→restore→повторный переход; чтение старых
-  блоков/доказательств после post-fork restore.
-- Реальные deposit/activation/consolidation/exit/withdrawal через snapshot и fork с проверкой
-  очередей, балансов и фактических EL выплат, без дублирования внутри каждой ветки.
-- Fixture: остановить consumer; restore; пересоздать provider/nonce cache; очистить отдельный
-  cursor/database; выполнить полный replay от известного deployment/start block (либо genesis) до
-  восстановленного head. Одна точка snapshot не заменяет предшествующую историю. Реальный отдельный
-  процесс до restore должен обработать будущее; после replay проверяются одновременно
-  восстановленные данные ДО snapshot и отсутствие данных отброшенного будущего. **Готовность:**
-  сценарий используется как готовый пример для CL-зависимых тестов. Это не обещание автоматически
-  откатывать произвольные внешние БД и не правки чужого проекта без отдельной задачи.
-
-### P10. Выпускная проверка и документация.
-
-**Зависимости:** все предыдущие.
-
-**Исполнитель:** CI/bake/test.
-
-Работы:
-
-- Зарегистрировать новые scenarios/fingerprints/capabilities в существующих runners; unit/format
-  tests отделены от реальных EL/CL scenarios. Old tags не переписываются, unsupported capability не
-  помечается passed.
-- deno task check/test; Docker/baker/lifecycle проверки; полные применимые test:profile для каждого
-  поставляемого Gloas bake; packaged service и новая transition matrix. Pectra отложена. Сборка
-  отдельна от запуска тестов.
-- Последовательные real-network проверки, включая существующие honest 1000 и fast 8192 сценарии и
-  протокольные suites; не устраивать параллельную нагрузку с измерениями.
-- Измерить save/restore downtime, размер снимка, объём дополнительного диска и время первого tx
-  после возврата. Время не обещается заранее.
-- README: требования, snapshot scope/persistence/recovery, schedule, reset внешнего consumer,
-  private data policy, понятные ошибки. Публичные результаты без личных путей/секретов.
-  **Готовность:** нет незакрытого обязательного gate; все результаты привязаны к exact
-  bake/image/schema/ABI/schedule/suite. Сборка либо отдельный unit pass не выдаются за
-  работоспособность целой фичи.
-
-## 6. Восстановление после сбоя
-
-- До начала maintenance: active сеть продолжает работать; неверный snapshot/параметр ничего не
-  меняет.
-- Drain/capture: новый usable snapshot ещё не опубликован. При неуверенности fail; исходник
-  возобновляется только после доказанного checkpoint, иначе stopped/recovery-required.
-- Snapshot опубликован, original resume упал: snapshot доступен; операция явно сообщает частичный
-  успех и stopped network.
-- Restore staged, до commit: старая generation authoritative, candidate не подписывает. Candidate
-  удаляется/исследуется; старая не запускается вслепую, особенно если была faulted.
-- После durable commit: новая generation authoritative. Повтор HTTP запроса возвращает записанный
-  результат/стадию; не выполняет второй restore. Публикация endpoints восстанавливается для новой
-  generation.
-- После publish/новых подписей: автоматического отката к старой ветке нет. Ошибка cleanup сообщается
-  отдельно, текущая цепочка остаётся authoritative.
-- Unclean process/container loss с persistent root: journal/data сохраняются; это не доказательство
-  lossless active resume. При отсутствии проверенного cut нужен явно выбранный сохранённый snapshot.
-- Ephemeral запуск без сохранённого root: удаление контейнера удаляет его данные. Документация
-  показывает persistent режим для заявленной долговечности.
-
-## 7. Карта основных изменений
-
-src/network.ts и src/docker.ts — open-existing/stop-preserve, generation storage/ownership/copy.
-src/controller.ts, src/api.ts, src/cli.ts, container/main.ts, container/relay.ts — stable frontends,
-session replacement, operation/recovery API, durable mount. src/config.ts и src/profiles.ts —
-schedule, capabilities, native ABI и совместимость snapshot. src/time.ts, src/consensus.ts,
-src/engine.ts — active fork, barriers, historical decoding, restart/time handling.
-bakes/*/lighthouse.patch, bakes/shared/controlled_clock.rs и необходимые native helpers — checkpoint
-persistence/parked startup/fork duties. Все inputs входят в bake key. bakes/shared/tests и
-bakes/gloas/tests — настоящие resume/snapshot/transition/consumer scenarios; tests — unit границы
-config/storage/adapters без выдачи mock за совместимость сети. src/verification.ts и
-scripts/test_profile.ts — fingerprint/matrix и честные capabilities.
-
-## 8. Результат ревью
-
-| Направление                                          | Решение по редакции 4               |
-| ---------------------------------------------------- | ----------------------------------- |
-| Снапшоты, сохранность состояния и подписи            | Одобрено, блокирующих замечаний нет |
-| Переходы между форками и совместимость клиентов      | Одобрено, блокирующих замечаний нет |
-| Порядок реализации, API и восстановление после сбоев | Одобрено, блокирующих замечаний нет |
-
-Одобрение относится к плану, зависимостям и критериям готовности. Оно не подтверждает
-работоспособность будущей реализации и не заменяет перечисленные проверки.
+- Profile/bake selects the binary family; `ActiveFork` is separate status. Existing single-fork
+  genesis remains the default.
+- A transition network uses Gloas-capable binaries from startup, following Electra/Prague →
+  Fulu/Osaka → Gloas/Amsterdam.
+- The schedule is immutable after genesis and during restore. One compiler produces CL epochs, fork
+  versions and EL timestamps, separate pre-Gloas/Gloas churn constants, and exact uint64 or disabled
+  epochs. Actual devnet fork versions are part of identity.
+- A new schedule does not require a new image; changed native support requires a new immutable bake.
+  The first release never swaps binaries at a boundary.
+- Decode historical blocks, states and finalized checkpoints by their own fork/version/slot, not the
+  current head's fork.
+- Honest transitions are mandatory. Until P8 provides fast crossing, unsupported ranges fail before
+  any mutation.
+
+### 4.5 Signatures and external consumers
+
+- Restore rewinds an isolated disposable test branch with controlled devnet keys. Real BLS checks
+  and slashing protection remain enabled within each branch.
+- Signed branches sharing keys/genesis must not be mixed. Managed storage enforces one active local
+  lineage; it cannot globally lock copies on other machines.
+- Validate local keystores, definitions and the complete password/slashing set inside owned mounts.
+  Reject remote signer definitions and external key paths.
+- Panda cannot prove exclusive ownership of arbitrary imported keys. Snapshot mode uses declared
+  disposable test keys; remote signers/external VCs are excluded and their configurations checked.
+- Oracle/indexer databases are outside the snapshot. P9 delivers a tested consumer reset/replay
+  fixture rather than leaving that integration order undefined.
+
+## 5. Stages and acceptance criteria
+
+### P0. Record exact inputs and inventory all state
+
+Dependencies: none. Scope: bake/native and controller.
+
+- Match actual image IDs/platforms to manifests and extract build metadata. Obtain the complete diff
+  of modified Geth or build a new immutable EL from an agreed full commit and explicit patches.
+  Existing tags remain unchanged.
+- Inspect genesis scripts/templates separately from the CL genesis binary. The inspected shell
+  source is `51fb77af…`; the binary revision is `9bbbf55fa9603b4c2e656fe7c441a340ea61f6d6`.
+- Inventory both profiles: EL databases/ancients/blobs/accepted work; BN hot/cold data, fork choice,
+  operation/naive/sync/PTC/custody pools; VC keys/definitions/secrets/slashing; controller clocks,
+  sessions and admission state.
+- Assign every item to preserve, demonstrably drain, recreate without signatures, or refuse before
+  save. Distinguish pending from included-but-retained CL operations. Pending envelopes/DA must
+  finish or cause refusal; missing persisted operation-pool data is an error.
+- Define snapshot schema, checkpoint/clock ABI and capabilities. Old bakes cannot claim capabilities
+  they lack.
+
+Acceptance: no important state has an undefined treatment; exact build inputs or a concrete new
+build are available; checks have observable expected results. Dynamic transitions are not a P0 gate.
+
+### P1. Add minimal reproducible regressions
+
+Dependencies: P0. Scope: native/tests.
+
+- Use the Lighthouse harness with real BLS messages, normal gossip verification, production
+  serialization and next-slot payload attestations. Check data, signatures and all PTC bits,
+  including repeated validator indices; do not use `Signature::empty()`.
+- Identify losses in naive pools and the fork-choice queue at the selected cut. Recreated harmless
+  caches do not require persistence merely because their initializer is empty.
+- Compare an independently running network with direct cold restarts of the same client data/time:
+  BN/VC first, then EL/BN/VC. Do not use a future snapshot API to establish its own correctness.
+  Missing APIs/imports or compilation failures are not behavioral RED.
+- Run the real genesis generator with future forks and inspect its output. Add focused phase/decoder
+  counterexamples for the static controller.
+- Reproduce deferred/ambiguous EL outcomes and lost ACK on the selected binary. Proven rejection
+  must not block create; unknown acceptance must. Unreproduced research-source risks remain risks.
+
+Acceptance: preserve commands, pin/key and observable failures. Checks without an actual defect are
+coverage, not fabricated RED evidence.
+
+### P2. Implement lifecycle, durable storage and managed ingress
+
+Dependencies: P0 and relevant P1 regressions. Scope: controller/Docker.
+
+- Separate initialize-new/open-existing and stop-preserve/destroy. Implement a persistent service
+  with replaceable sessions and the SDK/CLI/SIGTERM contracts in section 4.2. Test each entrypoint,
+  including owning close deleting only its runtime and borrowed close retaining the shared service.
+- Add generation bind mounts, ownership/path checks and copy helpers. Resume cannot generate fresh
+  genesis.
+- Put maintenance/operation locking outside Timeline; drain automine and requests, cancel faulted
+  branches for restore, and manage all EL/CL/VC frontends. Status remains available when clients do
+  not run; readiness reflects lifecycle instead of blocking on their RPC.
+- Add the durable EL ledger with confirmed/consumed/rejected terminal states and unresolved states.
+  Route supported user ingress and fixtures through managed frontends.
+
+Acceptance: save/advance/automine/import/shutdown races do not deadlock or lose acknowledged work;
+failed drain refuses capture; unrelated networks remain untouched. Native continuation is a P3 gate.
+
+### P3. Implement a lossless native checkpoint and verified cold resume
+
+Dependencies: P0/P1/P2. Scope: Lighthouse native and controller. Earlier persistence work is
+recorded in [PTC and attestation persistence](snapshots-p3-persistence.md).
+
+- Add an explicit durable Panda checkpoint ACK. Drain native writers/queues at a consistent cut and
+  record actual roots, fork-choice slot, time and required protocol pools; do not infer success from
+  process exit alone.
+- Persist versioned PTC and other required buffers in BN storage. Supported user operations must
+  survive load and be included once; retained included operations are classified by state. Pending
+  envelopes/DA or unknown work cannot be silently discarded. Retain normal verification; fabricated
+  completion marks, empty substitutes and disabled BLS are prohibited.
+- Start at the saved time with duties parked. Agree EL/BN anchors, open the existing VC slashing DB
+  without `--init-slashing-protection`, and reject missing/corrupt data. Recreate transient Engine
+  payload IDs, handles and marks; they are not evidence of completed work.
+- Stop VC → BN → EL cleanly while retaining data. Use a real bounded watchdog; forced termination
+  cannot produce a successful checkpoint.
+- Build new native bakes only when native inputs change, with native tests inside the build.
+- Test real Gloas stop/resume with exact time/roots/checkpoints/signing history, then the next
+  block, participation, economics, transaction and finality. Pectra is deferred.
+
+Acceptance: restart preserves continuation against a fresh independent network with identical inputs
+and no snapshot implementation. Normal pinned code verifies signatures/transitions. Compare future
+hashes only for identical block inputs; define comparisons before running, not after a mismatch.
+
+### P4. Implement durable snapshot creation
+
+Dependencies: P2/P3. Scope: controller/storage.
+
+- Gate/drain and check health, completed cut, unresolved EL admission and CL checkpoint
+  completeness. Capture anchors after drain. Tests independently read expected
+  roots/storage/receipts/balances/SSZ before capture, instead of trusting the implementation's new
+  manifest.
+- Obtain a native checkpoint, stop cleanly and copy only stopped databases into a temporary
+  snapshot. The manifest binds schema/ABI, exact images/platform, bake key,
+  genesis/schedule/versions/constants, time, EL/CL roots/checkpoints and file inventory/checksums.
+- Exclude old PIDs, locks, ports, host paths and transient handles. Keep permissions private and
+  snapshots outside Git and ordinary CI log uploads.
+- Publish atomically, then resume the original network. If publication succeeds but resume fails,
+  return a structured partial failure with snapshot ID and stopped state; retain the usable
+  snapshot.
+
+Acceptance: an immutable reusable artifact, no hidden blocks/time changes, and no damaged
+publication on disk-full/copy/persistence failure.
+
+### P5. Implement restore, recovery and public commands
+
+Dependencies: P4. Scope: controller/API/CLI/container.
+
+- Validate manifest, checksums, compatibility and disk space before stopping a working network.
+  Reject chain/schedule overrides.
+- Support faulted networks. Prepare a separate generation, never unpack over active data, and stop
+  old signers.
+- Start candidates parked and verify real anchors/pools/keys/clocks before publishing. Readiness
+  must not mine a block or send a test transaction.
+- Journal commit/publish/cleanup durably. The old generation is authoritative before commit and the
+  new one afterward. Recover a healthy source only after validation; a faulted source cannot be
+  advertised as ready. Never automatically return to the old branch after publishing new signatures.
+- Recover the journal stage after SIGKILL. Database presence does not imply a consistent active cut;
+  report recovery-required and wait for explicit restore when consistency is unproven.
+- Same operation ID+payload returns the recorded result without repeating restore. A new ID may
+  restore the same snapshot again. Prevent removal of an in-use snapshot.
+- SDK/CLI create/list/restore/remove/start-from-snapshot use one mechanism. Verify `/data/panda`,
+  stable endpoints and an SDK object that survives session replacement.
+
+Acceptance: create → mutate → restore → mutate → restore; faulted network → restore → next
+transaction/finality; process/container loss; lost HTTP responses before/after commit; corrupt or
+missing files; unrelated resource preservation. Cover every recovery stage.
+
+### P6. Compile schedules and generate consistent genesis
+
+Dependencies: P0/P1; independent of the P4/P5 artifact API. Scope: config/genesis.
+
+- Define a typed immutable schedule for supported fork pairs and separate transition capability from
+  profile/bake selection.
+- Compile CL epochs/versions/blob schedule, BPO epochs, all EL timestamps, separate churn constants
+  and exact uint64 values together. Validate Osaka/BPO ordering before Docker mutation; future Fulu
+  must not inherit BPO epoch zero.
+- Run the real standalone generator, Geth init and exact-version CL state decoder. Prove Electra
+  startup and that Fulu/Gloas have not activated early.
+- If a component is incompatible, identify it, pin known sources/patches, build a new bake and
+  repeat the checks. Never silently select another fork.
+
+Acceptance: consistent EL/CL genesis artifacts with a future schedule. Dynamic Deno transitions are
+not a prerequisite for implementing the genesis compiler.
+
+### P7. Implement honest transitions
+
+Dependencies: P6 and required P2/P3 native capabilities. Scope: native/time/consensus.
+
+- Resolve the active fork by slot. Timeline phases and Consensus expectations are dynamic; clock
+  marks also depend on the binary's ABI.
+- Preflight Engine capabilities for the whole path and apply correct payload/envelope/PTC/finality
+  rules. Historical decoding includes pre-fork finalized checkpoints under a post-fork head.
+- Add native boundary regressions for PTC service activation before Gloas, domains/cache
+  invalidation and proposer/attester/sync duties. Verify the EIP-7044 exception for voluntary-exit
+  domains.
+- Bake changed native inputs, implement the smallest complete path to the first boundary, then test
+  the first and next transitions. Do not require passing a transition before its adapters exist.
+- Test Electra → Fulu, Fulu → Gloas and the whole chain separately, with real blob transactions/DA
+  around Fulu, protocol operations across boundaries, economics, signing and finality.
+
+Acceptance: transitions in one chain without binary replacement, EL/CL agreement and correct
+historical queries. Each advertised pair is tied to tested image identities.
+
+### P8. Implement fast crossing with exact target time
+
+Dependencies: P7. Scope: time/native.
+
+- Until supported, reject the entire unsupported range before changing clocks or VC state.
+- Split supported skips at every boundary. Process the last pre-fork slot and first post-fork epoch
+  honestly, merging overlapping windows.
+- Apply windows only within `[current,target]`; never exceed the requested timestamp. A later fast
+  command starting inside a window must still perform its honest portion.
+- Reject unsafe starting states before mutation and implement the verified recovery path explicitly.
+- Check mid-slot/exact-boundary/multiple-boundary targets, the first transaction, signing and
+  resumed finality. Retain existing non-crossing budgets; measure and set a crossing budget before
+  optimizing. Honest boundary work does not make all skipped slots penalty-free.
+
+Acceptance: supported crossings preserve exact time; unsupported ranges never execute partially.
+
+### P9. Combine the features and provide a real consumer fixture
+
+Dependencies: P5/P7/P8. Scope: integration/SDK documentation.
+
+- Save before, after and inside boundary windows; transition → restore → repeat transition; read old
+  blocks/proofs after a post-fork restore.
+- Test real deposit/activation/consolidation/exit/withdrawal across snapshots and forks, including
+  queues, balances and actual EL payouts, with no duplicate inclusion within a branch.
+- Deliver a fixture that stops the consumer, restores, recreates provider/nonce caches, clears a
+  separate cursor/database and replays from a known deployment/start block or genesis to the
+  restored head. The snapshot point does not replace earlier history. A real separate process must
+  first consume the discarded future; after replay, assert both preserved pre-snapshot data and
+  absence of that future's data.
+
+Acceptance: an executable example for CL-dependent tests. Arbitrary external databases are not
+rewound automatically, and changes to another project require a separate task.
+
+### P10. Release verification and documentation
+
+Dependencies: all previous stages. Scope: CI/bake/tests.
+
+- Register scenarios/fingerprints/capabilities in existing runners. Keep unit/format checks distinct
+  from real EL/CL scenarios. Preserve old tags; unsupported capabilities cannot be marked passed.
+- Run check/test, Docker/baker/lifecycle checks, full applicable profiles for each released Gloas
+  bake, the packaged service and transition matrix. Pectra remains deferred; builds and tests stay
+  separate.
+- Run real networks sequentially, including honest 1000-slot and fast 8192-slot scenarios and the
+  protocol suites. Do not compete with resource measurements.
+- Measure capture/restore downtime, snapshot size, additional disk usage and first-transaction
+  latency. Do not promise these timings before measuring them.
+- Document requirements, snapshot scope/persistence/recovery, schedules, consumer reset, private
+  data handling and actionable errors. Public results must omit personal paths and secrets.
+
+Acceptance: every mandatory gate is closed and bound to exact bake/image/schema/ABI/schedule/suite.
+A successful build or isolated unit suite is not proof of the whole feature.
+
+## 6. Failure recovery
+
+| Failure point                              | Required outcome                                                                                                                                         |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before maintenance                         | The active network continues; invalid input does not mutate it.                                                                                          |
+| Drain/capture                              | No usable snapshot is published. Resume only from a proven checkpoint; otherwise stop/recovery-required.                                                 |
+| Snapshot published, source resume failed   | Retain the usable snapshot and report partial success with a stopped network.                                                                            |
+| Restore staged, before commit              | The old generation remains authoritative; the candidate does not sign. Inspect/remove it without blindly starting a faulted source.                      |
+| After durable commit                       | The new generation is authoritative. Retry returns its recorded stage/result; restore is not repeated. Recover endpoint publication for that generation. |
+| After publish/new signatures               | No automatic rollback. Report cleanup failure separately while retaining the current chain.                                                              |
+| Unclean loss with persistent root          | Preserve journal/data, but require an explicit saved snapshot if the active cut cannot be verified.                                                      |
+| Ephemeral deployment without retained root | Removing the container removes its data. Durability documentation must use persistent storage.                                                           |
+
+## 7. Source map
+
+- `src/network.ts`, `src/docker.ts`, `src/storage.ts`: open-existing, stop-preserve, generations,
+  ownership and copying.
+- `src/controller.ts`, `src/api.ts`, `src/cli.ts`, `src/ingress.ts`, `src/admission.ts`,
+  `container/main.ts`, `container/service.ts`, `container/relay.ts`: stable frontends, session
+  replacement, operation/recovery APIs and durable mounts.
+- `src/config.ts`, `src/profiles.ts`: schedules, capabilities, native ABI and compatibility.
+- `src/time.ts`, `src/consensus.ts`, `src/engine.ts`: active fork, barriers, historical decoding and
+  time/restart behavior.
+- `bakes/*/lighthouse.patch`, `bakes/shared/controlled_clock.rs` and native helpers: persistence,
+  parked startup and fork duties. All native inputs belong in the bake key.
+- `bakes/shared/tests`, `bakes/gloas/tests`: real resume/snapshot/transition/consumer scenarios.
+  `tests`: unit boundaries for config/storage/adapters, not substitutes for client compatibility.
+- `src/verification.ts`, `scripts/test_profile.ts`: suite fingerprints, matrices and capability
+  claims.
+
+## 8. Plan review
+
+Revision 4 was approved without blocking findings in three reviews: snapshot/state/signing safety;
+fork transitions/client compatibility; and implementation order/API/failure recovery. This approval
+covers the plan and its acceptance criteria. Executed results, not plan approval, establish which
+features work.

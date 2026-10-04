@@ -153,3 +153,7 @@ patch_direct_sync(root, profile='gloas')
 
 from patch_checkpoint import apply as patch_checkpoint
 patch_checkpoint(root)
+from patch_migrator import apply as patch_migrator
+patch_migrator(root)
+from patch_reconstruction import apply as patch_reconstruction
+patch_reconstruction(root)

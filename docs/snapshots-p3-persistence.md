@@ -1,127 +1,127 @@
-# Gloas: PTC и аттестации при холодном рестарте
+# Gloas: PTC and attestation persistence across cold restart
 
-Дата: 2026-10-02. Это исправление подтверждённого дефекта PTC из [P0–P1](snapshots-p0-p1.md), часть
-[P3](snapshots-hardforks-plan.md). Оно само по себе не реализует публичный snapshot/restore API и не
-закрывает весь P3.
+Historical checkpoint: 2026-10-02. This records the first persistence fix for the defect reproduced
+in [P0–P1](snapshots-p0-p1.md), part of [P3](snapshots-hardforks-plan.md). It did not by itself
+implement a public snapshot API or complete P3. The later lifecycle, admission and checkpoint work
+is covered by the [current P0–P3 verification report](snapshots-p0-p3-status.md).
 
-## Причина и исправление
+## Cause and fix
 
-В закреплённом Lighthouse `2d281dfa1b407f7c81cd123954a9fd18ee8f02d2` пул
-`payload_attestation_messages` существовал только в памяти. Штатное сохранение operation pool
-пропускало его; загрузка создавала пустой пул. Поэтому первый блок после остановки BN терял голоса
-за payload предыдущего слота. Рост номера блока и EL/CL agreement оставались исправными, но тело
-блока и state root отличались от непрерывно работающей сети.
+In pinned Lighthouse `2d281dfa1b407f7c81cd123954a9fd18ee8f02d2`, `payload_attestation_messages`
+existed only in memory. Normal operation-pool persistence omitted it, and loading created an empty
+pool. The first block after BN restart therefore lost votes for the previous slot's payload. Head
+growth and EL/CL agreement still worked, but the block body and state root differed from an
+uninterrupted network.
 
-[Новый формат persistence](../bakes/gloas/native/persistence.rs) добавляет в тот же сохраняемый
-operation pool исходные проверенные PTC-сообщения: индекс валидатора, данные и подпись. При загрузке
-они возвращаются через обычный метод вставки Lighthouse. Формирование следующего агрегата остаётся
-за существующей реализацией клиента: это существенно, поскольку один валидатор может занимать
-несколько из 512 позиций PTC. Мы не сохраняем выдуманный готовый агрегат и не заменяем проверку
-подписей.
+The [persistence format](../bakes/gloas/native/persistence.rs) adds the original verified PTC
+messages—validator index, data and signature—to the same stored operation pool. Loading reinserts
+them through the normal Lighthouse method. Existing client logic constructs the next aggregate; this
+matters because one validator can occupy multiple positions in the 512-member PTC. No fabricated
+aggregate or signature bypass is used.
 
-Расширенная проверка обнаружила вторую потерю: после остановки на slot 32 блок 33 терял обычную
-аттестацию, даже когда PTC уже сохранялись. Причина — `naive_aggregation_pool`: проверенные голоса
-попадают в operation pool при производстве следующего блока. Если агрегатор не опубликовал
-`SignedAggregateAndProof`, при остановке до следующего блока сохранять было нечего.
-[Patch](../bakes/gloas/patch_checkpoint.py) теперь переносит эти уже проверенные аттестации в
-operation pool перед `persist_op_pool()`, тем же способом, который использует block production.
-Индексы участников берутся из состояния, ошибки переноса возвращаются вызывающему коду.
-Дополнительный блок не выпускается, head и protocol time не изменяются.
+Extended testing found another loss: after stopping at slot 32, block 33 lacked an ordinary
+attestation even with PTC preserved. Verified votes in `naive_aggregation_pool` enter the operation
+pool during production of the next block. If the aggregator has not published
+`SignedAggregateAndProof`, stopping before that block leaves those votes outside the stored pool.
+The [patch](../bakes/gloas/patch_checkpoint.py) transfers verified attestations into the operation
+pool before `persist_op_pool()`, using the production path for block construction. Participant
+indices come from state, and transfer errors propagate. No extra block is produced; head and
+protocol time remain unchanged.
 
-Запись получает отдельную сигнатуру `PANDAOPPOOL`, версию `1` и SHA-256 от SSZ-тела. Неизвестная
-версия, усечённые или повреждённые записи возвращают ошибку, а не пустой пул. Контрольная сумма
-проверяет целостность; это не защита от администратора, который может переписать запись и
-пересчитать сумму. Дубликат одной пары data/validator index отклоняется. Остальные поля operation
-pool сохраняются вместе с PTC в прежней записи БД.
+The record has magic `PANDAOPPOOL`, version `1` and a SHA-256 checksum of its SSZ body. Unknown
+versions, truncated/corrupt records and duplicate data/validator-index pairs cause errors rather
+than an empty pool. The checksum detects integrity failures; it does not protect against an
+administrator who can rewrite the record and its checksum. Other operation-pool fields remain in the
+same database record.
 
-Старый V20 читается для совместимости, но уже потерянные им PTC восстановить невозможно. После
-записи нового формата старый Lighthouse не сможет прочитать этот operation pool: откат бинарника на
-тот же datadir не поддерживается. Для воспроизводимого тестирования нужны новая сеть и новый bake, а
-не подмена клиента внутри старого тега.
+Legacy V20 records remain readable, but their already-lost PTC cannot be recovered. An older
+Lighthouse cannot read the new format, so binary rollback on the same datadir is unsupported.
+Reproducible testing uses a new network and immutable bake instead of replacing a client inside an
+existing tag.
 
-Gloas `bakerVersion` повышена до `2`. Patch и native tests входят в идентичность сборки; старые
-immutable manifests и опубликованные образы не переписываются. Pectra не изменяется.
+This historical change raised Gloas `bakerVersion` to `2`. Patch and native tests are part of build
+identity; existing manifests and published images were not rewritten. Pectra was unchanged. The
+later complete checkpoint bake uses baker 3.
 
-## Проверки
+## Executed evidence
 
-Исходные приватные логи находятся под ignored `.cache/p3/` и `.panda/`. Публичные данные не должны
-включать пути пользовательского checkout или идентификаторы чужих Docker workloads. Машиночитаемые
-результаты и идентичности:
+Private logs and network data are under ignored `.cache/p3/` and `.panda/`. Public identities and
+measurements are in
 [reports/snapshots/p3-persistence.json](../reports/snapshots/p3-persistence.json).
 
-- На старом `ci-main-merge` нативная регрессия снова упала именно на потере PTC после production
-  StoreItem round-trip. Это поведенческий RED, не ошибка компиляции.
-- На исправленной реализации четыре native tests прошли: реальные BLS-подписи и все 512 PTC-позиций
-  переживают сериализацию и запись/чтение через `chain.persist_op_pool()`; sync contributions и
-  необходимые голоса сохраняются; старый формат читается, повреждения и неизвестная версия
-  отклоняются.
-- Дополнительная native regression сначала упала на потере verified naive votes, затем прошла после
-  переноса перед сохранением. Она использует слот 32, настоящую gossip verification и отсутствие
-  aggregator messages; head остаётся прежним.
-- Инъекция ошибки записи MemoryStore возвращает ошибку из `persist_op_pool()` и не меняет предыдущую
-  запись. Это проверка обработки ошибки БД, а не имитация отключения питания диска.
-- `deno task check`: PASS. Обычные тесты: 114 passed, 0 failed; Docker/e2e не входят в этот
-  результат.
-- Промежуточная сборка `p3-ptc`: BUILD PASS, `linux/arm64`, ключ
-  `d058ec809875f8da6e5f20468711d2fba232f9d1ccbff7defa2517a42c6b8ad1`, Lighthouse image
-  `sha256:c24f18add57879ebe271048df832cc9bfb7711866d81d6bc77e2c6fc4d8c01be`. Все native targets
-  выполнены builder до упаковки бинарника.
-- Повтор исходной реальной регрессии, cut 3: BN/VC restart **PASS**, EL/BN/VC restart **PASS**.
-  Подписанный блок 4 совпал с независимой сетью без рестарта целиком.
-- Расширенная регрессия `p3-ptc`: **FAIL**, найдена потеря аттестации slot 32 в блоке 33. Этот bake
-  не считается исправленным cold resume.
-- Сборка `p3-persistence` с обоими исправлениями: BUILD PASS, `linux/arm64`, ключ
-  `6e3bdd2927d87e250435fb39ca0ce836d5423c54c845033f647a2d6a54327caa`, Lighthouse image
-  `sha256:69a1bca182ec60e2e995feac613205dc473be9a3bb240656bcb43bf11f530d4e`.
-- На `p3-persistence` BN/VC restart в точках 3, 31, 32, 127 и 128: **PASS**, включая полное
-  сравнение с непрерывной сетью до slot 226 / finalized epoch 5.
-- На `p3-persistence` EL/BN/VC restart в тех же пяти точках: **PASS**, включая полное сравнение до
-  slot 226 / finalized epoch 5. Блок 33 теперь содержит ту же аттестацию slot 32 и получает state
-  root `0x5dd77bc7c7c50da1b95b0f19a0513a9b1d1a62e68cc486206f7463653f943672`, что и независимая сеть
-  без остановки.
-- Полный Gloas suite: **11 passed, 0 failed**, 13 минут 37 секунд. Команда:
-  `deno task test:profile gloas --bake p3-persistence`. В одном прогоне прошли baseline, lifecycle,
-  e2e, два honest-прыжка по 1000 слотов, два fast-прыжка по 8192 слота, economics, protocol,
-  withdrawal, deploy, Gloas barriers и расширенный cold restart.
-  [Verification](../reports/profiles/gloas/p3-persistence/verification.json) привязана к одному bake
-  key, suite fingerprint и run ID `17a945d2-d5d4-4fc1-97fa-cbe928a23596`.
+- The regression on old `ci-main-merge` failed specifically because PTC was lost after production
+  StoreItem serialization. This was behavioral RED, not a compilation failure.
+- Four native tests passed with the fix: real BLS signatures and all 512 PTC positions survived
+  serialization and database write/read through `chain.persist_op_pool()`; sync contributions and
+  required votes survived; legacy records loaded; corrupt and unknown versions were refused.
+- An additional regression first failed on lost verified naive votes and then passed after the
+  transfer-before-persistence fix. It uses slot 32, real gossip verification and no aggregator
+  messages; head remains unchanged.
+- An injected MemoryStore write failure propagated from `persist_op_pool()` and preserved the prior
+  record. This tests database error handling, not disk power-loss recovery.
+- `deno task check` passed. Ordinary tests reported 114 passed, 0 failed, excluding Docker/E2E.
 
-Первый полный прогон дал 10 passed / 1 failed: перед запуском fast-сценария из локального Docker
-исчез точный Geth image. Docker events подтвердили удаление; источник удаления не установлен. Тот же
-image ID восстановлен из локального архива и удержан на время проверки. После этого отдельно прошёл
-fast-сценарий и заново прошёл весь suite. Полный PASS относится ко второму цельному прогону, а не к
-объединению результатов разных попыток.
+| Historical build                      | Identity and result                                                                                                                                                                     |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `p3-ptc`                              | BUILD PASS on `linux/arm64`; key `d058ec809875f8da6e5f20468711d2fba232f9d1ccbff7defa2517a42c6b8ad1`; CL image `sha256:c24f18add57879ebe271048df832cc9bfb7711866d81d6bc77e2c6fc4d8c01be` |
+| Original cut 3 on `p3-ptc`            | BN/VC restart PASS and EL/BN/VC restart PASS; signed block 4 matched the independent uninterrupted network completely                                                                   |
+| Extended cut 32 on `p3-ptc`           | FAIL: block 33 lost the slot-32 attestation; this bake was not accepted as the complete cold-resume fix                                                                                 |
+| `p3-persistence`, with both fixes     | BUILD PASS on `linux/arm64`; key `6e3bdd2927d87e250435fb39ca0ce836d5423c54c845033f647a2d6a54327caa`; CL image `sha256:69a1bca182ec60e2e995feac613205dc473be9a3bb240656bcb43bf11f530d4e` |
+| BN/VC restart on `p3-persistence`     | PASS at cuts 3, 31, 32, 127 and 128, including comparison through slot 226 / finalized epoch 5                                                                                          |
+| EL/BN/VC restart on `p3-persistence`  | PASS at the same five cuts, through slot 226 / finalized epoch 5                                                                                                                        |
+| Complete `p3-persistence` Gloas suite | **11 passed, 0 failed**, 13 min 37 s, in one complete run                                                                                                                               |
 
-[Регрессия холодного рестарта](../bakes/gloas/tests/restart.ts) включена в Gloas `test:profile`. Она
-сравнивает BN/VC restart и EL/BN/VC restart с отдельно созданной сетью без рестартов. Точки
-остановки: слоты 3, 31, 32, 127, 128. Сравнение включает целиком подписанные блоки до и после
-остановки, затем транзакцию, последующие блоки, rewards, финальность и историю подписей. Для
-slashing history учитывается точное штатное pruning закреплённого Lighthouse: сохраняются записи
-текущей/предыдущей эпохи и максимальная запись каждого валидатора, даже если она старше. При restart
-все оставшиеся записи и signing roots должны совпадать. Дополнительно проверяются watermarks,
-double/surround votes и возобновление attesting. Удаление нужной записи или изменение подписи не
-допускается; исходные экспорты остаются в приватных данных проверки. Дополнительно проверяются
-полное sync/PTC участие, отсутствие attestation penalties и согласие финализированного execution
-hash. Базы и ключи сохраняются; VC запускается без `--init-slashing-protection`.
+Native targets ran in the builder before binary packaging. With both fixes, block 33 included the
+same slot-32 attestation and state root
+`0x5dd77bc7c7c50da1b95b0f19a0513a9b1d1a62e68cc486206f7463653f943672` as the uninterrupted network.
 
-Host-порты при пересоздании назначаются Docker заново, как при существующем fast restart VC в Panda.
-Они являются транспортными ресурсами, а не частью сохраняемого состояния сети.
+The complete command was `deno task test:profile gloas --bake p3-persistence`. It covered baseline,
+lifecycle, e2e, two honest 1000-slot jumps, two fast 8192-slot jumps, economics, protocol,
+withdrawal, deploy, Gloas barriers and extended cold restart.
+[Verification](../reports/profiles/gloas/p3-persistence/verification.json) binds the bake key, suite
+fingerprint and run ID `17a945d2-d5d4-4fc1-97fa-cbe928a23596`.
 
-## Надёжность и границы
+An earlier complete attempt had 10 passes and one failure because the exact Geth image disappeared
+before the fast scenario. Its deletion source was not established for that attempt. After restoring
+the same image ID from a local archive, the fast scenario passed individually and a new complete
+suite passed. The final PASS belongs to that second whole run, not merged results from separate
+attempts.
 
-Способ устраняет причину дефекта: недостающие сообщения становятся частью штатного сохранения
-operation pool. Достоверность проверяется на двух уровнях: production serialization/storage с
-настоящими подписями и отдельный тест реальных клиентов с эталонной непрерывной сетью. Равенство
-следующего блока сильнее проверки доступности RPC или движения head.
+## What the real restart regression checks
 
-Для штатной остановки после завершённого слота и запуска на тех же данных способ подтверждён
-повторяемыми native и реальными клиентскими тестами, включая границы эпох. Проверен `linux/arm64`;
-CI на `linux/amd64` и публикация образа в этом запуске не выполнялись. Старый опубликованный образ
-исправления не получит: потребуется собрать и выпустить новый Lighthouse bake.
+The [cold-restart regression](../bakes/gloas/tests/restart.ts) is part of Gloas `test:profile`. It
+compares BN/VC and EL/BN/VC restart with an independently created uninterrupted network at slots 3,
+31, 32, 127 and 128. It compares complete signed blocks before and after restart, followed by a
+transaction, subsequent blocks, rewards, finality and signing history.
 
-Полный P3 пока требует отдельных изменений из P2/P3: admission gate и drain writers, явный
-checkpoint ACK после успешного сохранения всех компонентов, проверку полноты pending buffers, parked
-startup, согласованный отказ при missing/corrupt DB и восстановление controller lifecycle. Нынешний
-upstream shutdown только логирует некоторые ошибки persistence; код выхода 0 не доказывает полный
-checkpoint. Исправление PTC не превращает SIGKILL или произвольное копирование живых volumes в
-надёжный snapshot.
+Signing-history checks account for the pinned Lighthouse's actual pruning: records from the
+current/previous epoch and each validator's highest record are retained, even when that highest
+record is older. Every remaining record and signing root must survive restart unchanged. Checks also
+cover watermarks, double/surround votes and resumed attesting. Required records cannot be removed or
+signatures changed. Original exports remain in private test data.
+
+The test additionally verifies complete sync/PTC participation, absence of attestation penalties,
+and agreement on the finalized execution hash. Keys and databases are preserved; VC starts without
+`--init-slashing-protection`.
+
+In these direct-client tests, Docker reallocates private host ports when clients are recreated, as
+in fast VC restart. Ports are transport resources, not persisted network state. Stable public
+endpoints are provided separately by the later managed frontends.
+
+## Reliability and scope
+
+The fix addresses the cause: missing messages become part of normal operation-pool persistence.
+Evidence comes from production serialization/storage with real signatures and a separate real-client
+comparison against an uninterrupted reference network. Exact next-block equality checks behavior
+that RPC availability or head movement cannot establish.
+
+These tests establish clean stop after a completed slot and restart on the same data, including
+epoch boundaries, on `linux/arm64`. AMD64 CI and publication were not performed in this run.
+Previously published images do not acquire the fix automatically; release requires a new bake.
+
+At this historical stage, completing P2/P3 still required admission and writer draining, explicit
+checkpoint ACK after every component was saved, completeness checks for pending buffers, parked
+startup, refusal of missing/corrupt databases and controller lifecycle recovery. Those requirements
+are now covered by the separate current report. The original upstream shutdown merely logged some
+persistence errors, so exit code 0 was insufficient evidence of a checkpoint. This persistence fix
+alone does not make SIGKILL or copying live volumes a reliable snapshot mechanism.

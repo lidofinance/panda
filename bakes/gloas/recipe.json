@@ -13,7 +13,17 @@
     "bakes/gloas/native/prepare_skip.rs",
     "bakes/shared/native/direct_sync_test.rs",
     "bakes/gloas/native/persistence.rs",
-    "bakes/gloas/native/restart_test.rs"
+    "bakes/gloas/native/restart_test.rs",
+    "bakes/gloas/native/checkpoint.rs",
+    "bakes/gloas/native/admission_test.rs",
+    "bakes/gloas/native/signing_admission_test.rs",
+    "bakes/gloas/native/vc_admission.rs",
+    "bakes/gloas/patch_migrator.py",
+    "bakes/gloas/native/migrator_admission.rs",
+    "bakes/gloas/native/migrator_admission_test.rs",
+    "bakes/gloas/native/reconstruction_test.rs",
+    "bakes/gloas/native/blob_checkpoint_fixture.json",
+    "bakes/gloas/patch_reconstruction.py"
   ],
   "preparedSkip": true,
   "nativeTests": [
@@ -32,12 +42,28 @@
     {
       "package": "beacon_chain",
       "target": "panda_restart"
+    },
+    {
+      "package": "http_api",
+      "target": "panda_checkpoint_admission"
+    },
+    {
+      "package": "signing_method",
+      "target": "panda_signing_admission"
+    },
+    {
+      "package": "beacon_chain",
+      "target": "panda_migrator_admission"
+    },
+    {
+      "package": "beacon_chain",
+      "target": "panda_reconstruction"
     }
   ],
   "runtime": "debian@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251",
   "clRepository": "https://github.com/sigp/lighthouse.git",
   "elRepository": "https://github.com/ethereum/go-ethereum.git",
-  "goBuilder": "golang:1.25-bookworm",
+  "goBuilder": "golang@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437",
   "tests": {
     "baseline": "bakes/shared/tests/baseline.ts",
     "lifecycle": "bakes/shared/tests/lifecycle.ts",
@@ -49,7 +75,9 @@
     "withdrawal": "bakes/shared/tests/withdrawal_test.ts",
     "deploy": "bakes/shared/tests/deploy.ts",
     "gloas": "bakes/gloas/tests/gloas.ts",
-    "restart": "bakes/gloas/tests/restart.ts"
+    "restart": "bakes/gloas/tests/restart.ts",
+    "resume": "bakes/gloas/tests/resume.ts",
+    "blob-checkpoint": "bakes/gloas/tests/blob_checkpoint.ts"
   },
   "name": "gloas",
   "elFork": "amsterdam",
@@ -84,7 +112,9 @@
     "SLOT_DURATION_MS": "12000"
   },
   "clVersion": "8.2.2",
-  "bakerVersion": 2,
+  "bakerVersion": 3,
   "clockWait": true,
-  "directSync": true
+  "directSync": true,
+  "checkpointAbi": 1,
+  "elRef": "5d8fd6b6082f9aa330dbaf5df52dfcfdb445f186"
 }

@@ -5,7 +5,7 @@ import { privateKey } from "../../../src/config.ts";
 import { finalizedExecutionHash } from "../../../src/consensus.ts";
 import { delay, json } from "../../../src/http.ts";
 import { Network } from "../../../src/network.ts";
-import { report } from "./report.ts";
+import { profileReport } from "./report.ts";
 import {
   assertFullBitvector,
   assertFullParticipation,
@@ -29,7 +29,7 @@ interface State {
 }
 const state = async () => {
   const result = await json<{ execution_optimistic: boolean; data: State }>(
-    `${manifest.beacon}/eth/v2/debug/beacon/states/head`,
+    `${net.beaconUrl}/eth/v2/debug/beacon/states/head`,
     { headers: { accept: "application/json" } },
   );
   assert.equal(result.execution_optimistic, false);
@@ -57,7 +57,7 @@ for (const method of ["advanceTime", "advanceTo"] as const) {
   const rewards: { epoch: number; data: { total_rewards: AttestationReward[] } }[] = [];
   for (let e = Math.floor(start.slot / 32); e <= epoch - 2; e++) {
     const response = await json<{ data: { total_rewards: AttestationReward[] } }>(
-      `${manifest.beacon}/eth/v1/beacon/rewards/attestations/${e}`,
+      `${net.beaconUrl}/eth/v1/beacon/rewards/attestations/${e}`,
       { method: "POST", headers: { "content-type": "application/json" }, body: "[]" },
     );
     rewards.push({ epoch: e, data: { total_rewards: response.data.total_rewards } });
@@ -211,11 +211,14 @@ if (manifest.bake.recipe.directSync) {
   );
   const token = (await Deno.readTextFile(`${manifest.directory}/validator-keys/keys/api-token.txt`))
     .trim();
-  const deleted = await json<{ data: { status: string }[] }>(`${manifest.vc}/eth/v1/keystores`, {
-    method: "DELETE",
-    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-    body: JSON.stringify({ pubkeys: [record.data.validator.pubkey] }),
-  });
+  const deleted = await json<{ data: { status: string }[] }>(
+    `${net.validatorUrl}/eth/v1/keystores`,
+    {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ pubkeys: [record.data.validator.pubkey] }),
+    },
+  );
   assert.equal(deleted.data[0]?.status, "deleted");
   const started = performance.now();
   const previousTimeout = Deno.env.get("PANDA_TIMEOUT_MS");
@@ -236,15 +239,19 @@ if (manifest.bake.recipe.directSync) {
   }
   const elapsedMs = performance.now() - started;
   assert(elapsedMs < 40_000, "missing-key failure must use a bounded real deadline");
-  const stopped = await net.status();
+  const stopped = await net.lifecycle();
+  assert.equal(stopped.ready, false);
+  assert.equal(stopped.phase, "faulted");
   assert.equal(stopped.slot, nextSlot, "must stop before producing the following block");
-  const head = await net.beacon("/eth/v1/beacon/headers/head");
-  await assert.rejects(net.stepSlot(), /reset required/);
+  // Private read-only evidence remains available after managed user ingress is faulted.
+  const headUrl = `${manifest.beacon}/eth/v1/beacon/headers/head`;
+  const head = await json(headUrl);
+  await assert.rejects(net.stepSlot(), /faulted/);
   await delay(100);
-  assert.deepEqual(await net.beacon("/eth/v1/beacon/headers/head"), head);
+  assert.deepEqual(await json(headUrl), head);
   failureSafety = { removedIndex, elapsedMs, stoppedSlot: stopped.slot };
 }
-await report(net, "warp-economics", {
+await profileReport(before, "warp-economics", {
   passed: failures.length === 0,
   criteria: ["W03", "W04", "W07"],
   scope: "96-slot healthy fixed-registry regression; not full acceptance or performance",

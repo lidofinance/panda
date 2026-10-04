@@ -1,0 +1,27 @@
+{
+  "profile": "gloas",
+  "tag": "p3-checkpoint-r3",
+  "bakeKey": "d025fd2703f3410d67804efc6ff91c90658e95f790db4f46fc6dfb42bb6442e3",
+  "runId": "a52dbc50-94d6-440c-99da-d161ce760b55",
+  "suiteHash": "badc908c6cfd0b4183d1c6615363fdbfbfdc4d80d0aced854c6740ae5b3dbb05",
+  "startedAt": "2026-10-03T19:01:03.191Z",
+  "scenarios": [
+    "baseline",
+    "lifecycle",
+    "e2e",
+    "warp",
+    "warp-fast",
+    "warp-economics",
+    "protocol",
+    "withdrawal",
+    "deploy",
+    "gloas",
+    "restart",
+    "resume"
+  ],
+  "finishedAt": "2026-10-03T19:17:48.697Z",
+  "elapsedMs": 1005476.427667,
+  "passed": false,
+  "status": "failed",
+  "error": "Error: Test process exited 1"
+}

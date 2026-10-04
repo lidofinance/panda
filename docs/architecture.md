@@ -16,15 +16,21 @@ HTTP stream failures, so they are not supported.
 The baseline uses the official Lighthouse image. The controlled profile refuses to start without the
 locally built fork. It never falls back to ordinary clocks.
 
-Genesis, the validator client and the deposit-key fixture run with the controller's numeric UID/GID.
-They write into its bind-mounted `.panda/<id>` directory, so a non-root Linux controller can update
-metadata, read private keys/API tokens and reset the network. Fast VC replacement preserves this
-user. Geth and the beacon node keep their image defaults and write client state into named volumes.
+Genesis, EL, BN, VC and the deposit-key fixture run with the controller's numeric UID/GID. Each
+generation has separate bind-mounted EL, BN and shared/VC directories under `.panda/<id>` (or
+`PANDA_DATA_DIR`). A non-root Linux controller can read and preserve this state. Fast VC replacement
+keeps that user and opens the existing signing database.
+
+Managed EL/CL/VC frontends share a maintenance gate outside the Timeline lock. A durable EL
+admission ledger retains unresolved submissions independently of the txpool. Checkpoint-capable
+bakes drain native writers, persist and read back a Lighthouse receipt, then stop VC→BN→EL before
+recording file inventories. Resume starts parked and verifies exact data/time/heads before opening
+ingress. See [lifecycle](lifecycle.md) for API, storage and failure semantics.
 
 ```mermaid
 flowchart LR
   Test[Test / TypeScript API] --> C[Deno controller and RPC proxy]
-  C -->|dockerode| Docker[Owned containers / volumes / network]
+  C -->|dockerode| Docker[Owned containers / generation storage / network]
   C -->|protocol phases and completion barriers| BN[Lighthouse beacon node]
   C -->|same protocol time| VC[Lighthouse validator client]
   VC -->|standard Beacon API, real signatures| BN

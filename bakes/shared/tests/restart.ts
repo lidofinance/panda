@@ -1,7 +1,9 @@
-/** Real cold-restart regression. This fixture is not a public stop/resume or snapshot API. */
+/** Independent uninterrupted reference, direct cold restart and managed stop/resume comparison. */
 import assert from "node:assert/strict";
 import { Wallet } from "ethers";
 import { Controller } from "../../../src/controller.ts";
+import { Devnet } from "../../../src/api.ts";
+import { stateDirectory } from "../../../src/storage.ts";
 import { account, privateKey } from "../../../src/config.ts";
 import {
   type ClockState,
@@ -29,9 +31,9 @@ type Block = {
     message: { slot: string; state_root: string; body: Record<string, unknown> };
   };
 };
-type Restart = "none" | "cl" | "all";
+type Restart = "none" | "cl" | "all" | "managed";
 
-async function restartClients(c: Controller, restart: Exclude<Restart, "none">, nowMs: number) {
+async function restartClients(c: Controller, restart: "cl" | "all", nowMs: number) {
   const m = c.manifest;
   const infra = c.network.infra;
   const roles = restart === "all" ? ["vc", "bn", "el"] : ["vc", "bn"];
@@ -116,17 +118,25 @@ async function restartClients(c: Controller, restart: Exclude<Restart, "none">, 
       });
     }
   }
-  await Deno.writeTextFile(`${m.directory}/manifest.json`, JSON.stringify(m, null, 2));
+  await Deno.writeTextFile(
+    `${stateDirectory(m.config.id)}/manifest.json`,
+    JSON.stringify(m, null, 2),
+  );
 }
 
 async function sample(restart: Restart, cuts: number[], continuation: boolean) {
   const c = await Controller.start({ id: `restart-${restart}-${crypto.randomUUID().slice(0, 8)}` });
-  const m = c.manifest;
+  let m = c.manifest;
   let timeline = c.time;
+  const api = restart === "managed" ? new Devnet(c.serve(0)) : undefined;
+  const advance = async (count: number) => {
+    if (api) await api.advanceSlots(count);
+    else await timeline.advanceSlots(count);
+  };
   try {
     const checkpoints = [];
     for (const cut of cuts) {
-      await timeline.advanceSlots(cut - timeline.slot);
+      await advance(cut - timeline.slot);
       const before = await json<Block>(`${m.beacon}/eth/v2/beacon/blocks/head`);
       const beforeEl = await rpc<{ hash: string }>(m.el, "eth_getBlockByNumber", ["latest", false]);
       const clock = await json<ClockState>(m.bnClock);
@@ -134,7 +144,18 @@ async function sample(restart: Restart, cuts: number[], continuation: boolean) {
       assert.equal(clock.marks.fork_choice, cut, "cut must follow the fork-choice barrier");
       const history = continuation ? await exportSigningHistory(m) : undefined;
       if (restart !== "none") {
-        await restartClients(c, restart, clock.nowMs);
+        if (api) {
+          const session = (await api.lifecycle()).sessionId;
+          await api.stop();
+          assert.equal((await api.lifecycle()).ready, false);
+          await assert.rejects(api.stepSlot(), /parked/);
+          await api.resume();
+          assert.equal((await api.lifecycle()).ready, true);
+          assert.notEqual((await api.lifecycle()).sessionId, session);
+          m = c.manifest;
+          assert.equal(c.time.nowMs, clock.nowMs);
+          assert.equal(c.automine.enabled, false);
+        } else await restartClients(c, restart as "cl" | "all", clock.nowMs);
         assert.deepEqual(
           await json<Block>(`${m.beacon}/eth/v2/beacon/blocks/head`),
           before,
@@ -155,8 +176,8 @@ async function sample(restart: Restart, cuts: number[], continuation: boolean) {
           );
         }
       }
-      timeline = await Consensus.connect(m, c.network.engine);
-      await timeline.stepSlot();
+      timeline = api ? c.time : await Consensus.connect(m, c.network.engine);
+      await advance(1);
       const next = await json<Block>(`${m.beacon}/eth/v2/beacon/blocks/head`);
       assert.equal(Number(next.data.message.slot), cut + 1);
       assert.equal(
@@ -183,8 +204,10 @@ async function sample(restart: Restart, cuts: number[], continuation: boolean) {
         maxPriorityFeePerGas: 1_000_000_000n,
         type: 2,
       });
-      const hash = await rpc<string>(m.el, "eth_sendRawTransaction", [signed]);
-      await timeline.stepSlot();
+      const hash = api
+        ? await api.rpc<string>("eth_sendRawTransaction", [signed])
+        : await rpc<string>(m.el, "eth_sendRawTransaction", [signed]);
+      await advance(1);
       const receipt = await rpc<{ status: string; blockHash: string } | null>(
         m.el,
         "eth_getTransactionReceipt",
@@ -193,7 +216,7 @@ async function sample(restart: Restart, cuts: number[], continuation: boolean) {
       assert(receipt, "transaction after restart was not included");
       assert.equal(receipt.status, "0x1");
       assert.equal(receipt.blockHash, (await executionAt(m, "head")).block_hash);
-      await timeline.advanceSlots(96);
+      await advance(96);
       const head = await json<Block>(`${m.beacon}/eth/v2/beacon/blocks/head`);
       const state = await json<{
         execution_optimistic: boolean;
@@ -260,7 +283,11 @@ async function sample(restart: Restart, cuts: number[], continuation: boolean) {
   }
 }
 
-export async function runRestart(selected: "cl" | "all", cuts = [3], continuation = false) {
+export async function runRestart(
+  selected: "cl" | "all" | "managed",
+  cuts = [3],
+  continuation = false,
+) {
   assert(
     cuts.length > 0 &&
       cuts.every((cut, i) =>

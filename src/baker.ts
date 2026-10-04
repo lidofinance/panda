@@ -2,6 +2,7 @@ import { atomicJson, BuildLock, requireImage } from "./artifacts.ts";
 export { atomicJson, BuildLock, requireImage } from "./artifacts.ts";
 import { dirname, resolve } from "node:path";
 import { Infrastructure } from "./docker.ts";
+import { EL_BUILD_REVISION, executionBuild, executionImage } from "./execution_build.ts";
 import {
   assertLighthouseImage,
   lighthouseBuild,
@@ -267,7 +268,7 @@ async function compile(
     await container.remove({ force: true });
   }
   if (clockOnly) return builder;
-  // A long compile can outlive an externally removed base image. Restore its exact identity.
+  // Restore the exact runtime image if it is absent after the long compile.
   await requireImage(infra, runtime);
   await Deno.writeTextFile(
     `${output}/Dockerfile`,
@@ -297,7 +298,21 @@ export interface BakeOptions {
   rustImage?: string;
   goImage?: string;
 }
+/** Resolve the EL source once so recipe metadata and the actual build use the same selection. */
+export function executionSelection(
+  recipe: Recipe,
+  options: Pick<BakeOptions, "elImage" | "elRef">,
+): { elImage: string; elRef?: string } {
+  if (options.elImage !== undefined && options.elRef !== undefined) {
+    throw new Error("Choose --el-image or --el-ref");
+  }
+  return {
+    elImage: options.elImage ?? recipe.elImage,
+    elRef: options.elImage === undefined ? options.elRef ?? recipe.elRef : undefined,
+  };
+}
 export async function bake(profile: ProfileName, options: BakeOptions = {}): Promise<Bake> {
+  const execution = executionSelection(profiles[profile], options);
   const tag = bakeTag(options.tag ?? "default");
   await using _tagLock = await BuildLock.acquire(`.cache/baker/locks/${profile}-${tag}.lock`);
   const path = await bakeLocation(profile, tag);
@@ -339,13 +354,12 @@ export async function bake(profile: ProfileName, options: BakeOptions = {}): Pro
     ...profiles[profile],
     clRef: options.clRef ?? profiles[profile].clRef,
     patch: options.patch ?? profiles[profile].patch,
-    elImage: options.elImage ?? profiles[profile].elImage,
+    ...execution,
     genesisImage: options.genesisImage ?? profiles[profile].genesisImage,
     baselineImage: options.baselineImage ?? profiles[profile].baselineImage,
     rust: options.rustImage ?? profiles[profile].rust,
     goBuilder: options.goImage ?? profiles[profile].goBuilder,
   };
-  if (options.elImage && options.elRef) throw new Error("Choose --el-image or --el-ref");
   if (options.importCl && options.reuseCl) throw new Error("Choose --import-cl or --reuse-cl");
   const hashes = await sourceHashes(recipe);
   const setup = new Infrastructure(`bake-${profile}-${(await sha256(tag)).slice(0, 8)}`);
@@ -374,7 +388,8 @@ export async function bake(profile: ProfileName, options: BakeOptions = {}): Pro
   };
   const lighthouse = clSource ? await lighthouseBuild(identityRecipe, rust.platform) : undefined;
   const importedCl = options.importCl ? await pinImage(setup, options.importCl) : undefined;
-  const elSource = options.elRef ? await checkout(recipe.elRepository, options.elRef) : undefined;
+  const elSource = recipe.elRef ? await checkout(recipe.elRepository, recipe.elRef) : undefined;
+  if (elSource) recipe.elRef = elSource.commit;
   const go = elSource ? await pinImage(setup, recipe.goBuilder) : undefined;
   const importedEl = elSource ? undefined : await pinImage(setup, recipe.elImage);
   const source = {
@@ -383,6 +398,9 @@ export async function bake(profile: ProfileName, options: BakeOptions = {}): Pro
     importedCl: importedCl?.id,
   };
   const builders = { runtime, rust, ...(go ? { go } : {}) };
+  const elBuild = elSource
+    ? await executionBuild(recipe.elRepository, elSource.commit, go!, runtime)
+    : undefined;
   const key = await sha256(
     canonical({
       recipe,
@@ -395,7 +413,8 @@ export async function bake(profile: ProfileName, options: BakeOptions = {}): Pro
       importedCl,
       lighthouse,
       recipeRevision: 3,
-      elBuildRevision: elSource ? 2 : undefined,
+      elBuildRevision: elSource ? EL_BUILD_REVISION : undefined,
+      executionBuild: elBuild,
     }),
   );
   await using _buildLock = await BuildLock.acquire(`.cache/baker/locks/${key}.lock`);
@@ -479,7 +498,16 @@ export async function bake(profile: ProfileName, options: BakeOptions = {}): Pro
     }
     await atomicJson(clArtifact, { build: selected, image: cl });
   }
-  const el = importedEl ?? await compile(infra, "el", elSource!.root, go!, runtime, key);
+  let el = importedEl;
+  if (!el) {
+    const selected = elBuild!;
+    const elInfra = new Infrastructure(`bake-${selected.key.slice(0, 24)}`);
+    el = await executionImage(
+      elInfra,
+      selected,
+      () => compile(elInfra, "el", elSource!.root, go!, runtime, selected.key),
+    );
+  }
   const platforms = new Set(
     [cl, el, genesis, baseline, runtime, rust, ...(go ? [go] : [])].map((x) => x.platform),
   );

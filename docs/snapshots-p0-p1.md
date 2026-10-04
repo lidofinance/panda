@@ -1,177 +1,187 @@
-# P0–P1: исходные сборки, состояние и регрессии
+# P0–P1: pinned builds, state inventory and regressions
 
-2026-10-02. Основание: `main` на `0acee41`. Это результаты подготовительных этапов
-[плана](snapshots-hardforks-plan.md), а не объявление поддержки снапшотов или переходов. Проверки
-выполнены с Deno 2.9.7 на `linux/arm64` в Docker. Исходные логи и данные сетей находятся в ignored
-`.cache/p0-p1/` и `.panda/`; публичный отчёт не содержит локальных checkout paths.
+Historical checkpoint: 2026-10-02, based on `main` at `0acee41`. This records the preparatory stages
+of the [plan](snapshots-hardforks-plan.md), before P2–P3 implementation. For completed work and
+current limits, see the [P0–P3 verification report](snapshots-p0-p3-status.md). The failures below
+remain evidence about the original builds; they are not the status of the final r5 bake.
 
-Машиночитаемые результаты: [reports/snapshots/p0-p1.json](../reports/snapshots/p0-p1.json).
-`deno task check` прошёл; обычный suite: **109 passed, 0 failed, 13 ignored**. Основной реальный E2E
-прошёл на обеих чистых EL-композициях до slot 129 / finalized epoch 2 с проверкой EL/CL agreement.
-Это отдельные проверки, а не полный `test:profile`.
+Checks used Deno 2.9.7 and Docker on `linux/arm64`. Original logs and network data are in ignored
+`.cache/p0-p1/` and `.panda/`. Public measurements are in
+[reports/snapshots/p0-p1.json](../reports/snapshots/p0-p1.json).
 
-## Что действительно сломано
+`deno task check` passed. The ordinary suite reported **109 passed, 0 failed, 13 ignored**. The main
+real E2E passed on both clean EL compositions through slot 129 / finalized epoch 2 with EL/CL
+agreement. These were individual checks, not complete `test:profile` runs.
 
-Gloas теряет PTC-голоса при штатной остановке BN. Проверка выполняет одинаковые три слота в двух
-сетях с одинаковым genesis и bake. Первая продолжает работу, вторая сохраняет данные клиентов,
-останавливает и пересоздаёт их на тех же часах. Следующий блок сравнивается вместе с подписями,
-aggregation bits и state root.
+## Reproduced defect
 
-- BN/VC restart при работающем EL: **FAIL**. В блоке 4 вместо 512 PTC-позиций — пустой список.
-- EL/BN/VC restart: **FAIL**, такое же отличие.
-- Блок перед остановкой совпадает; после рестарта EL/CL согласованы, блок 4 построен. Поэтому
-  проверка только доступности RPC или роста номера блока пропустила бы потерю.
-- Единственное отличие в body блока 4 — `payload_attestations`; следствие — другой state root.
-- Pectra прошла оба сравнения: следующий блок совпал целиком. Это результат конкретной точки
-  остановки, а не сертификация универсального восстановления Pectra.
+The pinned Gloas BN lost PTC votes during normal shutdown. The regression advances two networks with
+the same genesis and bake through three identical slots. One continues uninterrupted; the other
+preserves client data, stops and recreates the clients at the same protocol time. It compares the
+next signed block, including aggregation bits and state root.
 
-Нативный тест на точном Gloas Lighthouse воспроизводит причину независимо от Docker lifecycle:
-обычная gossip-проверка принимает настоящие BLS-сообщения, агрегат покрывает все 512 позиций,
-включая повторяющиеся индексы валидаторов, и его подпись проверяется. После production
-`PersistedOperationPool::as_store_bytes/from_store_bytes` агрегат пуст. Ошибка возникает именно в
-assertion после round-trip, а не при компиляции или создании fixture.
+- BN/VC restart with EL still running: **FAIL**. Block 4 contained an empty PTC list instead of 512
+  committee positions.
+- EL/BN/VC restart: **FAIL**, with the same difference.
+- The block before shutdown matched. After restart, block 4 was produced and EL/CL agreed. RPC
+  availability or head growth alone would therefore have missed the loss.
+- The only block-body difference was `payload_attestations`, which also changed the state root.
+- Pectra passed both complete next-block comparisons at this cut. That observation did not certify
+  arbitrary Pectra recovery.
 
-Второй native test прошёл: текущие attestation votes попали в очередь fork choice; операция, которую
-state advance timer вызывает на хвосте слота, обработала очередь. FC slot стал `N+1`, хотя protocol
-slot ещё `N`. В fixture полные naive attestation votes уже покрыты persistent pool, а sync aggregate
-сохраняет 512 позиций после round-trip. Здесь нет основания сохранять все кеши подряд. При неполной
-доставке будущий checkpoint обязан проверить покрытие или отказать.
+A native test on the exact pinned Gloas Lighthouse reproduced the cause independently of Docker.
+Normal gossip verification accepted real BLS messages; the verified aggregate covered all 512
+positions, including repeated validator indices. After production
+`PersistedOperationPool::as_store_bytes/from_store_bytes`, the aggregate was empty. The failure was
+an assertion after the round trip, not a build or fixture error.
 
-## Почему старые проверки этого не обнаруживали
+A second native test passed. Attestation votes entered the fork-choice queue, and the operation
+called by the state-advance timer at the slot tail processed them. Fork-choice slot became `N+1`
+while protocol slot remained `N`. In this fixture, the persistent pool already covered all naive
+attestation votes, and the sync aggregate retained 512 positions after serialization. This did not
+justify persisting every cache: incomplete delivery must instead cause a coverage check or refusal.
 
-`bakes/gloas/tests/gloas.ts` проверяет наличие PTC в работающей сети, но не остановку BN и не
-round-trip пула. `bakes/shared/tests/lifecycle.ts` проверяет fresh start/down/reset; down удаляет
-данные. Fast warp перезапускает VC, оставляя BN и его PTC pool в памяти. Поэтому эти проверки могли
-честно проходить одновременно с потерей состояния при холодном restart.
+## Why earlier checks missed it
 
-Это пробел покрытия нового требования lossless resume. Он не доказывает поломку непрерывного
-выполнения существующих сценариев. Исправление persistence и проверенный parked startup остаются P3;
-нынешние красные проверки задают их проверяемый критерий готовности.
+`bakes/gloas/tests/gloas.ts` checked PTC in a running network without a BN restart or pool round
+trip. The original `bakes/shared/tests/lifecycle.ts` checked fresh start/down/reset, with down
+deleting data. Fast warp restarted VC while BN and its PTC pool stayed in memory. These scenarios
+could pass while cold restart lost state.
 
-## Зафиксированные входы
+This was a coverage gap for the new lossless-resume requirement, not evidence that uninterrupted
+execution was broken. The regressions defined observable acceptance criteria for P3 persistence and
+parked startup, subsequently implemented and checked in the current report.
 
-Полные IDs, digest, платформы, native source hashes и recipes сохранены в immutable manifests:
+## Pinned inputs
 
-| Профиль | Исходный bake                                            | Bake для дальнейшей работы с чистым EL               |
+Immutable manifests record complete IDs, digests, platforms, native source hashes and recipes:
+
+| Profile | Original bake                                            | Clean EL composition                                 |
 | ------- | -------------------------------------------------------- | ---------------------------------------------------- |
 | Gloas   | [ci-main-merge](../bakes/gloas/tags/ci-main-merge.json)  | [p0-clean-el](../bakes/gloas/tags/p0-clean-el.json)  |
 | Pectra  | [ci-main-merge](../bakes/pectra/tags/ci-main-merge.json) | [p0-clean-el](../bakes/pectra/tags/p0-clean-el.json) |
 
 - Gloas CL: `2d281dfa1b407f7c81cd123954a9fd18ee8f02d2`, upstream 8.2.2.
 - Pectra CL: `cfb1f7331064b758c6786e4e1dc15507af5ff5d1`, upstream 7.1.0.
-- Gloas исходный EL: `5d8fd6b6082f9aa330dbaf5df52dfcfdb445f186`, Go 1.27.1, `vcs.modified=true`.
-  Полный dirty diff из бинарника восстановить нельзя. Собран **новый** EL из этого полного commit
-  существующим baker, без дополнительных patches; Go 1.25.14, `vcs.modified=false`. Новый image:
+- Original Gloas EL: `5d8fd6b6082f9aa330dbaf5df52dfcfdb445f186`, Go 1.27.1, `vcs.modified=true`. The
+  binary cannot reveal the complete dirty diff. A new EL was built from that full commit using the
+  existing baker, without additional patches, on Go 1.25.14 with `vcs.modified=false`: image
   `sha256:549317edd21bb0e720bf53459e353f4eee30acd3a99a89380f762c0b6cfe0e7e`.
-- Pectra исходный EL: `36b2371c59cd91a9b1da062b3e382f05a6d8687e`, Go 1.24.2, `vcs.modified=true`.
-  Взята ранее собранная чистая версия того же commit из
-  [geth-source](../bakes/pectra/tags/geth-source.json):
-  `sha256:3f3d4a82b71796278b66f6f571bc7d3d52616df0a77c79b4c4cc51a5613be70e`. Build metadata повторно
-  проверена: `vcs.modified=false`.
-- Lighthouse не пересобирался. В новых композициях `source.importedCl` явно указывает прежний image
-  ID. Его native provenance берётся из соответствующего `ci-main-merge`, а не выводится из факта
-  успешного импорта. Старые manifests/default tags и release workflow не менялись.
-- Новые EL композиции пока локальные. Они не опубликованы в registry и не получили статус полного
-  `test:profile`; отдельный E2E не заменяет весь release suite.
+- Original Pectra EL: `36b2371c59cd91a9b1da062b3e382f05a6d8687e`, Go 1.24.2, `vcs.modified=true`. A
+  previously built clean binary of the same commit was reused from
+  [geth-source](../bakes/pectra/tags/geth-source.json), image
+  `sha256:3f3d4a82b71796278b66f6f571bc7d3d52616df0a77c79b4c4cc51a5613be70e`. Build metadata was
+  rechecked: `vcs.modified=false`.
+- Lighthouse was not rebuilt. Each composition records the existing image in `source.importedCl`;
+  its native provenance comes from the corresponding `ci-main-merge`, not from successful import.
+  Existing manifests, default tags and release workflows were unchanged by this investigation.
+- These clean EL compositions were local, unpublished and not fully profile-verified at this stage.
+  Individual E2E success did not replace the release suite.
 
-Gloas genesis image отдельно проверен как набор разных инструментов:
+The Gloas genesis image was checked as a collection of separate tools:
 
-| Часть                                                | Подтверждённый источник                                                               |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `generate_genesis.sh`, `defaults.env`, `config.yaml` | byte-for-byte совпадение с source `51fb77af3ad017ab2ae14a6e69246fe95453cdd2`          |
-| `eth-genesis-state-generator`                        | Go vcs revision `9bbbf55fa9603b4c2e656fe7c441a340ea61f6d6`, modified=false            |
-| Полный image                                         | ID/digest из manifest; source shell не выдаётся за provenance всех вложенных binaries |
+| Component                                            | Verified source                                                                             |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `generate_genesis.sh`, `defaults.env`, `config.yaml` | Byte-for-byte match with `51fb77af3ad017ab2ae14a6e69246fe95453cdd2`                         |
+| `eth-genesis-state-generator`                        | Go VCS revision `9bbbf55fa9603b4c2e656fe7c441a340ea61f6d6`, modified=false                  |
+| Complete image                                       | Manifest ID/digest; shell provenance does not establish provenance of every embedded binary |
 
-Pectra genesis проверен отдельно: shell/defaults/config byte-for-byte совпали с
-`f06b98c2cb789c6ac45fd0e6167173820dc095d2`; embedded `eth-beacon-genesis` имеет revision
-`f6489518ba1e70bd8b073387119692f264b3b368`, `vcs.modified=false`.
+Pectra shell/defaults/config matched `f06b98c2cb789c6ac45fd0e6167173820dc095d2` byte for byte. Its
+embedded `eth-beacon-genesis` reported revision `f6489518ba1e70bd8b073387119692f264b3b368`,
+`vcs.modified=false`.
 
-## Полный состав состояния и действия checkpoint
+## State inventory and checkpoint obligations
 
-Решения относятся к обоим профилям, если не указано иначе. «Завершить» означает наблюдаемое
-подтверждение, а не ожидание произвольного числа миллисекунд. Если подтверждения нет — save
-отказывает. Перечень описывает обязательства P2–P5, а не существующие API.
+The decisions apply to both profiles unless stated otherwise. Completion requires observable
+acknowledgement rather than an arbitrary delay; without it, save must fail. This inventory defines
+P2–P5 obligations, not a claim that every API existed at this historical checkpoint.
 
-| Состояние                                                                                   | Решение                                                                                              | Проверка перед публикацией checkpoint                                                                                                 |
-| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| EL chaindata, trie/state history, ancients/freezer, snapshots, canonical/finalized pointers | Сохранить весь owned datadir после clean stop                                                        | Реальные head/finalized hashes, chain config и доступность БД после открытия                                                          |
-| EL blobpool, sidecars, tx journals и local transaction tracker                              | Сохранить datadir; незавершённые пользовательские tx запрещают save                                  | Нет pending/queued и нет unresolved accepted/unknown submissions; один пустой txpool недостаточен                                     |
-| Genesis JSON/SSZ, CL config, fork versions, timing/constants, JWT                           | Сохранить как immutable generation inputs                                                            | Hash каждого входа; те же genesis roots, schedule, chain ID и image IDs                                                               |
-| BN hot/cold DB, states/blocks, blob/data-column DB, freezer и split point                   | Сохранить вместе                                                                                     | EL/CL anchors, доступность canonical state и required DA                                                                              |
-| Fork choice proto-array, votes, checkpoints, balances и FC store                            | Сохранить                                                                                            | Реальные root и FC slot; protocol slot нельзя использовать вместо FC slot                                                             |
-| Fork choice queued attestations                                                             | Достоверно обработать на согласованном tail; иначе отказ/явная persistence                           | Очередь пустая после native completion; проверка должна видеть содержимое, не только clock mark                                       |
-| Attestation operation pool                                                                  | Сохранить                                                                                            | SSZ round-trip, требуемые данные/подписи и inclusion следующего блока                                                                 |
-| Naive attestation pool                                                                      | Перенести проверенные голоса в persistent pool без выпуска блока либо доказать покрытие; иначе отказ | Для каждого нужного голоса есть соответствующее покрытие; текущий полный tail fixture прошёл                                          |
-| Sync contributions в operation pool                                                         | Сохранить                                                                                            | Aggregate data/signature и все committee bits следующего блока                                                                        |
-| Naive sync pool                                                                             | Воссоздать из сохранённых verified contributions без новых подписей, только если покрытие доказано   | Частичный набор нельзя объявить полным; иначе сохранить недостающее/отказать                                                          |
-| Gloas PTC messages                                                                          | **Добавить persistence в P3**                                                                        | Непустой pool round-trip; следующий блок сохраняет data, signatures и 512 позиций                                                     |
-| Voluntary exits, BLS changes, proposer/attester slashings в op_pool                         | Сохранить с native fork/verification metadata                                                        | Pending операции отличать по state от already-included, ещё retained до pruning/finality; missing persisted pool при restore — ошибка |
-| Deposits, consolidations, exits, withdrawals уже в consensus state                          | Сохранить в BN DB                                                                                    | Очереди не требуется опустошать; последующая обработка должна совпасть                                                                |
-| Pending execution envelopes, DA checker, unverified blocks/payloads и custody work          | Достоверно завершить; иначе отказ                                                                    | Нет незавершённой проверки/import/delivery, canonical payload и DA доступны                                                           |
-| Custody context, column assignments, validator registration state                           | Сохранить native durable context                                                                     | Согласованность с genesis/spec и required columns после открытия                                                                      |
-| Beacon state/committee/reward caches, prepared skip state, cached duties                    | Воссоздать из проверенного checkpoint                                                                | Без новой подписи, без смещения времени и без притворного completion                                                                  |
-| VC keystores, passwords, validator definitions, fee recipients, enabled state               | Сохранить owned directory целиком                                                                    | Совпадает набор ключей/definitions; отсутствующие файлы не заменяются fresh genesis                                                   |
-| VC slashing DB, journal/WAL и сохранённая signing history                                   | Сохранить атомарно после остановки                                                                   | DB обязательна, `--init-slashing-protection` на restore запрещён; до/после не исчезли записи                                          |
-| VC volatile duty caches и completed-work marks                                              | Воссоздать при parked startup                                                                        | До открытия входа нет повторных/conflicting signatures; отметки не подставляются вручную                                              |
-| Controller clock, active generation, session config, lifecycle status                       | Сохранить собственный versioned manifest/journal                                                     | Точный `nowMs`; обе native clocks совпадают; предыдущая незавершённая операция известна                                               |
-| Automine/Timeline queue, active RPC, SSE и EL admission intents/results                     | Завершить вход; сохранить durable intents; unknown запрещает create                                  | Нет гонки с save, сохранён исход операции/operation ID; restore доступен из faulted состояния                                         |
-| EngineGate pending payload IDs/readiness promises                                           | Завершить; пересоздать gate без in-flight Engine work                                                | Новый gate связан с новым EL, использует реальные лог-события и JWT                                                                   |
-| Sockets, host ports, process IDs, file locks, Docker handles                                | Воссоздать                                                                                           | Ownership текущей generation; публичные URL стабильны через managed frontend                                                          |
-| Внешние oracle/indexer/provider caches и filters                                            | Вне snapshot; явный reset/reconnect в P9                                                             | Consumer не продолжает отменённую ветку как текущую                                                                                   |
-| Неизвестные native operations или неподдерживаемая схема/ABI                                | Запретить save/restore                                                                               | Явная причина вместо потери данных или fresh initialization                                                                           |
+| State                                                                                          | Required action                                                                                        | Check before checkpoint publication                                                                                                   |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| EL chaindata, trie/state history, ancients/freezer, snapshots and canonical/finalized pointers | Preserve the complete owned datadir after clean stop                                                   | Actual head/finalized hashes, chain configuration and database availability on open                                                   |
+| EL blobpool, sidecars, transaction journals and local transaction tracker                      | Preserve the datadir; unfinished user transactions block save                                          | No pending/queued transactions or unresolved accepted/unknown submissions; an empty txpool alone is insufficient                      |
+| Genesis JSON/SSZ, CL configuration, fork versions, timing/constants and JWT                    | Preserve immutable generation inputs                                                                   | Input hashes, genesis roots, schedule, chain ID and image IDs match                                                                   |
+| BN hot/cold DB, states/blocks, blob/data-column DB, freezer and split point                    | Preserve together                                                                                      | EL/CL anchors, canonical state and required DA are available                                                                          |
+| Fork-choice proto-array, votes, checkpoints, balances and store                                | Persist                                                                                                | Actual roots and fork-choice slot; protocol slot is not a substitute                                                                  |
+| Queued fork-choice attestations                                                                | Complete at the agreed slot tail, or explicitly persist/refuse                                         | Queue contents are empty after native completion; a clock mark alone is insufficient                                                  |
+| Attestation operation pool                                                                     | Persist                                                                                                | SSZ round trip, required data/signatures and next-block inclusion                                                                     |
+| Naive attestation pool                                                                         | Transfer verified votes into the persistent pool without producing a block, or prove coverage/refuse   | Every required vote is covered; the complete-tail fixture passed                                                                      |
+| Sync contributions in the operation pool                                                       | Persist                                                                                                | Aggregate data/signature and every required next-block committee bit                                                                  |
+| Naive sync pool                                                                                | Reconstruct from persisted verified contributions without new signatures, only when coverage is proven | Partial coverage cannot be declared complete; preserve missing data or refuse                                                         |
+| Gloas PTC messages                                                                             | Add persistence in P3                                                                                  | Nonempty pool survives serialization; next-block data, signatures and all 512 positions match                                         |
+| Voluntary exits, BLS changes and proposer/attester slashings in the operation pool             | Preserve with native fork/verification metadata                                                        | State distinguishes pending operations from included operations retained until pruning/finality; a missing persisted pool is an error |
+| Deposits, consolidations, exits and withdrawals already in consensus state                     | Preserve in BN DB                                                                                      | Queues need not be emptied; subsequent processing must match                                                                          |
+| Pending execution envelopes, DA checker, unverified blocks/payloads and custody work           | Complete observably or refuse                                                                          | No unfinished verification/import/delivery; canonical payload and DA are available                                                    |
+| Custody context, column assignments and validator registration state                           | Preserve native durable context                                                                        | Consistent with genesis/spec and required columns on open                                                                             |
+| Beacon state/committee/reward caches, prepared-skip state and cached duties                    | Reconstruct from a verified checkpoint                                                                 | No new signature, time shift or fabricated completion                                                                                 |
+| VC keystores, passwords, validator definitions, fee recipients and enabled state               | Preserve the entire owned directory                                                                    | Exact key/definition set; missing files never trigger fresh genesis                                                                   |
+| VC slashing DB, journal/WAL and signing history                                                | Preserve atomically after stop                                                                         | DB is mandatory; no `--init-slashing-protection` on restore; existing records remain                                                  |
+| Volatile VC duty caches and completion marks                                                   | Reconstruct during parked startup                                                                      | No repeated/conflicting signatures before ingress opens; no manually fabricated marks                                                 |
+| Controller clock, active generation, session configuration and lifecycle status                | Versioned manifest/journal                                                                             | Exact `nowMs`, matching native clocks and recorded prior incomplete operation                                                         |
+| Automine/Timeline queue, active RPC, SSE and EL admission intents/results                      | Drain ingress and preserve durable intents; unknown outcomes block create                              | No save race; operation result/ID persists; restore remains available from a faulted state                                            |
+| EngineGate pending payload IDs and readiness promises                                          | Complete work; recreate the gate without in-flight Engine requests                                     | New EL binding, real log events and JWT                                                                                               |
+| Sockets, host ports, process IDs, locks and Docker handles                                     | Recreate                                                                                               | Current-generation ownership; stable public URLs through managed frontends                                                            |
+| External oracle/indexer/provider caches and filters                                            | Outside the snapshot; explicit reset/reconnect in P9                                                   | Consumers do not treat the discarded branch as current                                                                                |
+| Unknown native operations or unsupported schema/ABI                                            | Refuse save/restore                                                                                    | An explicit error replaces silent loss or fresh initialization                                                                        |
 
-## Версии и capabilities
+## Historical capabilities and version contracts
 
-Существующий `Bake.schema=1` не означает snapshot support. Текущий clock ABI определяется namespace
-`PANDA`, exact native source hashes и флагами `clockWait/directSync/preparedSkip`. У него нет
-checkpoint ACK или parked restore contract.
+At P0–P1, `Bake.schema=1` did not imply snapshot support. The clock ABI was identified by namespace
+`PANDA`, exact native hashes and `clockWait/directSync/preparedSkip` flags, without a checkpoint ACK
+or parked-restore contract.
 
-Для реализации резервируются отдельные `snapshot.schema=1` и `checkpointAbi=1` (wire-протокол,
-предложенный в плане), с явным набором native capabilities. Snapshot manifest связывает их с полными
-image IDs/platform, bake key, genesis/spec/schedule hashes и inventory. Несовпадение либо
-отсутствующая capability — отказ, не попытка «совместимого» восстановления.
+The plan reserved separate `snapshot.schema=1` and `checkpointAbi=1` versions and explicit native
+capabilities. The snapshot manifest must bind image IDs/platform, bake key, genesis/spec/schedule
+hashes and inventory. Mismatches or missing capabilities require refusal.
 
-| Возможность                                    | Pectra сейчас   | Gloas сейчас              | Условие включения                                       |
-| ---------------------------------------------- | --------------- | ------------------------- | ------------------------------------------------------- |
-| Обычная controlled сеть                        | Поддерживается  | Поддерживается            | Действующий профильный suite                            |
-| Cold next-block equality на исследованном tail | Проверка прошла | Подтверждённая потеря PTC | Это диагностическое наблюдение, не публичная capability |
-| Verified checkpoint / parked startup           | Нет             | Нет                       | P2–P3, положительный ACK + read-back + continuation     |
-| Snapshot create/restore                        | Нет             | Нет                       | P4–P5, crash/failure и repeat-restore tests             |
-| Переход между форками                          | Нет             | Нет                       | P6–P8, active-fork dispatch и реальный crossing suite   |
+| Capability on 2026-10-02                         | Pectra          | Gloas               | Acceptance condition                                |
+| ------------------------------------------------ | --------------- | ------------------- | --------------------------------------------------- |
+| Ordinary controlled network                      | Supported       | Supported           | Existing profile suite                              |
+| Cold next-block equality at the investigated cut | Observed PASS   | Reproduced PTC loss | Diagnostic result, not a general capability         |
+| Verified checkpoint / parked startup             | Not implemented | Not implemented     | P2–P3: positive ACK, readback and continuation      |
+| Snapshot create/restore                          | Not implemented | Not implemented     | P4–P5: crash/failure and repeated restore tests     |
+| Hardfork transitions                             | Not implemented | Not implemented     | P6–P8: active-fork dispatch and real crossing suite |
 
-## Расписание форков и admission
+P2–P3 Gloas support has since passed the [current acceptance checks](snapshots-p0-p3-status.md).
 
-Фактический генератор умеет Electra genesis с Fulu epoch 2 и Gloas epoch 4. Он выдаёт EL timestamps
-`2000000768` и `2000001536`; общий префикс genesis SSZ подтверждает slot 0 и Electra fork version.
-Однако при его дефолтах `BPO_1_EPOCH=BPO_2_EPOCH=0` Geth отказывает в init:
-`unsupported fork ordering: osakaTime enabled at timestamp 2000000768, but bpo1 enabled at timestamp 0`.
+## Fork schedule and admission findings
 
-Повтор с явными `BPO_1_EPOCH=2`, `BPO_2_EPOCH=3` прошёл. P6 должен компилировать **всё** расписание,
-включая BPO, CL blob schedule и EL timestamps; нельзя передать только три fork epochs. Это
-исправление входных данных диагностического сценария, не уже реализованный compiler Panda.
+The actual generator supports Electra genesis with Fulu at epoch 2 and Gloas at epoch 4. It produced
+EL timestamps `2000000768` and `2000001536`; the common genesis SSZ prefix confirmed slot 0 and the
+Electra fork version. With default `BPO_1_EPOCH=BPO_2_EPOCH=0`, however, Geth rejected
+initialization:
 
-Три unit counterexamples существующего controller подтвердили ограничения P7: Gloas family пытается
-читать envelope для Electra блока, неверно декодирует pre-Gloas finalized checkpoint и выбирает
-Gloas attestation mark даже с таблицей Electra phases. Эти tests изолируют адаптеры; HTTP fixtures
-не считаются доказательством совместимости реальных клиентов.
+```text
+unsupported fork ordering: osakaTime enabled at timestamp 2000000768, but bpo1 enabled at timestamp 0
+```
 
-На исходном и чистом Gloas EL исполнен admission scenario:
+Explicit `BPO_1_EPOCH=2` and `BPO_2_EPOCH=3` made the repeat pass. P6 must compile the entire
+schedule, including BPO, the CL blob schedule and EL timestamps, rather than forwarding three fork
+epochs. Correcting this diagnostic input did not implement a Panda schedule compiler.
 
-- Malformed transaction отвергнута и не изменила pool.
-- Fee-capped transaction получила hash и осталась без receipt; её нельзя считать rejected.
-- Принятая Geth транзакция с оборванной доставкой ответа исполнилась без resend.
-- 80 транзакций с nonce gap получили успешные hash-ответы; 16 отсутствовали в `txpool_content`,
-  `eth_getTransactionByHash` и receipts после вытеснения из очереди. Следовательно, отсутствие в
-  pool не доказывает pre-admission rejection.
+Three controller counterexamples established P7 requirements: the Gloas family requested an envelope
+for an Electra block, decoded a pre-Gloas finalized checkpoint incorrectly, and selected a Gloas
+attestation mark despite an Electra phase table. These tests isolate adapters; HTTP fixtures are not
+evidence of real-client fork compatibility.
 
-Будущий ledger в P2 разрешает доказанный terminal rejection, сохраняет accepted/unknown до
-разрешения. Проверка блокировки самого `snapshot.create` появляется вместе с API в P2/P4:
-несуществующий API не использован как искусственное доказательство red.
+The admission scenario ran on both original and clean Gloas EL builds:
 
-## Как повторить
+- A malformed transaction was rejected without changing the pool.
+- A fee-capped transaction received a hash and no receipt; it was not rejected.
+- A transaction accepted by Geth executed after its response was lost, without resubmission.
+- All 80 nonce-gap transactions received successful hash responses. After queue eviction, 16 were
+  absent from `txpool_content`, `eth_getTransactionByHash` and receipts. Absence from the pool
+  therefore does not prove rejection before admission.
 
-Для исходных артефактов установить `PANDA_BAKE=ci-main-merge`. Для чистых EL использовать
-`PANDA_BAKE=p0-clean-el`. Новые проверки запускаются явно и не меняют длительность release CI.
+These observations defined the P2 ledger: proven terminal rejection may settle an intent, while
+accepted/unknown outcomes remain unresolved. Checks against snapshot creation belong to the actual
+P2/P4 APIs; a nonexistent API was not used as artificial RED evidence.
+
+## Historical reproduction commands
+
+These commands identify the original diagnostic inputs. Use the recorded source revision to
+reproduce the historical assertions; maintained tests may have gained later acceptance checks.
+`ci-main-merge` selects original artifacts; `p0-clean-el` selects clean EL compositions.
 
 ```sh
 deno task check
@@ -190,17 +200,15 @@ PANDA_PROFILE=gloas PANDA_BAKE=p0-clean-el deno run -A bakes/shared/tests/e2e.ts
 PANDA_PROFILE=pectra PANDA_BAKE=p0-clean-el deno run -A bakes/shared/tests/e2e.ts
 ```
 
-На старом Lighthouse Gloas restart/native PTC тесты должны завершаться ошибкой assertion.
-`fork_genesis.ts` без BPO overrides должен показать отказ Geth; с `--aligned-bpo` — пройти. Три
-controller counterexamples остаются красными до P7. Не заменять проверки на «ожидаемую потерю
-данных» ради зелёного suite. После P3/P7 соответствующие контракты должны стать зелёными и войти в
-обязательную проверку объявляемой capability.
+On the original Gloas Lighthouse, restart/native PTC assertions are expected to fail. The genesis
+probe without BPO overrides demonstrates Geth refusal; `--aligned-bpo` passes. The three controller
+counterexamples remain unresolved until P7. Do not replace lossless assertions with assertions that
+expect data loss merely to obtain green results.
 
-Нативный runner берёт архивированные patch/clock inputs указанного bake и отдельный текущий
-regression test, фиксирует hash каждого источника и использует закреплённый Rust builder.
-Изолированное дерево находится под `.cache/`; immutable bake не переписывается. Он собирает test
-executable, не новый Lighthouse image.
+The native runner uses archived patch/clock inputs from the selected bake and a separate current
+regression test, records every source hash and uses the pinned Rust builder. It builds a test
+executable under ignored `.cache/`, without rewriting the bake or building a new Lighthouse image.
 
-Это этап получения воспроизводимых failures и проверяемой базы. Lossless resume, долговечный
-snapshot, fault recovery, сохранение пользовательских CL операций, fork crossing и комбинации с
-oracle ещё не реализованы и не объявлены проверенными.
+At this historical stage, lossless resume, durable snapshots, fault recovery, user CL operation
+preservation, fork crossing and oracle combinations were not implemented or verified. Subsequent
+P0–P3 acceptance is recorded separately; reusable snapshots and transitions remain future work.
