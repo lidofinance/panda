@@ -2,9 +2,9 @@
   "profile": "gloas",
   "tag": "p3-checkpoint-r5",
   "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
-  "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f",
-  "suiteHash": "90ebf7455ea68a15e025fb737d2ee9b0a0c7eb002ed8d746f9bcd09a9902a1f6",
-  "startedAt": "2026-10-04T08:40:32.624Z",
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "suiteHash": "adbcaa27d5111209db8f1521364f04a42e32b6769f7e2e1b9e60b3e3fd109449",
+  "startedAt": "2026-10-04T13:38:23.139Z",
   "scenarios": [
     "baseline",
     "lifecycle",
@@ -18,10 +18,16 @@
     "gloas",
     "restart",
     "resume",
-    "blob-checkpoint"
+    "blob-checkpoint",
+    "snapshots",
+    "snapshot-recovery",
+    "snapshot-creation",
+    "snapshot-deposits",
+    "snapshot-withdrawals",
+    "snapshot-consumer"
   ],
-  "finishedAt": "2026-10-04T08:55:44.251Z",
-  "elapsedMs": 911668.578167,
+  "finishedAt": "2026-10-04T14:11:19.142Z",
+  "elapsedMs": 1975948.748333,
   "passed": true,
   "status": "passed"
 }

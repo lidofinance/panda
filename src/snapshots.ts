@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { statfs } from "node:fs/promises";
 import type { Config } from "./config.ts";
 import type { Infrastructure } from "./docker.ts";
+import type { SnapshotOperation } from "./snapshot_operations.ts";
 import { type Bake, type BakedImage, canonical, type ProfileName, sha256 } from "./profiles.ts";
 import {
   type ActiveGeneration,
@@ -76,6 +77,62 @@ function imageIdentity(bake: Bake): SnapshotManifest["images"] {
 export class SnapshotStore {
   constructor(readonly store: StateStore, readonly infra: Infrastructure) {
     if (store.id !== infra.id) throw new Error("Snapshot infrastructure ownership mismatch");
+  }
+
+  /** Caller holds network and journal ownership. Only recorded work can be collected. */
+  async cleanup(records: SnapshotOperation[]): Promise<void> {
+    const parent = await this.store.snapshotsDirectory();
+    const lock = await StateLock.acquire(join(this.store.root, "snapshots.lock"));
+    try {
+      await this.store.syncAuthority();
+      const generations = new Map<string, boolean>();
+      const pending = new Set<string>();
+      for (const record of records) {
+        if (record.owner !== this.store.id || record.schema !== 1) {
+          throw new Error("Snapshot cleanup ownership mismatch");
+        }
+        if (record.request.kind === "create") pending.add(snapshotId(record.id));
+        if (record.sourceGeneration) {
+          if (!generations.has(record.sourceGeneration)) {
+            generations.set(record.sourceGeneration, false);
+          }
+        }
+        if (record.candidateGeneration) generations.set(record.candidateGeneration, true);
+      }
+      const errors: string[] = [];
+      for (const [generation, allocated] of generations) {
+        try {
+          // Validate the ID before using it in Docker filters or filesystem paths.
+          this.store.generationPath(generation);
+          if ((await this.store.active())?.generation === generation) continue;
+          await this.store.discardInactive(
+            generation,
+            allocated,
+            () => this.infra.assertGenerationUnused(generation),
+          );
+        } catch (error) {
+          errors.push(String(error));
+        }
+      }
+      for (const id of pending) {
+        try {
+          const path = join(parent, `.pending-${id}`);
+          try {
+            await safeDirectory(path);
+            await treeMetadata(path);
+            await Deno.remove(path, { recursive: true });
+          } catch (error) {
+            if (!(error instanceof Deno.errors.NotFound)) throw error;
+          }
+          await syncDirectory(parent);
+        } catch (error) {
+          errors.push(String(error));
+        }
+      }
+      if (errors.length) throw new Error(`Snapshot cleanup incomplete: ${errors.join("; ")}`);
+    } finally {
+      lock.release();
+    }
   }
 
   private async path(id: string): Promise<string> {
@@ -227,9 +284,11 @@ export class SnapshotStore {
       if (disk.bavail * disk.bsize < bytes + Math.max(16 * 1024 * 1024, bytes * 0.05)) {
         throw new Error("Insufficient free space to prepare snapshot restore");
       }
-      const candidate = await this.store.allocate(manifest.config, manifest.snapshot.bakeKey);
-      // The durable operation must know the destination even if copying never completes.
-      await allocated(candidate);
+      const candidate = await this.store.allocate(
+        manifest.config,
+        manifest.snapshot.bakeKey,
+        allocated,
+      );
       await this.infra.copySnapshot(this.store, id, candidate);
       const files = await fileInventory(this.store.generationPath(candidate.generation));
       const metadata = await treeMetadata(this.store.generationPath(candidate.generation));
@@ -251,7 +310,11 @@ export class SnapshotStore {
     }
   }
 
-  async capture(bake: Bake, id: string = crypto.randomUUID()): Promise<SnapshotRef> {
+  async capture(
+    bake: Bake,
+    id: string = crypto.randomUUID(),
+    allocating: (value: ActiveGeneration) => Promise<void> = () => Promise.resolve(),
+  ): Promise<SnapshotRef> {
     const final = await this.path(id);
     const lock = await StateLock.acquire(join(this.store.root, "snapshots.lock"));
     try {
@@ -272,7 +335,7 @@ export class SnapshotStore {
 
       // The existing copy helper verifies stopped ownership, exact Docker labels, all paths,
       // byte integrity and permissions. It never publishes its destination as active.
-      const destination = await this.store.allocate(source.config, source.bakeKey);
+      const destination = await this.store.allocate(source.config, source.bakeKey, allocating);
       await this.infra.copyGeneration(this.store, source, destination);
       const copied = this.store.generationPath(destination.generation);
       for await (const entry of Deno.readDir(copied)) {

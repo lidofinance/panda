@@ -45,6 +45,18 @@ Deno.test("immutable bake verification ignores other profiles, new build recipes
       "The child-process crash fixture belongs to the snapshot suite fingerprint",
     );
     assert.equal(await pectra(), before.pectra);
+    const beforeConsumer = await gloas();
+    await Deno.writeTextFile(
+      `${root}/bakes/shared/tests/snapshot_consumer_process.ts`,
+      "\n// changed external consumer replay\n",
+      { append: true },
+    );
+    assert.notEqual(
+      await gloas(),
+      beforeConsumer,
+      "The external consumer process belongs to the snapshot suite fingerprint",
+    );
+    assert.equal(await pectra(), before.pectra);
     const changedGloas = await gloas();
     for (const profile of ["pectra", "gloas"]) {
       const path = `${root}/bakes/${profile}/recipe.json`;

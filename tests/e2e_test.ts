@@ -23,6 +23,10 @@ const descriptions: Record<string, string> = {
   "snapshot-recovery": "explicit restore recovers every journal boundary after controller SIGKILL",
   "snapshot-creation":
     "snapshot publication and source data survive controller SIGKILL during creation",
+  "snapshot-deposits": "pending deposits and activations survive restore without duplicate credit",
+  "snapshot-withdrawals": "consolidation, signed exits and actual withdrawals survive restore",
+  "snapshot-consumer":
+    "external EL/CL history resets and replays with fresh provider and nonce caches",
   baseline: "ordinary unmodified clients produce an agreed execution payload",
   lifecycle: "CLI up/down/reset, ownership and profile mismatch rejection",
 };

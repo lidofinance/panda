@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "elapsedMs": 170558.54400000002,
+  "elapsedMs": 168752.289208,
   "samples": [
     {
       "event": "restart-passed",
@@ -152,6 +152,6 @@
   "profile": "gloas",
   "bake": "p3-checkpoint-r5",
   "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
-  "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f",
-  "recordedAt": "2026-10-04T08:52:27.042Z"
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "recordedAt": "2026-10-04T13:50:09.416Z"
 }

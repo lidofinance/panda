@@ -80,7 +80,10 @@
     "blob-checkpoint": "bakes/gloas/tests/blob_checkpoint.ts",
     "snapshots": "bakes/gloas/tests/snapshots.ts",
     "snapshot-recovery": "bakes/gloas/tests/snapshot_recovery.ts",
-    "snapshot-creation": "bakes/gloas/tests/snapshot_creation.ts"
+    "snapshot-creation": "bakes/gloas/tests/snapshot_creation.ts",
+    "snapshot-deposits": "bakes/gloas/tests/snapshot_deposits.ts",
+    "snapshot-withdrawals": "bakes/gloas/tests/snapshot_withdrawals.ts",
+    "snapshot-consumer": "bakes/gloas/tests/snapshot_consumer.ts"
   },
   "name": "gloas",
   "elFork": "amsterdam",

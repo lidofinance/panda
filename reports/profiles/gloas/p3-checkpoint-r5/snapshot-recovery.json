@@ -3,48 +3,64 @@
   "cuts": [
     {
       "stage": "accepted",
-      "elapsedMs": 17796.661709000004,
-      "generation": "2675b429-80c4-452d-a208-123c8bdf1626"
+      "elapsedMs": 20542.412207999998,
+      "generation": "63c552c5-3e6a-4713-814b-4405c668d25e"
     },
     {
       "stage": "preparing",
-      "elapsedMs": 17777.254542000002,
-      "generation": "da641bc6-3590-4ea8-a14b-98f3f3960c99"
+      "elapsedMs": 18610.792625000002,
+      "generation": "b4571c37-e310-4f3d-bde1-3ef67f83e532"
+    },
+    {
+      "stage": "partial-copy",
+      "elapsedMs": 20031.348208999996,
+      "generation": "38e1e8b2-94d7-45c1-b05d-a128f77a7fa4"
     },
     {
       "stage": "prepared",
-      "elapsedMs": 23912.548875000008,
-      "generation": "ff7dcd13-be3a-42ae-89a6-bbc421acd049"
+      "elapsedMs": 27193.857416999992,
+      "generation": "b749d870-ef25-4431-911b-6a7a436f3b9d"
     },
     {
       "stage": "source-stopping",
-      "elapsedMs": 24125.052874999994,
-      "generation": "f919fdf0-fffe-4de9-b57b-dd41d2a8dd97"
+      "elapsedMs": 27403.31025000001,
+      "generation": "05789e83-713b-482d-b02b-1b60ecac568b"
     },
     {
       "stage": "source-stopped",
-      "elapsedMs": 25202.427540999997,
-      "generation": "1b570b5b-3cca-4f39-af01-2aa1cdfb0c39"
+      "elapsedMs": 30487.330208,
+      "generation": "88100d79-924c-41e9-a8c7-cb330ad12608"
     },
     {
       "stage": "candidate-verified",
-      "elapsedMs": 30032.447375000003,
-      "generation": "ce1b4d9a-7538-4d0d-a15e-b64768e0625e"
+      "elapsedMs": 30937.468292000005,
+      "generation": "a1356355-4b45-490d-8f0c-47e7eee22831"
     },
     {
       "stage": "committed",
-      "elapsedMs": 30322.396957999998,
-      "generation": "990dd78c-51f8-414a-9c1f-9202e5f84aa8"
+      "elapsedMs": 34184.45629200002,
+      "generation": "2c3ab944-7e88-44cc-bfb8-1927f2ea1f79"
     },
     {
       "stage": "published",
-      "elapsedMs": 29819.848375,
-      "generation": "e74ae45e-043e-4a3e-b527-35dfb6741365"
+      "elapsedMs": 33686.83099999998,
+      "generation": "c55f1170-0dd9-4103-b220-ccd723d8dcd0"
+    },
+    {
+      "stage": "cleanup-renamed",
+      "elapsedMs": 30426.431041000003,
+      "generation": "917981f3-ed3a-4f59-aefb-677b857b7621"
+    },
+    {
+      "stage": "cleanup-unlink",
+      "elapsedMs": 32683.54579200002,
+      "generation": "ef714be5-fca8-470f-8919-1d8092e7149d"
     }
   ],
-  "elapsedMs": 219133.674375,
+  "elapsedMs": 327752.625792,
   "profile": "gloas",
   "bake": "p3-checkpoint-r5",
   "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
-  "recordedAt": "2026-10-04T12:00:46.311Z"
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "recordedAt": "2026-10-04T14:00:27.744Z"
 }

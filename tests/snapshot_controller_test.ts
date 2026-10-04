@@ -10,7 +10,7 @@ import { Controller } from "../src/controller.ts";
 import { type Manifest, Network } from "../src/network.ts";
 import { readBake } from "../src/profiles.ts";
 import { type SnapshotRef, SnapshotStore } from "../src/snapshots.ts";
-import { type Checkpoint, fileInventory } from "../src/storage.ts";
+import { type Checkpoint, fileInventory, StateStore } from "../src/storage.ts";
 import { Timeline } from "../src/time.ts";
 
 async function fixture(
@@ -291,7 +291,7 @@ Deno.test("restore is reusable, changes session/generation and leaves automine o
         "database",
       );
     assert.equal(await Deno.readTextFile(file()), "EL fixture");
-    assert.equal(await Deno.readTextFile(abandoned), "discarded future");
+    await assert.rejects(Deno.stat(abandoned), Deno.errors.NotFound);
     assert.deepEqual(await controller.command("snapshotRestore", [saved.id, id]), result);
     assert.equal(controller.lifecycle().sessionId, restored.sessionId);
     await assert.rejects(controller.command("snapshotCreate", [id]), /different request/);
@@ -728,6 +728,139 @@ Deno.test("repeated restore removes discarded generations and preserves the reus
   });
 });
 
+Deno.test("cleanup failure keeps the restored chain authoritative and a later restore finishes deletion", async () => {
+  await fixture(async ({ controller }) => {
+    const snapshot = await controller.createSnapshot(crypto.randomUUID());
+    const store = controller.network.store;
+    const source = controller.lifecycle().generation!;
+    const trash = join(store.root, "generations", `.discarded-${source}`);
+    const remove = Deno.remove;
+    let injected = false;
+    Deno.remove = async (path, options) => {
+      if (String(path) === trash) {
+        injected = true;
+        // Simulate interruption after recursive unlink has already removed the ownership marker.
+        await remove(join(trash, "owner.json"));
+        throw new Error("injected partial cleanup failure");
+      }
+      await remove(path, options);
+    };
+    const operation = crypto.randomUUID();
+    let result: Awaited<ReturnType<Controller["restoreSnapshot"]>>;
+    try {
+      result = await controller.restoreSnapshot(snapshot.id, operation);
+    } finally {
+      Deno.remove = remove;
+    }
+    assert(injected);
+    assert.equal(controller.lifecycle().ready, true);
+    assert.equal(controller.lifecycle().generation, result.generation);
+    assert.equal(controller.lifecycle().cleanup?.state, "failed");
+    const record = (await new SnapshotJournal(store).read(operation))!;
+    assert.equal(record.state, "succeeded");
+    assert.equal(record.cleanup?.state, "failed");
+    assert.match(record.cleanup!.error!, /partial cleanup failure/);
+    assert.deepEqual(record.result, result);
+    assert.deepEqual(await controller.restoreSnapshot(snapshot.id, operation), result);
+    await Deno.stat(trash);
+    const next = await controller.restoreSnapshot(snapshot.id, crypto.randomUUID());
+    assert.equal(controller.lifecycle().cleanup?.state, "succeeded");
+    const generations = [];
+    for await (const entry of Deno.readDir(join(store.root, "generations"))) {
+      generations.push(entry.name);
+    }
+    assert.deepEqual(generations, [next.generation]);
+    await new SnapshotStore(store, controller.network.infra).read(snapshot.id);
+  });
+});
+
+Deno.test("cleanup retains the old branch while active pointer durability cannot be confirmed", async () => {
+  await fixture(async ({ controller }) => {
+    const snapshot = await controller.createSnapshot(crypto.randomUUID());
+    const store = controller.network.store;
+    const source = controller.lifecycle().generation!;
+    const original = store.generationPath(source);
+    const open = Deno.open;
+    const rename = Deno.rename;
+    let uncertain = false;
+    Deno.rename = async (from, to) => {
+      await rename(from, to);
+      if (String(to) === join(store.root, "active.json")) {
+        uncertain ||= (await store.active())!.generation !== source;
+      }
+    };
+    Deno.open = async (path, options) => {
+      const file = await open(path, options);
+      if (uncertain && String(path) === store.root) {
+        file.sync = () => Promise.reject(new Error("injected active pointer sync failure"));
+      }
+      return file;
+    };
+    try {
+      await assert.rejects(
+        controller.restoreSnapshot(snapshot.id, crypto.randomUUID()),
+        /sync failure/,
+      );
+      assert(uncertain);
+      assert.notEqual((await store.active())!.generation, source);
+      await Deno.stat(original);
+    } finally {
+      Deno.open = open;
+      Deno.rename = rename;
+    }
+    await controller.restoreSnapshot(snapshot.id, crypto.randomUUID());
+    await assert.rejects(Deno.stat(original), Deno.errors.NotFound);
+  });
+});
+
+Deno.test("allocation is journaled before mkdir and a partial allocation can be cleaned", async () => {
+  await fixture(async ({ controller }) => {
+    const store = controller.network.store;
+    const source = controller.lifecycle().generation!;
+    const operation = crypto.randomUUID();
+    const mkdir = Deno.mkdir;
+    let injected = false;
+    Deno.mkdir = async (path, options) => {
+      await mkdir(path, options);
+      if (String(path).startsWith(join(store.root, "generations") + "/") && !injected) {
+        const record = (await new SnapshotJournal(store).read(operation))!;
+        assert.equal(store.generationPath(record.candidateGeneration!), String(path));
+        injected = true;
+        throw new Error("injected incomplete allocation");
+      }
+    };
+    try {
+      await assert.rejects(controller.createSnapshot(operation), /incomplete allocation/);
+    } finally {
+      Deno.mkdir = mkdir;
+    }
+    assert(injected);
+    assert.equal(controller.lifecycle().ready, true);
+    const generations = [];
+    for await (const entry of Deno.readDir(join(store.root, "generations"))) {
+      generations.push(entry.name);
+    }
+    assert.deepEqual(generations, [source]);
+  });
+});
+
+Deno.test("cleanup preserves unrecorded generations and another owner's files", async () => {
+  await fixture(async ({ controller }) => {
+    const snapshot = await controller.createSnapshot(crypto.randomUUID());
+    const store = controller.network.store;
+    const unrelated = await store.allocate(controller.network.config, controller.manifest.bake.key);
+    const path = store.generationPath(unrelated.generation);
+    const files = await fileInventory(path);
+    const other = new StateStore("unrelated-snapshot-owner");
+    await other.initialize();
+    const sentinel = join(other.root, "keep.txt");
+    await Deno.writeTextFile(sentinel, "unrelated data");
+    await controller.restoreSnapshot(snapshot.id, crypto.randomUUID());
+    assert.deepEqual(await fileInventory(path), files);
+    assert.equal(await Deno.readTextFile(sentinel), "unrelated data");
+  });
+});
+
 Deno.test("published snapshot remains queryable when source restart fails", async () => {
   await fixture(async ({ controller, events, hooks }) => {
     hooks.resume = () => Promise.reject(new Error("injected restart failure"));
@@ -820,6 +953,7 @@ Deno.test("creation persistence failures preserve the source and report actual p
         assert.equal(controller.lifecycle().now, before.now);
         const snapshots = new SnapshotStore(controller.network.store, controller.network.infra);
         assert.deepEqual((await snapshots.list()).map((item) => item.id), published ? [id] : []);
+        await assert.rejects(Deno.stat(pending), Deno.errors.NotFound);
         if (published) await snapshots.read(id);
         const count = events.length;
         await assert.rejects(controller.createSnapshot(id), /injected/);

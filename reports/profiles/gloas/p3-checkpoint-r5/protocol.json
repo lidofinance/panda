@@ -1,7 +1,7 @@
 {
   "event": "protocol-passed",
   "passed": true,
-  "elapsedMs": 57194.4985,
+  "elapsedMs": 53474.271792,
   "activated": {
     "index": "64",
     "balance": "32000000000",
@@ -48,7 +48,7 @@
     }
   },
   "status": {
-    "id": "protocol-bda9049b",
+    "id": "protocol-6f5dffff",
     "profile": "gloas",
     "bake": "p3-checkpoint-r5",
     "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
@@ -116,6 +116,6 @@
   "profile": "gloas",
   "bake": "p3-checkpoint-r5",
   "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
-  "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f",
-  "recordedAt": "2026-10-04T08:48:28.120Z"
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "recordedAt": "2026-10-04T13:46:16.628Z"
 }

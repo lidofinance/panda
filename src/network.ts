@@ -4,6 +4,8 @@ import { account, type Config, configuration, mnemonic } from "./config.ts";
 import { GENERATION, Infrastructure, LABEL, ROLE } from "./docker.ts";
 import { checkEngineCapabilities, EngineGate } from "./engine.ts";
 import { defaultTimeoutMs, json, rpc, waitFor, withWatchdog } from "./http.ts";
+import { SnapshotJournal, type SnapshotOperation } from "./snapshot_operations.ts";
+import { SnapshotStore } from "./snapshots.ts";
 import {
   type ActiveGeneration,
   type Checkpoint,
@@ -78,6 +80,16 @@ export class Network {
   releaseRecovery(): void {
     if (!this.recovery) throw new Error("Network is not in recovery mode");
     this.releaseLock();
+  }
+  /** Journal ownership excludes concurrent allocation; network ownership excludes active swaps. */
+  async cleanupSnapshotData(records: SnapshotOperation[]): Promise<void> {
+    const owned = this.lockOwned;
+    if (!owned) this.lock = await StateLock.acquire(`${this.store.root}/network.lock`);
+    try {
+      await new SnapshotStore(this.store, this.infra).cleanup(records);
+    } finally {
+      if (!owned) this.releaseLock();
+    }
   }
   /** Start an isolated restore candidate. It cannot sign until the controller validates and commits it. */
   async startCandidate(value: ActiveGeneration, signal?: AbortSignal): Promise<Manifest> {
@@ -761,7 +773,11 @@ export class Network {
       await this.store.initialize();
       this.lock = await StateLock.acquire(`${this.store.root}/network.lock`);
     }
+    let journalLock: StateLock | undefined;
     try {
+      // A capture temporarily releases the network lock after clean stop. Its journal still owns
+      // the source until copying/resume finishes; refuse down before touching any of that data.
+      journalLock = await StateLock.acquire(`${this.store.root}/snapshot-operation.lock`);
       const active = await this.store.active();
       if (active) {
         this.generation = active;
@@ -778,9 +794,11 @@ export class Network {
             await this.store.destroy(active);
             this.generation = undefined;
           }
+          await this.cleanupSnapshotData(await new SnapshotJournal(this.store).list());
         }
       }
     } finally {
+      journalLock?.release();
       await this.releaseLock();
     }
   }

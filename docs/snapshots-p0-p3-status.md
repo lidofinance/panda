@@ -3,9 +3,9 @@
 Recorded on 2026-10-04. **P0–P3 are accepted locally for Gloas on Linux ARM64: the complete profile
 passed 13 scenarios with 0 failures in 911.669 s (15 min 11 s).** P0–P1 established the baseline and
 reproduced the persistence defect. P2 implements lifecycle, storage and admission; P3 implements
-verified clean checkpoint and resume. Pectra is deferred. Reusable snapshot archives and hardfork
-transitions remain unimplemented; their stages are in the [snapshot plan](snapshots-plan.md) and
-[hardfork transition plan](hardforks-plan.md).
+verified clean checkpoint and resume. Pectra is deferred. Reusable snapshots were implemented after
+this acceptance; their current status is in the [snapshot plan](snapshots-plan.md). Dynamic
+transitions remain in the [hardfork transition plan](hardforks-plan.md).
 
 For usage, see [lifecycle and persistent storage](lifecycle.md). Historical evidence is recorded in
 [P0–P1](snapshots-p0-p1.md) and the [initial persistence fix](snapshots-p3-persistence.md).
@@ -37,16 +37,19 @@ For usage, see [lifecycle and persistent storage](lifecycle.md). Historical evid
 | Packaged service                               | PASS, 80.298 s; interrupted startup exited in 1.765 s, followed by restart using the same container, ports and volume, checkpoint, transaction and finality |
 | Final complete Gloas profile                   | **13 PASS / 0 FAIL, 911.669 s**                                                                                                                             |
 
-The final profile command was `deno task test:profile gloas --bake p3-checkpoint-r5`.
-[Verification](../reports/profiles/gloas/p3-checkpoint-r5/verification.json) records run
-`a6c28953-f8eb-428a-891b-088ed9d5335f` and suite fingerprint
-`90ebf7455ea68a15e025fb737d2ee9b0a0c7eb002ed8d746f9bcd09a9902a1f6`.
+The final profile command was `deno task test:profile gloas --bake p3-checkpoint-r5`. The historical
+verification recorded run `a6c28953-f8eb-428a-891b-088ed9d5335f` and suite fingerprint
+`90ebf7455ea68a15e025fb737d2ee9b0a0c7eb002ed8d746f9bcd09a9902a1f6`. The
+[profile report directory](../reports/profiles/gloas/p3-checkpoint-r5/) is updated by subsequent
+full runs; its current reports must be read with their own run ID and suite fingerprint. The
+[P0–P3 status](../reports/snapshots/p0-p3-status.json) retains this earlier acceptance.
 
-All 13 reports belong to that run and bake: baseline, lifecycle, e2e, honest warp (two 1000-slot
-jumps), fast warp (two 8192-slot jumps), economics, protocol, withdrawal, deploy, Gloas, direct
-restart, managed resume and blob checkpoint. The final result comes from one complete standard run;
-it does not combine earlier standalone passes. The protocol scenarios include deposits, activation
-and consolidation; the withdrawal scenario includes voluntary exit and complete withdrawal.
+All 13 reports in that acceptance belonged to the same run and bake: baseline, lifecycle, e2e,
+honest warp (two 1000-slot jumps), fast warp (two 8192-slot jumps), economics, protocol, withdrawal,
+deploy, Gloas, direct restart, managed resume and blob checkpoint. The final result comes from one
+complete standard run; it does not combine earlier standalone passes. The protocol scenarios include
+deposits, activation and consolidation; the withdrawal scenario includes voluntary exit and complete
+withdrawal.
 
 Before the full run, the three scenarios interrupted by the earlier environment failure passed
 individually: withdrawal in 44.516 s, direct restart in 165.878 s and blob checkpoint in 45.822 s.

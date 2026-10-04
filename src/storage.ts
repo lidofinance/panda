@@ -166,6 +166,19 @@ export async function treeMetadata(root: string): Promise<
   return result;
 }
 
+/** A killed client can leave Unix sockets; they are disposable, never archive contents. */
+async function assertDiscardableTree(path: string): Promise<void> {
+  const info = await Deno.lstat(path);
+  if (info.isSymlink || (!info.isDirectory && !info.isFile && !info.isSocket)) {
+    throw new Error(`Unsupported entry in discarded generation: ${path}`);
+  }
+  if (info.isDirectory) {
+    for await (const entry of Deno.readDir(path)) {
+      await assertDiscardableTree(join(path, entry.name));
+    }
+  }
+}
+
 /** One owner, one active generation. Snapshot storage is deliberately outside destroy(). */
 export class StateStore {
   readonly root: string;
@@ -249,6 +262,18 @@ export class StateStore {
     }
     return value;
   }
+  /** An observed rename is not enough to retire the old branch after a lost commit ACK. */
+  async syncAuthority(): Promise<void> {
+    await directory(this.root);
+    await this.validateOwner();
+    if (await this.active()) {
+      using pointer = await Deno.open(join(this.root, "active.json"), { read: true });
+      await pointer.sync();
+    }
+    // This also makes an absent pointer durable after explicit down removed it.
+    using root = await Deno.open(this.root, { read: true });
+    await root.sync();
+  }
   async create(config: Config, bakeKey: string): Promise<ActiveGeneration> {
     await this.initialize();
     if (await this.active()) {
@@ -324,7 +349,11 @@ export class StateStore {
   }
 
   /** Caller holds network ownership and a durable journal reference to this inactive directory. */
-  async discardInactive(generation: string, allocated: boolean): Promise<void> {
+  async discardInactive(
+    generation: string,
+    allocated: boolean,
+    assertUnused: () => Promise<void>,
+  ): Promise<void> {
     await this.validateOwner();
     await directory(this.root);
     const parent = join(this.root, "generations");
@@ -341,6 +370,14 @@ export class StateStore {
     } catch (error) {
       if (!(error instanceof Deno.errors.NotFound)) throw error;
     }
+    let discarded = false;
+    try {
+      await directory(trash);
+      discarded = true;
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    if (exists || discarded) await assertUnused();
     if (exists) {
       try {
         const owner = JSON.parse(await this.readFile(join(path, "owner.json")));
@@ -351,6 +388,7 @@ export class StateStore {
         // A journaled allocation may have died before writing its ownership marker.
         if (!allocated || !(error instanceof Deno.errors.NotFound)) throw error;
       }
+      await assertDiscardableTree(path);
       try {
         await Deno.lstat(trash);
         throw new Error("Discarded generation destination already exists");
@@ -364,7 +402,7 @@ export class StateStore {
     try {
       // The durable journal still authorizes this path after partial unlink removed owner.json.
       await directory(trash);
-      await treeMetadata(trash);
+      await assertDiscardableTree(trash);
       await Deno.remove(trash, { recursive: true });
     } catch (error) {
       if (!(error instanceof Deno.errors.NotFound)) throw error;

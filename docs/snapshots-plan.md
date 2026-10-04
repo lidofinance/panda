@@ -4,40 +4,42 @@ Split from revision 4 of the combined plan, reviewed against `main` at `0acee41`
 This plan owns reusable snapshot creation, restore, recovery and consumer reset. The separate
 [hardfork transition plan](hardforks-plan.md) owns schedules and fork crossing.
 
-**Current stage: P5 cleanup and remaining recovery acceptance. Last reconciled: October 4, 2026.**
-P0–P3 are complete and accepted locally on Gloas/Linux ARM64; see the
-[verification report](snapshots-p0-p3-status.md). P4 is now accepted on that platform: independent
-state, injected persistence failures and eight real creation process-loss cuts passed. Each
-criterion and its evidence is recorded under [P4](#p4-implement-durable-snapshot-creation).
+**Status: snapshot functionality complete and accepted locally on Gloas/Linux ARM64, October 4,
+2026.** P0–P5, snapshot P9 and P10 are closed. The complete current profile passed **19/19**
+scenarios in **1,975.949 s** with unchanged executable sources and exact bake binding. Unit,
+Docker/baker, packaged-service, measurement and requirement-audit gates also passed; see the
+[final acceptance report](snapshots-verification.md).
 
-P5 restore paths were implemented early to verify reuse of P4's artifact. P4 acceptance is now
-complete; P5 remains partially implemented and **not accepted**, with filesystem cleanup and
-remaining recovery/container checks next. P9 has not started. P10 has test registration and
-individual scenario results; its release gate has not started. These stage results do not claim
-completion of the whole snapshot feature; see [lifecycle](lifecycle.md).
+P5 restore paths were implemented early to verify reuse of P4's artifact; that overlap did not count
+as P4 acceptance. Each stage below records its own executed criteria. The finished feature includes
+durable reusable archives, explicit recovery, cleanup, persistent container replacement, protocol
+queues and external-consumer reset/replay. [Lifecycle](lifecycle.md) documents usage. AMD64
+publication and dynamic hardfork transitions are outside this local acceptance.
 
 Original stage IDs are retained so existing reports remain meaningful. P6–P8 belong to the hardfork
 plan. P9 and P10 are divided by scope between the two documents; joint snapshot/transition checks
 are owned by P9 in the hardfork plan and require both features.
 
-| Stage                                       | Status                                                                                                        |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| P0 — pinned inputs and state inventory      | Complete; clean Geth built and checked.                                                                       |
-| P1 — persistence/admission regressions      | Complete; behavioral RED and independent reference evidence retained.                                         |
-| P2 — lifecycle, storage and admission       | Complete; SDK/CLI/container and managed ingress verified.                                                     |
-| P3 — native checkpoint and cold resume      | Complete; native r5, cuts 3/31/32/127/128, blob/KZG and refusal/continuation checks; full profile 13/13.      |
-| P4 — snapshot creation                      | Complete: independent state, seven persistence failures and eight real creation process-loss cuts passed.     |
-| P5 — restore, recovery and public commands  | Current: partially implemented and tested; finish filesystem cleanup and remaining recovery/container checks. |
-| P9 — snapshot protocol and consumer fixture | Planned; not started.                                                                                         |
-| P10 — snapshot release verification         | Preparation only: scenarios registered and individually run; release acceptance waits for P4, P5 and P9.      |
+| Stage                                       | Status                                                                                                                            |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| P0 — pinned inputs and state inventory      | Complete; clean Geth built and checked.                                                                                           |
+| P1 — persistence/admission regressions      | Complete; behavioral RED and independent reference evidence retained.                                                             |
+| P2 — lifecycle, storage and admission       | Complete; SDK/CLI/container and managed ingress verified.                                                                         |
+| P3 — native checkpoint and cold resume      | Complete; native r5, cuts 3/31/32/127/128, blob/KZG and refusal/continuation checks; full profile 13/13.                          |
+| P4 — snapshot creation                      | Complete: independent state, seven persistence failures and eight real creation process-loss cuts passed.                         |
+| P5 — restore, recovery and public commands  | Complete: cleanup, 11 recovery cuts, persistent container replacement and acceptance audit passed.                                |
+| P9 — snapshot protocol and consumer fixture | Complete: deposit/activation, consolidation/exit/payout and separate consumer replay scenarios passed; registered and documented. |
+| P10 — snapshot release verification         | Complete: full profile 19/19, unit/check, Docker/baker, current package, disk measurements and final acceptance audit passed.     |
 
-## Current execution order
+## Completion and release handoff
 
-1. Finish P5's remaining filesystem cleanup and recovery/container checks, preserving the already
-   passing restore work.
-2. Implement and verify P9's protocol and external-consumer fixtures.
-3. Run P10's complete applicable profile, Docker/baker and packaged-service gates, then finish the
-   snapshot audit.
+No snapshot implementation or local acceptance item remains open. All 19 scenarios completed in one
+run on `p3-checkpoint-r5` without rebuilding its clients. Final readback matched the suite hash,
+bake and every report; no containers, networks or volumes remained for the run's 25 recorded owners.
+
+Publishing is a separate action: the existing published client lock is older than checkpoint ABI 1.
+Use the normal Lighthouse baker 3 release PR, then the AMD64 Panda verification/publication flow.
+The local ARM bake and package are verification artifacts, not replacements for a published lock.
 
 Update the stage table, execution checklist, evidence and next step after each completed work block.
 Keep implementation progress distinct from acceptance. Starting dependent verification does not
@@ -45,6 +47,9 @@ complete a prerequisite; any overlap must be stated here with its reason. Existi
 remain evidence and are repeated when relevant changes or an outstanding gate require it.
 
 Snapshot development evidence (October 4, 2026):
+
+This is a chronological record. Later entries and the acceptance tables supersede earlier statements
+about open work; historical standalone results are not retroactively full-profile passes.
 
 - A real `gloas/p3-checkpoint-r5` creation probe passed at slot 3: unchanged saved time and
   execution/consensus heads, new controller session, original automine setting restored, idempotent
@@ -122,6 +127,38 @@ Snapshot development evidence (October 4, 2026):
   [standalone result](../reports/profiles/gloas/p3-checkpoint-r5/snapshot-creation.json) closes
   P4.5. The scenario removed its exact-owner runtime and successful fixture data. Existing images
   were reused; no native build was needed. P4 is accepted; P5/P9/P10 remain open.
+- P5 cleanup now uses durable operation references: allocation is recorded before mkdir, active
+  generations and generations with any client container are protected, and unpublished archives and
+  discarded generations can be removed after interruption. Unrecorded directories, other owners and
+  published snapshots are preserved. Cleanup has its own outcome and does not undo a successful
+  restore. Regressions first reproduced partial-copy and discarded-branch leaks.
+- Two cleanup audit findings were reproduced and fixed: `down` previously reached client deletion
+  before acquiring the snapshot operation lock, and cleanup could retire an old branch after a new
+  pointer became visible while directory sync continued failing. `down` now acquires journal
+  ownership first; cleanup syncs the active pointer and root before deleting inactive data. Failed
+  durability confirmation retains the old files and reports failed cleanup. Interrupted unlink after
+  removal of `owner.json`, lost rename acknowledgement, directory sync, pending archive deletion,
+  foreign owners and symlinks have executed regression coverage.
+- The expanded real recovery scenario passed **11/11** cuts in **317.83 seconds**, including loss
+  inside copying, after cleanup rename and during partial unlink. After each explicit recovery, only
+  the active generation remained and the next block passed. This run preceded the additional
+  authority-sync guard; that guard passed its failing regression and the subsequent full unit and
+  real state checks. The final `deno task check` passed; `deno task test` passed **309 tests and 122
+  nested checks**, with 20 opt-in scenarios skipped. Docker smoke passed in 3.44 seconds.
+- The real snapshot scenario then passed on the final cleanup code in **82.94 seconds**: complete
+  independently saved state, repeated/faulted/offline restore, no discarded-generation residue,
+  archive removal, next transaction and finality through epoch 2. Capture took 12.44 seconds,
+  restores 12.59–12.73 seconds, the archive was 11,707,825 bytes, and the next transaction took 123
+  ms. These current standalone results are not full-profile verification. Packaged-container loss,
+  P9 and the final P10 gate remain open.
+- P5's packaged-container gate subsequently passed in **117.88 seconds** on the fixed local Panda
+  image. It preserved `/data/panda` through SIGKILL and outer-container replacement, required
+  explicit recovery, restored slot 195 and discarded the slot-196 future. Restore took **9.49
+  seconds**, the next signed transaction **111 ms**, and finality reached epoch **8** at slot 324.
+  The first run had exposed stale Geth IPC socket cleanup; focused RED/GREEN and the separate
+  fixed-image run verified the correction. The P5 acceptance matrix is now closed. The full
+  unit/adapter suite passed **311 tests and 122 nested checks**, and static checks passed. P9 and
+  the full P10 gate remain open.
 
 Gloas is the only active profile. `src/active_profiles.ts` temporarily excludes Pectra from default
 CI, releases and verification. Historical P0–P1 results for both profiles remain available. All
@@ -372,8 +409,8 @@ hashes only for identical block inputs; define comparisons before running, not a
 Dependencies: P2/P3. Scope: controller/storage.
 
 **Status: complete and accepted locally on Gloas/Linux ARM64, October 4, 2026.** All five P4
-criteria below have executed evidence. Filesystem cleanup of failed/inactive copies remains P5 work;
-the complete snapshot release gate remains P10.
+criteria below have executed evidence. Filesystem cleanup of failed/inactive copies is covered by
+P5; the complete snapshot release gate remains P10.
 
 - [x] **P4.1 — Create and resume at the saved cut.** Managed checkpoint, stopped-source copy and
       source resume are implemented. Real Gloas creation checks preserve time and heads, restore
@@ -428,9 +465,20 @@ publication on disk-full/copy/persistence failure.
 
 Dependencies: P4. Scope: controller/API/CLI/container.
 
-**Status: current stage; partially implemented and tested, not accepted.** Early P5 work supplied
-the restore path needed to verify reusable P4 artifacts. P4 is now accepted; finish the remaining
-items below before accepting P5.
+**Status: complete and accepted locally on Gloas/Linux ARM64, October 4, 2026.** Early P5 work
+supplied the restore path needed to verify reusable P4 artifacts. All P5 items below now have
+executed evidence. P9 and the full local P10 release gate are also accepted below.
+
+Fixed finding: the first packaged-container loss run restored the saved state, endpoints and
+receipts, but failed cleanup because a crashed Geth leaves an `el/geth.ipc` Unix socket. Archive
+inventory correctly rejects sockets; deletion of a journaled inactive generation now handles this
+crash residue after the exact-owner container check. The focused regression failed before the fix
+and passed after it. The separate fixed-image packaged run passed in **117.88 seconds**: restore
+took **9.49 seconds**, the next transaction **111 ms**, and real finality reached epoch **8** at
+slot **324**, with EL/CL agreement. It retained the named volume while deleting and replacing the
+entire outer service container and its private Docker storage. No native client was rebuilt.
+Exact-owner test containers and the volume were removed after completion; see the
+[sanitized result](../reports/profiles/gloas/p3-checkpoint-r5/snapshot-container.json).
 
 - [x] Live repeated restore, saved time/heads/signing history, stable public URLs, automine off,
       faulted Beacon Node recovery, SDK/CLI entrypoints, offline startup and explicit archive
@@ -438,15 +486,41 @@ items below before accepting P5.
 - [x] Real controller SIGKILL at eight restore journal boundaries, with active-pointer authority,
       explicit recovery and next-block checks. Adapter checks cover lost responses, pre/post-commit
       failures, removal interruptions, ownership and shutdown races.
-- [ ] Durable cleanup of incomplete capture copies, inactive restore candidates and discarded
-      generations. Docker orphan cleanup is fixed; filesystem cleanup is still missing.
-- [ ] Remaining interruptions inside copying and cleanup, and packaged-service/container loss with
-      retained `/data/panda`. A journal-boundary pass does not cover every intermediate file write.
-- [ ] Reconcile the complete P5 acceptance matrix after P4 closes; retain unresolved cases as open.
+- [x] Durable cleanup of incomplete capture copies, inactive restore candidates and discarded
+      generations. Allocation is recorded before mkdir; journal-scoped deletion protects active
+      authority, attached clients and unrecorded data. Partial deletion is retryable. Persistence,
+      ownership and failure reporting checks and the real state/restore scenario passed.
+- [x] Interruptions inside restore copying and generation cleanup. The real recovery scenario now
+      covers 11 cuts, including post-rename and partial-unlink loss. Unit checks additionally cover
+      pending-archive unlink and persistent active-pointer sync failure.
+- [x] Packaged-service/container loss with retained `/data/panda`: create → mutate → force-stop and
+      replace the service container → recovery-required → explicit restore → next transaction and
+      finality. Keep the existing graceful startup/stop/resume checks.
+- [x] Reconcile the complete P5 acceptance matrix. P9 and P10 are accepted separately below.
 
 Evidence: [restore scenario](../bakes/gloas/tests/snapshots.ts),
 [recovery scenario](../bakes/gloas/tests/snapshot_recovery.ts) and
-[eight-cut result](../reports/profiles/gloas/p3-checkpoint-r5/snapshot-recovery.json).
+[11-cut result](../reports/profiles/gloas/p3-checkpoint-r5/snapshot-recovery.json),
+[cleanup regressions](../tests/snapshot_cleanup_test.ts) and
+[current state/restore result](../reports/profiles/gloas/p3-checkpoint-r5/snapshots.json).
+
+P5 acceptance audit (October 4, 2026):
+
+| Contract                                                                              | Executed evidence                                                                                                                         | Status |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Validate before stopping: identity/configuration, complete bytes/metadata, free space | `snapshots_test.ts` and `snapshot_controller_test.ts`; capacity injection refuses allocation and preserves the running source and archive | Passed |
+| Prepare independently; start parked; publish only verified authority                  | `snapshot_network_test.ts`, controller regressions and real state/recovery scenarios                                                      | Passed |
+| Repeated, faulted and offline restore; same SDK and stable URLs; automine off         | Real snapshot scenario, retained-artifact CLI/SDK probe and adapter checks                                                                | Passed |
+| Durable stages, lost replies, exact request deduplication, no automatic rollback      | Journal/controller/API regressions; 11 real restore process-loss cuts                                                                     | Passed |
+| Remove only unused archives; preserve foreign owners; retry partial cleanup           | Archive/removal/cleanup regressions, real copy/cleanup cuts; stale Unix socket RED followed by focused GREEN                              | Passed |
+| CLI create/list/restore/remove/open and operation lookup                              | CLI routing/offline-removal regressions plus real offline CLI startup/recovery probe                                                      | Passed |
+| Persistent packaged service after loss and replacement                                | Stale-socket cleanup reproduced and fixed; separate real packaged run passed, including next transaction and finality                     | Passed |
+
+The focused capacity check exercises the free-space guard after archive validation without filling
+the host disk. It is storage-boundary coverage, not additional real-client evidence. After the Unix
+socket fix, `deno task check` passed and the full unit/adapter suite passed **311 tests and 122
+nested checks**, with 20 opt-in scenarios ignored. All P5 acceptance rows are now satisfied on the
+selected local platform; P9 and the final P10 gate are accepted below.
 
 - Validate manifest, checksums, compatibility and disk space before stopping a working network.
   Reject chain/schedule overrides.
@@ -473,6 +547,53 @@ missing files; unrelated resource preservation. Cover every recovery stage.
 Dependencies: P5. Scope: integration/SDK documentation. This is the snapshot portion of the original
 P9; dynamic fork crossing is not a prerequisite for this fixture.
 
+**Status: complete and accepted locally on Gloas/Linux ARM64, October 4, 2026.** All four items
+below have executed evidence. Joint hardfork-transition scenarios remain in the separate plan.
+
+- [x] **P9.1 — Deposit and activation queues.** Capture a real pending deposit and a separate
+      pending activation; advance, restore each cut, compare the saved queues/validator state and
+      activate exactly one imported validator with one deposit log and the expected balance.
+- [x] **P9.2 — Consolidation, exit and withdrawals.** Capture pending consolidation and a signed
+      exit before inclusion; finish their real delays and payouts, restore and finish again. Verify
+      queue identity, balances, actual EL credits and unique withdrawal indices within each branch.
+- [x] **P9.3 — External consumer reset/replay.** A separate process with a persisted database must
+      consume old and future history. Stop it, restore Panda, recreate provider/nonce caches, clear
+      its database and replay from the start. Preserve old records and remove future records.
+- [x] **P9.4 — Registration and documentation.** Register the real scenarios/fingerprints and
+      document the executable consumer fixture and its ownership/reset order. Record actual runs.
+
+P9.1 passed on `gloas/p3-checkpoint-r5` in **145.41 seconds**. Independent state matched after
+restoring the pending deposit at slot **2** and the activation queue at slot **224**. The original
+and both restored branches activated validator **64** exactly once at slot **352**, with a **32
+ETH** balance, one deposit event and all **65** VC keys/signing records retained. No runtime change
+was needed for this coverage; see [scenario](../bakes/gloas/tests/snapshot_deposits.ts) and
+[result](../reports/profiles/gloas/p3-checkpoint-r5/snapshot-deposits.json).
+
+P9.2 passed on the same bake in **112.34 seconds**. Capture at slot **8197** retained the pending
+consolidation and one signed, not-yet-included exit. The original and restored branches matched: one
+exit inclusion, one full EL payout, unique withdrawal indices, zero final exited balance and a
+material CL transfer to the consolidation target. Every produced payout block checked the exact EL
+account increase against its withdrawals. Mainnet eligibility and withdrawal delays remained
+unchanged; this 64-validator fixture explicitly used churn quotients of 4. Both branches reached
+slot **24704** and real finality epoch **770**, with EL/CL agreement. See
+[scenario](../bakes/gloas/tests/snapshot_withdrawals.ts) and
+[result](../reports/profiles/gloas/p3-checkpoint-r5/snapshot-withdrawals.json).
+
+P9.3 passed in **31.83 seconds**. A separate process consumed EL transactions and CL headers through
+slot **4** into its own database. After Panda restored slot **1**, that database still held the
+discarded future and the transaction sender still cached nonce **2**, while the chain required nonce
+**1**. Stopping/resetting/restarting the consumer and recreating the provider/nonce manager replayed
+both histories from genesis, preserved the earlier transaction, removed the future and accepted a
+different new transaction. See [scenario](../bakes/gloas/tests/snapshot_consumer.ts),
+[result](../reports/profiles/gloas/p3-checkpoint-r5/snapshot-consumer.json) and the
+[consumer fixture](../bakes/shared/tests/snapshot_consumer.ts). All three scenarios removed their
+exact-owner runtime and successful fixture data. All three scenarios are registered in the Gloas
+recipe; a regression confirms the external child process participates in the suite fingerprint.
+[Consumer reset documentation](lifecycle.md#resetting-an-external-consumer) describes the executable
+fixture and reset order. `deno task check` passed; the full unit/adapter suite passed **311 tests
+and 122 nested checks**, with **23** opt-in scenarios ignored. P9 is accepted; these standalone
+passes do not close P10.
+
 - Test real deposit/activation/consolidation/exit/withdrawal across save and restore, including
   queues, balances and actual EL payouts, with no duplicate inclusion within a branch.
 - Deliver a fixture that stops the consumer, restores, recreates provider/nonce caches, clears a
@@ -491,6 +612,41 @@ rewound automatically, and changes to another project require a separate task.
 
 Dependencies: P0–P5 and snapshot P9. Scope: CI/bake/tests. This gate establishes snapshot
 capability; joint fork claims additionally require the hardfork plan's P9/P10.
+
+**Status: complete and accepted locally on Gloas/Linux ARM64, October 4, 2026.**
+
+Current verification (October 4, 2026): `deno task check` passed; `deno task test` passed **311
+tests and 122 nested checks**, with **23** opt-in scenarios ignored. The Docker/baker gate passed
+**4/4** checks in **29 seconds**, including image reuse/archive restoration and exact-owner cleanup.
+The full profile started at **13:38:23 UTC**, run ID `8316eab3-3db9-4e11-b8c5-b038b84762f1`, suite
+hash `adbcaa27d5111209db8f1521364f04a42e32b6769f7e2e1b9e60b3e3fd109449`. It finished at **14:11:19
+UTC**, **19 passed / 0 failed**, in **1,975.949 s**. No native client was rebuilt. The final
+[acceptance audit](snapshots-verification.md) maps each requirement to its executed checks. The
+existing published client lock predates checkpoint ABI 1; publishing this feature will require the
+normal Lighthouse baker 3 release PR, followed by AMD64 Panda verification. Local acceptance does
+not claim that publication has happened.
+
+This single run includes all 13 previous scenarios, repeated/faulted/offline snapshots, **11 restore
+SIGKILL cuts** (327.75 s), **8 creation SIGKILL cuts** (321.62 s), deposit/activation replay (154.22
+s), consolidation/exit/payout replay (133.61 s), and the separate external consumer (36.63 s). Final
+independent readback matched the current fingerprint, bake and all 19 report run IDs. No test-owned
+Docker containers, networks or volumes remained across 25 recorded owners.
+
+- [x] **P10.1 — Scenario registration.** Nineteen Gloas scenarios are registered, including the six
+      snapshot scenarios. Fingerprint checks cover the crash and external-consumer processes.
+- [x] **P10.2 — Complete current verification.** The frozen current profile passed 19/19 with exact
+      report binding. Unit/static and Docker/baker gates passed. All 43 packaged file hashes and the
+      package test hash match the existing successful fixed-image run and current runtime.
+- [x] **P10.3 — Measurements.** The current snapshot scenario passed in 91.70 s: capture 17.10 s,
+      restore API calls 12.20–13.31 s and next transaction 143 ms. The archive has 11,681,239 file
+      bytes and 13,877,248 allocated bytes. Owner allocation before/after capture, after each
+      restore and after removal is recorded in the report and [audit](snapshots-verification.md).
+      End-to-end API timing bounds maintenance; the exact HTTP outage interval and transient peak
+      disk usage are not separately measured.
+- [x] **P10.4 — Documentation and final audit.** README/API, lifecycle, consumer reset and release
+      prerequisites are documented. The acceptance matrix binds every original contract to checks
+      and exact bake/image/schema/ABI evidence. Public evidence excludes private checkout paths and
+      credentials. Final review has no unresolved snapshot implementation finding.
 
 - Register snapshot scenarios, fingerprints and capabilities in existing runners. Keep unit/format
   checks distinct from real EL/CL scenarios. Preserve old tags; unsupported capabilities cannot be

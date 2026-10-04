@@ -14,12 +14,12 @@
     "validators": 64,
     "otherContainers": 1
   },
-  "elapsedMs": 48546.101334000006,
+  "elapsedMs": 45609.5315,
   "samples": [
     {
-      "advanceMs": 7561.759749999997,
+      "advanceMs": 7880.839874999998,
       "slots": 8192,
-      "readyMs": 7697.4257499999985,
+      "readyMs": 8015.054666,
       "targetSlot": 8320,
       "receipt": {
         "blockHash": "0x6ed3f5bdd5dc2333f72f39abe1f8d8f3c42c7248a35441737bfd39d6cdf080d4",
@@ -46,9 +46,9 @@
       }
     },
     {
-      "advanceMs": 9001.273708,
+      "advanceMs": 7927.783166000001,
       "slots": 8192,
-      "readyMs": 9133.555666,
+      "readyMs": 8057.727166000004,
       "targetSlot": 16576,
       "receipt": {
         "blockHash": "0x3f58144280be2384beaa6a5bd72bf9a72b56d047fc7f7e580ec96a8c423f3426",
@@ -463,7 +463,7 @@
   ],
   "signedValidators": 64,
   "status": {
-    "id": "warp-02ceb1cd",
+    "id": "warp-7aecdf76",
     "profile": "gloas",
     "bake": "p3-checkpoint-r5",
     "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
@@ -522,6 +522,6 @@
   "profile": "gloas",
   "bake": "p3-checkpoint-r5",
   "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
-  "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f",
-  "recordedAt": "2026-10-04T08:46:22.766Z"
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "recordedAt": "2026-10-04T13:44:14.214Z"
 }

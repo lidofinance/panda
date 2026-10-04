@@ -90,6 +90,7 @@ export class Controller {
   private preserving?: Promise<void>;
   private lifecycleWork?: Promise<unknown>;
   private lifecyclePending = false;
+  private snapshotCleanup?: SnapshotOperation["cleanup"];
   private session: Session | RecoverySession;
   private operation?: LifecycleOperation;
   private readonly snapshotJobs = new Map<
@@ -339,6 +340,7 @@ export class Controller {
       recoveryRequired: !("manifest" in this.session),
       operation: this.operation,
       checkpointCapable: this.checkpointCapable,
+      cleanup: this.snapshotCleanup,
     };
   }
   private lifecycleOperation<T>(
@@ -545,7 +547,7 @@ export class Controller {
       const previous = await journal.read(id);
       if (previous && previous.state !== "running") return journal.outcome(previous, request);
       return await this.reserveLifecycle(() =>
-        journal.run(id, request, async (record, interrupted) => {
+        this.snapshotRun(journal, id, request, async (record, interrupted) => {
           if (interrupted) {
             throw new Error(
               "Snapshot restore was interrupted; inspect its stage and active generation, then explicitly restore with a new operation ID",
@@ -646,7 +648,9 @@ export class Controller {
       );
     };
     if (previous) {
-      return await this.reserveLifecycle(() => journal.run(id, request, interruptedCreation));
+      return await this.reserveLifecycle(() =>
+        this.snapshotRun(journal, id, request, interruptedCreation)
+      );
     }
     const wasAutomining = this.automine.enabled;
     let nativeChanged = false;
@@ -655,7 +659,7 @@ export class Controller {
       const saved = await this.lifecycleOperation(
         "snapshotCreate",
         () =>
-          journal.run(id, request, async (record, interrupted) => {
+          this.snapshotRun(journal, id, request, async (record, interrupted) => {
             if (interrupted) return await interruptedCreation(record);
             await journal.update(record, {
               sourceGeneration: this.manifest.generation,
@@ -668,7 +672,13 @@ export class Controller {
                 nativeChanged = true;
               });
               await journal.update(record, { stage: "copying" });
-              const snapshot = await this.snapshots.capture(this.manifest.bake, id);
+              const snapshot = await this.snapshots.capture(
+                this.manifest.bake,
+                id,
+                async (value) => {
+                  await journal.update(record, { candidateGeneration: value.generation });
+                },
+              );
               await journal.update(record, { stage: "captured", snapshot });
               resumeAttempted = true;
               await this.resumeSession();
@@ -729,6 +739,32 @@ export class Controller {
       }
       throw error;
     }
+  }
+  private snapshotRun<T>(
+    journal: SnapshotJournal,
+    id: string,
+    request: SnapshotRequest,
+    work: (record: SnapshotOperation, interrupted: boolean) => Promise<T>,
+  ): Promise<T> {
+    return journal.run(id, request, async (record, interrupted) => {
+      try {
+        return await work(record, interrupted);
+      } finally {
+        // Cleanup has its own outcome. It must never undo a published branch or hide the main
+        // operation's result merely because an obsolete directory could not be removed.
+        try {
+          await journal.update(record, { cleanup: { state: "pending" } });
+          await this.network.cleanupSnapshotData(await journal.list());
+          this.snapshotCleanup = { state: "succeeded" };
+        } catch (error) {
+          this.snapshotCleanup = { state: "failed", error: String(error) };
+          console.error(
+            JSON.stringify({ event: "snapshot-cleanup-failed", id, error: String(error) }),
+          );
+        }
+        await journal.update(record, { cleanup: this.snapshotCleanup });
+      }
+    });
   }
   async status(signal?: AbortSignal) {
     return {

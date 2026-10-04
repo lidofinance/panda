@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "elapsedMs": 36626.512041,
+  "savedSlot": 1,
+  "futureSlot": 4,
+  "restoredSlot": 1,
+  "cachedNonce": 2,
+  "restoredNonce": 1,
+  "preserved": "0x631322f0f798479f11d3ab3a5a19a9dffa71691102784ba217ca2703c8d2473d",
+  "discarded": "0x0171e93166e3470ea99f579f22f359a59fcaad2378663e5dac5197a76cbc20e7",
+  "next": "0xa2d2def7ba1bdfbd2b0c8f5fbcf498a03f684c356354ed98d6896d6cb5043e9f",
+  "replayedExecutionBlocks": 2,
+  "replayedConsensusBlocks": 2,
+  "continuedExecutionBlocks": 3,
+  "independentDatabase": true,
+  "freshConsumerProcess": true,
+  "profile": "gloas",
+  "bake": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "recordedAt": "2026-10-04T14:11:18.258Z"
+}

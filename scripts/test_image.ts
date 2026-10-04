@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { request } from "node:http";
 import { JsonRpcProvider, Wallet } from "ethers";
 import { Devnet } from "../src/api.ts";
-import { privateKey } from "../src/config.ts";
+import { account, privateKey } from "../src/config.ts";
 import { GENERATION, Infrastructure, LABEL, ROLE } from "../src/docker.ts";
 import { deadline, delay, json, waitFor } from "../src/http.ts";
 import { atomicJson } from "../src/artifacts.ts";
@@ -13,23 +13,25 @@ if (!image || !profile) throw new Error("Usage: test_image.ts <image> <profile>"
 const id = `image-${crypto.randomUUID().slice(0, 8)}`;
 const infra = new Infrastructure(id);
 const ports = [8545, 5052, 5062];
-// Explicit host ports remain identical after restarting the same container.
+// Explicit host ports remain identical across both restart and container replacement.
 const listeners = ports.map(() => Deno.listen({ hostname: "127.0.0.1", port: 0 }));
 const published = listeners.map((listener) => listener.addr.port);
 for (const listener of listeners) listener.close();
 const dataVolume = await infra.volume("data");
-const container = await infra.container("service", {
-  Image: image,
-  ExposedPorts: Object.fromEntries(ports.map((port) => [`${port}/tcp`, {}])),
-  HostConfig: {
-    Privileged: true,
-    Binds: [`${dataVolume}:/data/panda`],
-    PortBindings: Object.fromEntries(ports.map((port, index) => [
-      `${port}/tcp`,
-      [{ HostIp: "127.0.0.1", HostPort: String(published[index]) }],
-    ])),
-  },
-}).catch(async (error) => {
+const createContainer = () =>
+  infra.container("service", {
+    Image: image,
+    ExposedPorts: Object.fromEntries(ports.map((port) => [`${port}/tcp`, {}])),
+    HostConfig: {
+      Privileged: true,
+      Binds: [`${dataVolume}:/data/panda`],
+      PortBindings: Object.fromEntries(ports.map((port, index) => [
+        `${port}/tcp`,
+        [{ HostIp: "127.0.0.1", HostPort: String(published[index]) }],
+      ])),
+    },
+  });
+let container = await createContainer().catch(async (error) => {
   await infra.cleanup();
   throw error;
 });
@@ -432,6 +434,184 @@ try {
       finalizedExecutionHash: finalizedHash,
       stoppedCheckpoint,
       afterSdkStopAndSigterm: stoppedResume,
+    };
+
+    // A snapshot must outlive the whole private Docker daemon, not only its controller process.
+    // Capture expectations independently, then make and abandon an actually included future.
+    const saved = await net.status();
+    console.log(JSON.stringify({ event: "packaged-snapshot-create", slot: saved.slot }));
+    const savedNativeHead = await beaconHead();
+    const savedReceipt = await net.rpc("eth_getTransactionReceipt", [nextTx.hash]);
+    const savedBalance = await net.rpc("eth_getBalance", [account, "latest"]);
+    const savedNonce = await net.rpc("eth_getTransactionCount", [account, "latest"]);
+    const createId = crypto.randomUUID();
+    const snapshot = await net.createSnapshot({ operationId: createId });
+    const source = await net.lifecycle();
+    const send = async (value: bigint) => {
+      // Fresh RPC nonce on each branch; no provider state can leak across restore.
+      const raw = await new Wallet(privateKey).signTransaction({
+        type: 2,
+        chainId: 1337,
+        nonce: Number(
+          BigInt(await net.rpc<string>("eth_getTransactionCount", [account, "latest"])),
+        ),
+        to: account,
+        gasLimit: 21_000,
+        maxFeePerGas: 10_000_000_000n,
+        maxPriorityFeePerGas: 1_000_000_000n,
+        value,
+      });
+      const started = performance.now();
+      await net.setAutomine(true);
+      const hash = await net.rpc<string>("eth_sendRawTransaction", [raw]);
+      const receipt = await waitFor(
+        "packaged snapshot transaction",
+        async () =>
+          await net.rpc<{ status: string; blockHash: string } | null>(
+            "eth_getTransactionReceipt",
+            [hash],
+          ) ?? undefined,
+        60_000,
+      );
+      await net.setAutomine(false);
+      assert.equal(receipt.status, "0x1");
+      return { hash, receipt, elapsedMs: performance.now() - started };
+    };
+    const discarded = await send(3n);
+    const future = await net.status();
+    assert(future.slot > saved.slot);
+    assert.notEqual(future.el.hash, saved.el.hash);
+    await saveClientLogs();
+    await Deno.writeTextFile(
+      `.cache/container-reports/${profile}-${id}-before-loss.log`,
+      await infra.logs(container),
+    );
+    const lost = await container.inspect();
+    assert.equal(lost.Config.Labels[LABEL], id);
+    await container.kill({ signal: "SIGKILL" });
+    await container.wait();
+    const killed = (await container.inspect()).State;
+    assert.equal(killed.Running, false);
+    assert.equal(killed.ExitCode, 137);
+    assert.equal(killed.OOMKilled, false);
+    // v removes anonymous private-Docker storage; the explicitly named /data/panda survives.
+    await container.remove({ v: true });
+    assert.equal((await infra.docker.getVolume(dataVolume).inspect()).Labels[LABEL], id);
+    container = await createContainer();
+    await container.start();
+    const replacement = await container.inspect();
+    assert.notEqual(replacement.Id, lost.Id);
+    assert.equal(replacement.Image, running.Image);
+    assert.deepEqual(replacement.NetworkSettings.Ports, running.NetworkSettings.Ports);
+    assert.equal(
+      replacement.Mounts.find((mount) => mount.Destination === "/data/panda")?.Name,
+      dataVolume,
+    );
+    const recovery = await waitFor(
+      "packaged recovery service",
+      async () => await deadline(net.lifecycle(), 8000, "packaged recovery probe"),
+      300_000,
+    );
+    assert.equal(recovery.ready, false);
+    assert.equal(recovery.recoveryRequired, true);
+    assert.equal(recovery.generation, source.generation);
+    assert.equal(recovery.now, undefined, "unclean data cannot claim a current protocol time");
+    assert.equal(recovery.slot, undefined);
+    console.log(JSON.stringify({ event: "packaged-snapshot-recovery-required" }));
+    await assert.rejects(() => deadline(net.status(), 8000, "unclean packaged status"));
+    await assert.rejects(() =>
+      infra.exec(container, [
+        "deno",
+        "run",
+        "--config=deno.json",
+        "--cached-only",
+        "-A",
+        "container/health.ts",
+      ])
+    );
+    for (const endpoint of [beacon, validator]) {
+      const response = await fetch(`${endpoint}/eth/v1/beacon/headers/head`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      assert.equal(response.status, 503);
+      await response.body?.cancel();
+    }
+    assert.equal(
+      (await infra.exec(container, [
+        "docker",
+        "ps",
+        "--all",
+        "--quiet",
+        "--filter",
+        `label=${LABEL}=service`,
+      ])).trim(),
+      "",
+      "recovery must not start clients or regenerate genesis",
+    );
+    assert.deepEqual(await net.listSnapshots(), [snapshot]);
+    assert.equal((await net.snapshotOperation(createId))?.state, "succeeded");
+    const restoreId = crypto.randomUUID();
+    const restoreStarted = performance.now();
+    const restored = await net.restoreSnapshot(snapshot, { operationId: restoreId });
+    const restoreMs = performance.now() - restoreStarted;
+    const restoredStatus = await net.status();
+    assert.equal(restoredStatus.now, saved.now);
+    assert.equal(restoredStatus.slot, saved.slot);
+    assert.equal(restoredStatus.automine, false);
+    assert.deepEqual(restoredStatus.el, saved.el);
+    assert.deepEqual(restoredStatus.finality, saved.finality);
+    assert.deepEqual(await beaconHead(), savedNativeHead);
+    assert.deepEqual(await net.rpc("eth_getTransactionReceipt", [nextTx.hash]), savedReceipt);
+    assert.equal(await net.rpc("eth_getTransactionReceipt", [discarded.hash]), null);
+    assert.equal(await net.rpc("eth_getBalance", [account, "latest"]), savedBalance);
+    assert.equal(await net.rpc("eth_getTransactionCount", [account, "latest"]), savedNonce);
+    const restoredLifecycle = await net.lifecycle();
+    assert.equal(restoredLifecycle.ready, true);
+    assert.notEqual(restoredLifecycle.generation, source.generation);
+    assert.notEqual(restoredLifecycle.sessionId, source.sessionId);
+    const restoreOperation = await net.snapshotOperation(restoreId);
+    assert.equal(restoreOperation?.cleanup?.state, "succeeded", restoreOperation?.cleanup?.error);
+    assert.deepEqual(await net.restoreSnapshot(snapshot, { operationId: restoreId }), restored);
+    assert.deepEqual(await publicKeys(), validators);
+    const next = await send(4n);
+    console.log(JSON.stringify({ event: "packaged-snapshot-restored", restoreMs }));
+    assert.notEqual(next.hash, discarded.hash);
+    await net.advanceEpochs(4);
+    const afterRestore = await net.status();
+    assert(
+      Number(afterRestore.finality.data.finalized.epoch) >
+        Number(saved.finality.data.finalized.epoch),
+      "finality must advance on the restored branch",
+    );
+    const finalizedAfterRestore = await net.beacon<typeof finalized>(
+      "/eth/v2/beacon/blocks/finalized",
+    );
+    assert.equal(finalizedAfterRestore.execution_optimistic, false);
+    const executionAfterRestore = profile === "gloas"
+      ? finalizedAfterRestore.data.message.body.signed_execution_payload_bid?.message
+        .parent_block_hash
+      : finalizedAfterRestore.data.message.body.execution_payload?.block_hash;
+    assert(executionAfterRestore);
+    assert.equal(
+      (await net.rpc<{ hash: string }>("eth_getBlockByNumber", ["finalized", false])).hash,
+      executionAfterRestore,
+    );
+    await saveClientLogs();
+    evidence.snapshotRecovery = {
+      snapshot,
+      source,
+      future,
+      discarded,
+      lostContainer: lost.Id,
+      replacementContainer: replacement.Id,
+      recovery,
+      restored,
+      restoreMs,
+      restoredStatus,
+      restoredLifecycle,
+      next,
+      continued: afterRestore,
+      finalizedExecutionHash: executionAfterRestore,
     };
   }
   await stopService();

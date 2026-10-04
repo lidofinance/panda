@@ -25,7 +25,7 @@ when a scenario depends on how execution, consensus and validators work together
 - **Validator workflows:** exercise deposits, activation, exits and withdrawals with the protocol's
   state transitions and delays.
 - **Repeatable environments:** start fresh instances, select a hardfork and a pinned client build,
-  and scope cleanup to the instance a test owns.
+  save a reusable snapshot and restore it between scenarios.
 - **Time-dependent scenarios:** pause protocol time, produce individual blocks, advance through
   epochs or test timelocks and expiry against real block timestamps.
 
@@ -95,9 +95,23 @@ await net.advanceUntil(
 `new Devnet("http://127.0.0.1:8545")`; closing that connection does not stop the network.
 
 Checkpoint-capable Gloas builds also provide `net.stop()` and `net.resume()` to preserve and reopen
-the same network at an exact completed slot. See
-[stop/resume and persistent storage](docs/lifecycle.md) for lifecycle semantics, managed client URLs
-and Docker volume setup.
+the same network at an exact completed slot. Snapshots retain a reusable copy of EL/CL/VC state:
+
+```ts
+const snapshot = await net.createSnapshot();
+await net.advanceSlots(10);
+await net.restoreSnapshot(snapshot); // Return to the saved state; automine is off.
+await net.stepSlot();
+await net.restoreSnapshot(snapshot); // The same archive can be restored again.
+await net.removeSnapshot(snapshot); // Remove the archive when it is no longer needed.
+```
+
+Use a completed slot tail with no pending or unresolved transaction submissions. A snapshot retains
+the exact bake, configuration, keys and signing history; it survives ordinary runtime cleanup.
+Restore keeps Panda's public URLs stable. Restart external providers/subscriptions and reset/replay
+consumer databases explicitly. See [snapshots and lifecycle](docs/lifecycle.md) for operation IDs,
+crash recovery, compatibility, persistent Docker storage and the executable consumer example.
+Current acceptance status is recorded in the [snapshot plan](docs/snapshots-plan.md).
 
 Automine is off by default. Enable it with `await net.setAutomine(true)` to produce blocks for
 eligible pending transactions, then wait for receipts as usual. See the
@@ -108,7 +122,8 @@ eligible pending transactions, then wait for receipts as usual. See the
 Protocol time is explicit and can run ahead of the host clock. Use `advanceSlots(n)` or
 `advanceEpochs(n)` for continuous block production and validator participation. Use
 `advanceUntil(predicate, options)` to wait for a condition within a slot budget and a real-time
-deadline. Time only moves forward, and advancing it still requires client computation.
+deadline. Advancement only moves forward; restoring a snapshot explicitly replaces the current
+branch with the saved state. Advancing time still requires client computation.
 
 `advanceTime(seconds, options)` advances by a duration; `advanceTo(timestampOrDate, options)`
 targets a specific time. Both offer two modes on the same bake:
@@ -143,7 +158,9 @@ on loopback and never use real wallet keys. See [security boundaries](SECURITY.m
 
 HTTP JSON-RPC is supported. WebSocket, long-lived Beacon SSE, multiple beacon nodes and arbitrary
 external validators are outside the current verified scope. Cold resume requires a clean checkpoint
-and its exact compatible bake; unclean data is refused. Reusable snapshot archives and hardfork
+and its exact compatible bake. After unclean loss, explicitly restore a retained snapshot through
+the recovery service. Snapshot compatibility is limited to the same owner, bake, configuration and
+native platform; cross-host archive transfer is outside the current scope. Dynamic hardfork
 transitions remain planned. Geth's real-time transaction-pool expiry continues during a protocol
 pause.
 
@@ -180,6 +197,8 @@ reports. Keep resource measurements separate from other devnet tests.
 ## Documentation
 
 - [Usage guide](docs/usage.md) — configuration, API details, ethers settings and troubleshooting.
+- [Snapshots and lifecycle](docs/lifecycle.md) — save/restore, stop/resume, crash recovery and
+  external consumer reset.
 - [CI images](docs/ci-containers.md) — versioned hardfork images and CI service integration.
 - [Time and warp algorithm](docs/warp-algorithm.md) — start here to understand honest/fast modes,
   execution phases, validator duties, recovery and the source files involved.

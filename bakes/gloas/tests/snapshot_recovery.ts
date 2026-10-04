@@ -28,12 +28,15 @@ try {
     const stage of [
       "accepted",
       "preparing",
+      "partial-copy",
       "prepared",
       "source-stopping",
       "source-stopped",
       "candidate-verified",
       "committed",
       "published",
+      "cleanup-renamed",
+      "cleanup-unlink",
     ]
   ) {
     const source = (await store.active())!.generation;
@@ -49,15 +52,27 @@ try {
       assert.equal(lifecycle.now, undefined);
       const record = await net.snapshotOperation(operationId);
       assert.equal(record?.state, "running");
-      assert.equal(record.stage, stage);
+      assert.equal(
+        record.stage,
+        stage === "partial-copy" ? "preparing" : stage.startsWith("cleanup-") ? "published" : stage,
+      );
+      if (stage.startsWith("cleanup-")) assert.equal(record.cleanup?.state, "pending");
       assert.equal(
         lifecycle.generation,
-        ["committed", "published"].includes(stage) ? record.candidateGeneration : source,
+        ["committed", "published"].includes(stage) || stage.startsWith("cleanup-")
+          ? record.candidateGeneration
+          : source,
       );
       await assert.rejects(net.stepSlot(), /faulted|recovery/);
       await assert.rejects(net.restoreSnapshot(snapshot, { operationId }), /interrupted/);
       assert.equal((await net.lifecycle()).generation, lifecycle.generation);
       const restored = await net.restoreSnapshot(snapshot);
+      assert.equal((await net.lifecycle()).cleanup?.state, "succeeded");
+      const generations = [];
+      for await (const entry of Deno.readDir(`${store.root}/generations`)) {
+        generations.push(entry.name);
+      }
+      assert.deepEqual(generations, [restored.generation]);
       const current = await net.status();
       assert.equal(current.now, before.now);
       assert.equal(current.el.hash, before.el.hash);

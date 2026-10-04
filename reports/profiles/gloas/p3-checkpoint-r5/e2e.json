@@ -1,8 +1,8 @@
 {
   "event": "e2e-passed",
-  "elapsedMs": 34790.832875,
+  "elapsedMs": 34903.286917,
   "status": {
-    "id": "e2e-2068603a",
+    "id": "e2e-1ec84c19",
     "profile": "gloas",
     "bake": "p3-checkpoint-r5",
     "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
@@ -158,6 +158,6 @@
   "profile": "gloas",
   "bake": "p3-checkpoint-r5",
   "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
-  "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f",
-  "recordedAt": "2026-10-04T08:42:13.887Z"
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "recordedAt": "2026-10-04T13:40:12.410Z"
 }

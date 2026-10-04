@@ -1,7 +1,17 @@
 {
   "passed": true,
-  "captureMs": 17388.368375000002,
-  "snapshotBytes": 11681014,
+  "captureMs": 17104.519833,
+  "snapshotBytes": 11681239,
+  "disk": {
+    "basis": "du -sk filesystem-reported allocated bytes; whole owner includes data, archives, journals and logs",
+    "beforeCapture": 25415680,
+    "afterCapture": 26275840,
+    "additionalAfterCapture": 860160,
+    "archiveAllocatedBytes": 13877248,
+    "afterRemoval": 12701696,
+    "transientPeakMeasured": false,
+    "note": "Measurements are retained usage at each cut; shared filesystem extents may be counted per file"
+  },
   "independentState": {
     "storage": "0x0000000000000000000000000000000000000000000000000123456789abcdef",
     "includedTransaction": "0x6a45cb8933d0e958c1d4415a0df7487b3da6defa02ab01ac7e04ce6e1c82d87b",
@@ -18,19 +28,25 @@
   "restores": [
     {
       "branch": "live",
-      "elapsedMs": 11901.229583
+      "elapsedMs": 12202.887624999996,
+      "verificationMs": 215.86900000000605,
+      "ownerAllocatedBytes": 26259456
     },
     {
       "branch": "repeated",
-      "elapsedMs": 11988.041917000002
+      "elapsedMs": 13241.407166999998,
+      "verificationMs": 313.99687500000437,
+      "ownerAllocatedBytes": 26374144
     },
     {
       "branch": "crashed beacon",
-      "elapsedMs": 11707.252916999998
+      "elapsedMs": 13311.213874999994,
+      "verificationMs": 248.33566599999904,
+      "ownerAllocatedBytes": 26484736
     }
   ],
-  "removalMs": 109.10362499998882,
-  "firstTransactionMs": 107.61758299999929,
+  "removalMs": 142.45745899999747,
+  "firstTransactionMs": 142.67387500000768,
   "finalSlot": 128,
   "finalizedEpoch": "2",
   "schema": 1,
@@ -49,9 +65,10 @@
       "platform": "linux/arm64"
     }
   },
-  "elapsedMs": 84963.452625,
+  "elapsedMs": 91704.457333,
   "profile": "gloas",
   "bake": "p3-checkpoint-r5",
   "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
-  "recordedAt": "2026-10-04T12:14:40.146Z"
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "recordedAt": "2026-10-04T13:54:58.626Z"
 }

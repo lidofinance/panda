@@ -64,6 +64,17 @@ const beaconState = async () => {
   assert(bytes.length > 0, "empty Beacon SSZ state");
   return bytes;
 };
+async function allocatedBytes(path: string): Promise<number> {
+  const result = await new Deno.Command("du", {
+    args: ["-sk", path],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assert(result.success, new TextDecoder().decode(result.stderr));
+  const bytes = Number(new TextDecoder().decode(result.stdout).trim().split(/\s+/)[0]) * 1024;
+  assert(Number.isSafeInteger(bytes) && bytes >= 0, "invalid allocated disk measurement");
+  return bytes;
+}
 try {
   net = await Devnet.start({ id, profile: "gloas" });
   // Real EVM fixture: constructor returns runtime; each call stores calldata word 0 at slot 0.
@@ -100,6 +111,7 @@ try {
     );
     assert.deepEqual(await beaconState(), state, "full Beacon SSZ state changed");
   };
+  const diskBeforeCapture = await allocatedBytes(store.root);
   const captureStarted = performance.now();
   const createId = crypto.randomUUID();
   const snapshot = await net.createSnapshot({ operationId: createId });
@@ -109,6 +121,8 @@ try {
   assert.deepEqual(await net.createSnapshot({ operationId: createId }), snapshot);
   const archive = await new SnapshotStore(store, infra).read(snapshot.id);
   const snapshotBytes = Object.values(archive.files).reduce((total, file) => total + file.size, 0);
+  const diskAfterCapture = await allocatedBytes(store.root);
+  const archiveAllocatedBytes = await allocatedBytes(`${store.root}/snapshots/${snapshot.id}`);
   const restores = [];
   for (const branch of ["live", "repeated", "crashed beacon"]) {
     const transaction = await write(0xfedcba987654321n);
@@ -128,6 +142,7 @@ try {
     const operationId = crypto.randomUUID();
     const started = performance.now();
     const restored = await net.restoreSnapshot(snapshot, { operationId });
+    const restoreMs = performance.now() - started;
     const after = await net.status();
     assert.equal(after.now, saved.now);
     assert.equal(after.slot, saved.slot);
@@ -140,11 +155,22 @@ try {
     assert.deepEqual(await exportSigningHistory(await Network.manifest(id)), history);
     await checkSavedState();
     const lifecycle = await net.lifecycle();
+    assert.equal(lifecycle.cleanup?.state, "succeeded");
+    const generations = [];
+    for await (const entry of Deno.readDir(`${store.root}/generations`)) {
+      generations.push(entry.name);
+    }
+    assert.deepEqual(generations, [lifecycle.generation], "discarded generations were not cleaned");
     assert.notEqual(lifecycle.generation, before.generation);
     assert.notEqual(lifecycle.sessionId, before.sessionId);
     assert.deepEqual(await net.restoreSnapshot(snapshot, { operationId }), restored);
     assert.equal((await net.lifecycle()).sessionId, lifecycle.sessionId);
-    restores.push({ branch, elapsedMs: performance.now() - started });
+    restores.push({
+      branch,
+      elapsedMs: restoreMs,
+      verificationMs: performance.now() - started - restoreMs,
+      ownerAllocatedBytes: await allocatedBytes(store.root),
+    });
   }
   await net.close();
   net = await Devnet.fromSnapshot(snapshot, { id });
@@ -159,6 +185,7 @@ try {
   assert.deepEqual(await net.removeSnapshot(snapshot, { operationId: removalId }), snapshot);
   await assert.rejects(net.restoreSnapshot(snapshot), /removed/);
   assert.equal((await net.lifecycle()).ready, true);
+  const diskAfterRemoval = await allocatedBytes(store.root);
   const nextTransaction = await send();
   assert.equal(Number(BigInt(nextTransaction.receipt.blockNumber)), saved.slot + 1);
   const nextBlock = await net.beacon<{
@@ -186,6 +213,18 @@ try {
     passed: true,
     captureMs,
     snapshotBytes,
+    disk: {
+      basis:
+        "du -sk filesystem-reported allocated bytes; whole owner includes data, archives, journals and logs",
+      beforeCapture: diskBeforeCapture,
+      afterCapture: diskAfterCapture,
+      additionalAfterCapture: diskAfterCapture - diskBeforeCapture,
+      archiveAllocatedBytes,
+      afterRemoval: diskAfterRemoval,
+      transientPeakMeasured: false,
+      note:
+        "Measurements are retained usage at each cut; shared filesystem extents may be counted per file",
+    },
     independentState: {
       storage,
       includedTransaction: included.hash,

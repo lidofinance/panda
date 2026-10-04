@@ -6,10 +6,16 @@ Current implementation plans, with prerequisites, status and acceptance criteria
 - [Hardfork transitions](hardforks-plan.md): schedules, honest/fast crossing and combined snapshot
   tests.
 
-Snapshot work as of October 4, 2026: **P4 is accepted; P5 is the current stage**. Independent
-contract storage, receipt and Beacon SSZ checks, seven persistence failures and eight real creation
-process-loss cuts passed. Finish P5's filesystem cleanup and remaining recovery/container checks,
-then P9 and P10. The snapshot plan records the executed evidence and unchecked acceptance items.
+Snapshot work as of October 4, 2026: **P0–P5, snapshot P9 and P10 are complete locally**.
+Independent contract storage, receipt and Beacon SSZ checks, seven persistence failures and eight
+real creation process-loss cuts passed. P5 filesystem cleanup, 11 real recovery cuts and persistent
+packaged container replacement also passed; its acceptance matrix is reconciled. P9's
+deposit/activation, consolidation/exit/payout and external consumer reset/replay scenarios passed
+and are registered. The final current Gloas profile passed **19/19** in **32 min 56 s**, with
+unit/static, Docker/baker, current packaged-service and measurement gates also passed. See the
+[final snapshot acceptance report](snapshots-verification.md). Publication needs the normal
+Lighthouse baker 3 release PR and AMD64 verification; dynamic fork work remains in its separate
+plan.
 
 Current P0–P3 acceptance, completed checks and audit:
 [verification report](snapshots-p0-p3-status.md).

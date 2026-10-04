@@ -107,5 +107,28 @@ if (import.meta.main) {
       if (stage === "partial-copy" && String(to).includes("/bn/")) await pause();
     };
     await controller.createSnapshot(operation);
-  } else await controller.restoreSnapshot(snapshot, operation);
+  } else {
+    const generations = join(controller.network.store.root, "generations");
+    const copy = Deno.copyFile;
+    Deno.copyFile = async (from, to) => {
+      await copy(from, to);
+      if (stage === "partial-copy" && String(to).includes("/bn/")) await pause();
+    };
+    const rename = Deno.rename;
+    Deno.rename = async (from, to) => {
+      await rename(from, to);
+      if (stage === "cleanup-renamed" && String(to).startsWith(join(generations, ".discarded-"))) {
+        await pause();
+      }
+    };
+    const remove = Deno.remove;
+    Deno.remove = async (path, options) => {
+      if (stage === "cleanup-unlink" && String(path).startsWith(join(generations, ".discarded-"))) {
+        await remove(join(String(path), "owner.json"));
+        await pause();
+      }
+      await remove(path, options);
+    };
+    await controller.restoreSnapshot(snapshot, operation);
+  }
 }

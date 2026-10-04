@@ -78,6 +78,12 @@ For controller-only releases with unchanged clients, pushing a new Panda Git tag
 **Publish Panda images** directly. Prereleases such as `v1.2.3-rc.1` are accepted; branch refs,
 malformed versions and SemVer build metadata (`+...`) are rejected.
 
+The first snapshot-capable release needs the current Gloas baker 3 Lighthouse build with native
+checkpoint ABI 1. The older committed Gloas client lock is baker 1 and cannot provide this feature.
+Use the Lighthouse workflow and generated release PR above to update that lock before publishing
+Panda with snapshots. After that native update, controller-only snapshot changes can reuse the
+published checkpoint-capable clients.
+
 A retry reuses the same open PR when its generated files match. It never force-updates a branch,
 changes a closed PR, or moves an existing tag. If the tag was created but dispatch failed, rerun
 **Release merged Panda PR**: it accepts that tag only at the same merge commit. If a Panda run
@@ -274,7 +280,10 @@ exact `io.panda.id` ownership. SIGTERM closes API connections, the controller an
 before stopping the private daemon.
 
 Fresh startup requires block zero, slot zero and automine off. A checkpoint-capable service reopens
-its verified saved head/time on restart; an unclean generation is refused. Health probes remain
+its verified saved head/time on restart. An unclean generation starts a recovery service with
+`ready: false`; explicitly restore a saved snapshot through the SDK/control API. Retain
+`/data/panda` to keep snapshots across container replacement; see
+[persistent service lifecycle](lifecycle.md#persistent-container-service). Health probes remain
 read-only while the suite controls time; daemon failure stops the service. Time control defaults to
 honest execution; skipped-slot jumps require explicit `mode: "fast"`. Both modes use the same client
 image. Fast verifier scenarios do not certify economics across the skipped interval. Full profile

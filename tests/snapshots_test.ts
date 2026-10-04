@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { statfs } from "node:fs/promises";
 import { join } from "node:path";
 import { configuration } from "../src/config.ts";
 import { Infrastructure } from "../src/docker.ts";
@@ -216,11 +217,9 @@ Deno.test("restore preparation copies into independent generations while the sou
         const candidate = await snapshots.prepare(saved.id, bake, source.config, async (value) => {
           allocated.push(value.generation);
           assert.deepEqual(await store.active(), active);
-          assert.deepEqual(
-            Object.keys(await fileInventory(store.generationPath(value.generation))),
-            [
-              "owner.json",
-            ],
+          await assert.rejects(
+            Deno.stat(store.generationPath(value.generation)),
+            Deno.errors.NotFound,
           );
         });
         candidates.push(candidate.generation);
@@ -287,6 +286,41 @@ Deno.test("failed restore preparation retains source and archive without publish
     assert.notEqual(allocated, source.generation);
     assert.deepEqual(await store.active(), source);
     assert.deepEqual(await snapshots.read(saved.id), artifact);
+  });
+});
+
+Deno.test("restore refuses insufficient capacity before allocating or stopping its source", async () => {
+  await fixture(async ({ store, snapshots, bake, source }) => {
+    const saved = await snapshots.capture(bake);
+    const read = snapshots.read.bind(snapshots);
+    const manifest = await read(saved.id);
+    const disk = await statfs(store.root);
+    // Isolate the capacity boundary after actual archive validation without filling the host disk.
+    snapshots.read = async (...args) => {
+      const verified = await read(...args);
+      return {
+        ...verified,
+        files: {
+          ...verified.files,
+          "el/database": { ...verified.files["el/database"], size: disk.blocks * disk.bsize + 1 },
+        },
+      };
+    };
+    let allocations = 0;
+    await store.write({ ...source, phase: "running" });
+    const active = await store.active();
+    await assert.rejects(
+      snapshots.prepare(saved.id, bake, source.config, () => {
+        allocations++;
+        return Promise.resolve();
+      }),
+      /Insufficient free space/,
+    );
+    assert.equal(allocations, 0);
+    assert.deepEqual(await store.active(), active);
+    assert.deepEqual(await read(saved.id), manifest);
+    const lock = await StateLock.acquire(join(store.root, "snapshots.lock"));
+    lock.release();
   });
 });
 

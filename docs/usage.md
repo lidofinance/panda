@@ -13,9 +13,9 @@ Install **Deno 2.9.7** and start a local Docker daemon; see
 
 ```sh
 deno task smoke:docker
-deno task bake pectra --tag local # Build local artifacts from the pinned recipe on this machine.
-deno task test:profile pectra --bake local
-deno task up --profile pectra --bake local # Foreground; Ctrl-C cleans up this instance's resources.
+deno task bake gloas --tag local # Build local artifacts from the pinned recipe on this machine.
+deno task test:profile gloas --bake local
+deno task up --profile gloas --bake local # Foreground; Ctrl-C cleans up this instance's resources.
 ```
 
 Tasks use the installed `deno` command. `deno.json` contains tasks, dependencies and runtime
@@ -29,7 +29,7 @@ run `deno task up --profile gloas --bake trial` after building and verifying `gl
 
 ## Connections and configuration
 
-In another terminal, run `deno task down` or `deno task reset --profile pectra --bake local`.
+In another terminal, run `deno task down` or `deno task reset --profile gloas --bake local`.
 `PANDA_ID` selects the instance (default: `local`), and `PANDA_PORT` sets the controller port
 (8545). To select a Docker socket, use `PANDA_DOCKER_SOCKET=/path/to/docker.sock` or
 `DOCKER_HOST=unix:///path/to/docker.sock`. Docker Desktop on macOS is detected automatically. Remote
@@ -51,7 +51,7 @@ The examples below use paths relative to the repository root.
 ```ts
 import { Devnet } from "./src/api.ts";
 
-await using net = await Devnet.start({ id: "my-e2e", profile: "pectra", bake: "local" });
+await using net = await Devnet.start({ id: "my-e2e", profile: "gloas", bake: "local" });
 const initial = await net.status();
 await net.stepSlot();
 await net.advanceEpochs(2);
@@ -80,10 +80,38 @@ The HTTP equivalents are `POST /control` with
 `{"method":"exitValidator","params":["0x<48-byte-pubkey>"]}`. See [CI images](ci-containers.md) to
 use the same API from a container service.
 
+## Snapshots
+
+With a controlled Gloas bake declaring `checkpointAbi: 1`, save the network at a completed slot tail
+with no pending or unresolved transaction submissions:
+
+```ts
+const snapshot = await net.createSnapshot();
+await net.advanceSlots(10);
+await net.restoreSnapshot(snapshot);
+// Recreate external providers, nonce caches and consumer databases before using the new branch.
+await net.stepSlot();
+await net.restoreSnapshot(snapshot); // Reusable, with a new request ID by default.
+await net.removeSnapshot(snapshot);
+```
+
+Creation resumes the source at the saved time. Restore replaces EL/CL/VC state, turns automine off
+and preserves public URLs. `listSnapshots()` lists retained archives;
+`Devnet.fromSnapshot(ref,
+{ id })` opens one when no controller owns that persistent directory.
+Owning `close()` and `down` remove runtime data but preserve snapshots. Use `removeSnapshot()` for
+explicit archive deletion.
+
+The snapshot fixes the configuration, schedule, bake and platform. It contains validator secrets and
+is not a portable public artifact. For CLI commands, crash recovery, operation deduplication,
+persistent container volumes and an external consumer reset/replay fixture, see
+[snapshots and lifecycle](lifecycle.md).
+
 ## Protocol time
 
 `advanceTime` accepts seconds with millisecond precision. `advanceTo` accepts a Unix timestamp in
-seconds or a `Date`. Time only moves forward. Choose the mode per call:
+seconds or a `Date`. These calls only move time forward; snapshot restore is the explicit way to
+return to a saved state. Choose the mode per call:
 
 ```ts
 await net.advanceTime(8192 * 12, { mode: "honest" }); // Default; produce every intervening slot.
@@ -126,9 +154,10 @@ phase-by-phase execution, exact-target examples, VC restart and failure semantic
 
 The default genesis timestamp is 2,000,000,000 (2033), deliberately testing protocol time ahead of
 the host clock. Override it with `genesisTime` in `Devnet.start`. The mainnet preset uses 32 slots
-per epoch, 64 genesis validators, and standard churn, activation and withdrawal parameters.
-Electra/Prague is active from genesis. The genesis validator count is explicitly reduced. There is
-no `minimal` profile.
+per epoch, 64 genesis validators, and standard churn, activation and withdrawal parameters. The
+selected profile's hardfork is active from genesis; Gloas (Amsterdam/Gloas) is the current default
+and Pectra CI/releases are paused. The genesis validator count is explicitly reduced. There is no
+`minimal` profile.
 
 ## Tests and measurements
 
@@ -234,6 +263,7 @@ their fixes.
 
 HTTP JSON-RPC is supported. WebSocket, long-lived Beacon SSE, multiple beacon nodes and arbitrary
 external validators are unverified or unsupported in this version. A checkpoint-capable Gloas bake
-can reopen a clean stop; unclean active data is refused. See [stop/resume](lifecycle.md) before
-choosing between preserving existing data and destructive `down`/`up`. Geth's real-time
-transaction-pool expiry continues while protocol time is paused.
+can reopen a clean stop; unclean active data requires explicit recovery from a retained snapshot.
+See [snapshots and lifecycle](lifecycle.md) before choosing between preserving existing data and
+destructive `down`/`up`. Geth's real-time transaction-pool expiry continues while protocol time is
+paused.

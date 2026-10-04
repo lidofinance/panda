@@ -9,9 +9,9 @@
   "samples": [
     {
       "method": "advanceTime",
-      "elapsedMs": 7801.5633750000015,
+      "elapsedMs": 7925.885167,
       "start": {
-        "id": "economics-bb3f89f6",
+        "id": "economics-263346e8",
         "profile": "gloas",
         "bake": "p3-checkpoint-r5",
         "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
@@ -165,7 +165,7 @@
         }
       },
       "end": {
-        "id": "economics-bb3f89f6",
+        "id": "economics-263346e8",
         "profile": "gloas",
         "bake": "p3-checkpoint-r5",
         "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
@@ -1814,8 +1814,8 @@
           "stateRoot": "0xb5455878b857efa8475c7f1e0444504629a36d7e9084e897d42df901fdcaa782"
         }
       ],
-      "nextTransactionMs": 182.64333299999998,
-      "warpAndNextTransactionMs": 7984.2067080000015,
+      "nextTransactionMs": 122.53745899999922,
+      "warpAndNextTransactionMs": 8048.422626,
       "receipt": {
         "blockHash": "0xa6add19038420d52740861d747595b3c838cab7216507f7381f45a1f8c120570",
         "blockNumber": "0xe1",
@@ -1835,9 +1835,9 @@
     },
     {
       "method": "advanceTo",
-      "elapsedMs": 7913.7201250000035,
+      "elapsedMs": 7659.589208999998,
       "start": {
-        "id": "economics-bb3f89f6",
+        "id": "economics-263346e8",
         "profile": "gloas",
         "bake": "p3-checkpoint-r5",
         "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
@@ -1993,7 +1993,7 @@
         }
       },
       "end": {
-        "id": "economics-bb3f89f6",
+        "id": "economics-263346e8",
         "profile": "gloas",
         "bake": "p3-checkpoint-r5",
         "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
@@ -3642,8 +3642,8 @@
           "stateRoot": "0x0332a0122395dfe45db6021cd77bf0defc24c97474c56e8feaf291b7ef61398d"
         }
       ],
-      "nextTransactionMs": 114.06187499999942,
-      "warpAndNextTransactionMs": 8027.782000000003,
+      "nextTransactionMs": 107.18441699999676,
+      "warpAndNextTransactionMs": 7766.773625999995,
       "receipt": {
         "blockHash": "0xfe3e1db8ea13fce03e39525e9815c066ee578e49abd4303eb58b4ba23032f099",
         "blockNumber": "0x142",
@@ -3665,12 +3665,12 @@
   "failures": [],
   "failureSafety": {
     "removedIndex": "45",
-    "elapsedMs": 30073.545584,
+    "elapsedMs": 30102.634791999997,
     "stoppedSlot": 323
   },
   "profile": "gloas",
   "bake": "p3-checkpoint-r5",
   "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
-  "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f",
-  "recordedAt": "2026-10-04T08:47:29.392Z"
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "recordedAt": "2026-10-04T13:45:20.201Z"
 }

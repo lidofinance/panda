@@ -1,8 +1,8 @@
 {
   "event": "sequential-deploy-passed",
-  "recordedAt": "2026-10-04T08:49:24.849Z",
-  "elapsedMs": 9790.789375,
-  "readyMs": 7317.2405,
+  "recordedAt": "2026-10-04T13:47:10.424Z",
+  "elapsedMs": 8578.493916,
+  "readyMs": 6252.450291,
   "environment": {
     "host": "aarch64-apple-darwin",
     "engine": "29.8.1",
@@ -20,18 +20,18 @@
     {
       "mode": "raw-rpc",
       "count": 10,
-      "elapsedMs": 1074.306125
+      "elapsedMs": 986.579041
     },
     {
       "mode": "ethers-factory",
       "count": 10,
-      "elapsedMs": 1314.4884999999995
+      "elapsedMs": 1296.1343749999996
     }
   ],
-  "medianReceiptMs": 115.66114550000111,
-  "p95ReceiptMs": 136.39241599999968,
-  "maxReceiptMs": 143.90100000000166,
-  "maxReceiptGapMs": 152.26783299999988,
+  "medianReceiptMs": 107.3989375000001,
+  "p95ReceiptMs": 149.56766699999935,
+  "maxReceiptMs": 170.84012499999972,
+  "maxReceiptGapMs": 174.70037499999944,
   "protocolSeconds": 240,
   "manualAdvanceCalls": 0,
   "deployments": [
@@ -44,7 +44,7 @@
       "hash": "0x86af65a0e143f1f3d1b3e8d0cf34c44b74b14a5018de2144b97af14a6c21c894",
       "block": 1,
       "timestamp": 2000000012,
-      "sendToReceiptMs": 94.72241699999995
+      "sendToReceiptMs": 98.76208299999962
     },
     {
       "mode": "raw-rpc",
@@ -55,8 +55,8 @@
       "hash": "0xef5c42d468027e094ba51d3a5e56f7fec51bd168a7218c15a64ae8501e418148",
       "block": 2,
       "timestamp": 2000000024,
-      "sendToReceiptMs": 136.39241599999968,
-      "receiptGapMs": 147.1256659999999
+      "sendToReceiptMs": 102.27362500000072,
+      "receiptGapMs": 116.47975000000042
     },
     {
       "mode": "raw-rpc",
@@ -67,8 +67,8 @@
       "hash": "0x53db0ffcb57a592ebdbccfb3c3f43d48dfcfcf491b13971c9d4121804b16b2fd",
       "block": 3,
       "timestamp": 2000000036,
-      "sendToReceiptMs": 86.32458299999962,
-      "receiptGapMs": 92.23887500000001
+      "sendToReceiptMs": 82.1303340000004,
+      "receiptGapMs": 93.66916700000002
     },
     {
       "mode": "raw-rpc",
@@ -79,8 +79,8 @@
       "hash": "0x2e0185e730d3541ce6c216dc6b693c321d182c087f9707e67dd8f0a88ee93d9f",
       "block": 4,
       "timestamp": 2000000048,
-      "sendToReceiptMs": 125.24812500000007,
-      "receiptGapMs": 129.91933400000016
+      "sendToReceiptMs": 85.43491699999959,
+      "receiptGapMs": 90.27399999999943
     },
     {
       "mode": "raw-rpc",
@@ -91,8 +91,8 @@
       "hash": "0x27af10cbca804d45ed6a6b1f154b881b0c211ae0c5b5e002e4f633b33cfba1ec",
       "block": 5,
       "timestamp": 2000000060,
-      "sendToReceiptMs": 96.03020800000013,
-      "receiptGapMs": 101.55120799999986
+      "sendToReceiptMs": 87.58391699999993,
+      "receiptGapMs": 93.71787500000028
     },
     {
       "mode": "raw-rpc",
@@ -103,8 +103,8 @@
       "hash": "0xb89383c7df77cea16fba4f9f1f24c3ba4b1d8e5dd9537a146395dfd58ca5d068",
       "block": 6,
       "timestamp": 2000000072,
-      "sendToReceiptMs": 90.92395800000031,
-      "receiptGapMs": 96.7138330000007
+      "sendToReceiptMs": 85.54983399999946,
+      "receiptGapMs": 89.61899999999969
     },
     {
       "mode": "raw-rpc",
@@ -115,8 +115,8 @@
       "hash": "0x5f987e8dc6df684f1fef337914b369c1a787cd38deeb3026d60c47edcb2b4904",
       "block": 7,
       "timestamp": 2000000084,
-      "sendToReceiptMs": 83.15979199999856,
-      "receiptGapMs": 87.28954199999862
+      "sendToReceiptMs": 79.49366699999973,
+      "receiptGapMs": 83.89808300000004
     },
     {
       "mode": "raw-rpc",
@@ -127,8 +127,8 @@
       "hash": "0x841eb9d4f64e8c13d0b8ee946d705d04c7593b64925ef37b5dc9b05d47262bd7",
       "block": 8,
       "timestamp": 2000000096,
-      "sendToReceiptMs": 87.492166,
-      "receiptGapMs": 91.69045800000094
+      "sendToReceiptMs": 128.57279199999994,
+      "receiptGapMs": 134.65712499999972
     },
     {
       "mode": "raw-rpc",
@@ -139,8 +139,8 @@
       "hash": "0x4f67a04a5cc12f2e93738a822603754b4363d7b5c504107fa8f50b3ad2439983",
       "block": 9,
       "timestamp": 2000000108,
-      "sendToReceiptMs": 83.24237499999981,
-      "receiptGapMs": 87.57395899999938
+      "sendToReceiptMs": 86.44783300000017,
+      "receiptGapMs": 91.19125000000076
     },
     {
       "mode": "raw-rpc",
@@ -151,8 +151,8 @@
       "hash": "0x630a0e8acd096b033131e493e8e1fb2fc20628779764832c0c8002ad2424a35f",
       "block": 10,
       "timestamp": 2000000120,
-      "sendToReceiptMs": 132.9037499999995,
-      "receiptGapMs": 140.3822909999999
+      "sendToReceiptMs": 85.45270900000014,
+      "receiptGapMs": 90.64329199999975
     },
     {
       "mode": "ethers-factory",
@@ -163,8 +163,8 @@
       "hash": "0x517ec40417e7cd8e233b25fa2581254a674291c5d55a6a429859117fa545345e",
       "block": 11,
       "timestamp": 2000000132,
-      "sendToReceiptMs": 120.99783300000126,
-      "receiptGapMs": 125.98104200000125
+      "sendToReceiptMs": 113.63324999999986,
+      "receiptGapMs": 117.148416
     },
     {
       "mode": "ethers-factory",
@@ -175,8 +175,8 @@
       "hash": "0x41fed15c96ec95b211517f26278c89e5d072fee35ae74b565181e8c0d660f739",
       "block": 12,
       "timestamp": 2000000144,
-      "sendToReceiptMs": 114.18387500000063,
-      "receiptGapMs": 118.59695800000009
+      "sendToReceiptMs": 116.39625000000069,
+      "receiptGapMs": 123.29116700000031
     },
     {
       "mode": "ethers-factory",
@@ -187,8 +187,8 @@
       "hash": "0x2e5519cc2c5e98187bdf1f5a13b00d51f6b2e5069576a24497b08525d308ac9b",
       "block": 13,
       "timestamp": 2000000156,
-      "sendToReceiptMs": 110.28287500000079,
-      "receiptGapMs": 114.9278749999994
+      "sendToReceiptMs": 170.84012499999972,
+      "receiptGapMs": 174.70037499999944
     },
     {
       "mode": "ethers-factory",
@@ -199,8 +199,8 @@
       "hash": "0x7c019419c3b1452d9e0cf425eb0c1957cb5060d3c45018171ee98060ded25b20",
       "block": 14,
       "timestamp": 2000000168,
-      "sendToReceiptMs": 117.1384160000016,
-      "receiptGapMs": 129.87275000000045
+      "sendToReceiptMs": 149.56766699999935,
+      "receiptGapMs": 156.02729199999976
     },
     {
       "mode": "ethers-factory",
@@ -211,8 +211,8 @@
       "hash": "0x0621689bc42850a330fdc2de8786ab07409ab393c48d929b5505d01cbfce98b8",
       "block": 15,
       "timestamp": 2000000180,
-      "sendToReceiptMs": 133.24566700000105,
-      "receiptGapMs": 137.21183399999973
+      "sendToReceiptMs": 107.55474999999933,
+      "receiptGapMs": 110.69037500000013
     },
     {
       "mode": "ethers-factory",
@@ -223,8 +223,8 @@
       "hash": "0xae14e44bd41db261543ead6f2055c5726c0fc714482b55b466af748c23e21810",
       "block": 16,
       "timestamp": 2000000192,
-      "sendToReceiptMs": 122.20874999999978,
-      "receiptGapMs": 152.26783299999988
+      "sendToReceiptMs": 113.23366699999951,
+      "receiptGapMs": 116.69720799999959
     },
     {
       "mode": "ethers-factory",
@@ -235,8 +235,8 @@
       "hash": "0x1dd311752da213b1f61ca031c964c718203e9c8dbfa3dbad1e5a3239c467043d",
       "block": 17,
       "timestamp": 2000000204,
-      "sendToReceiptMs": 107.19841699999961,
-      "receiptGapMs": 111.50787499999933
+      "sendToReceiptMs": 107.24312500000087,
+      "receiptGapMs": 111.87079200000153
     },
     {
       "mode": "ethers-factory",
@@ -247,8 +247,8 @@
       "hash": "0x6752d7daf47b9c63a691260a6984de1010f6f31ebf85ddf56e688e63e6926b1b",
       "block": 18,
       "timestamp": 2000000216,
-      "sendToReceiptMs": 122.78104100000019,
-      "receiptGapMs": 128.15770800000064
+      "sendToReceiptMs": 117.16154199999983,
+      "receiptGapMs": 120.94970799999828
     },
     {
       "mode": "ethers-factory",
@@ -259,8 +259,8 @@
       "hash": "0xe96b4dc707ed361d1e5874e9e33dffd9e3877e4255497b0d517af3c544ed7826",
       "block": 19,
       "timestamp": 2000000228,
-      "sendToReceiptMs": 143.90100000000166,
-      "receiptGapMs": 148.19950000000063
+      "sendToReceiptMs": 135.54570799999965,
+      "receiptGapMs": 141.77608300000065
     },
     {
       "mode": "ethers-factory",
@@ -271,12 +271,12 @@
       "hash": "0xa8b76f6bfcfbaa03b70d1ba8a18c076ee6e6b0055c4cf0707b9093ea2559dd05",
       "block": 20,
       "timestamp": 2000000240,
-      "sendToReceiptMs": 134.02983399999903,
-      "receiptGapMs": 137.0410839999986
+      "sendToReceiptMs": 117.78262499999983,
+      "receiptGapMs": 122.65841700000055
     }
   ],
   "profile": "gloas",
   "bake": "p3-checkpoint-r5",
   "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
-  "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f"
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1"
 }
