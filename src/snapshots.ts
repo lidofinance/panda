@@ -1,6 +1,14 @@
 import { join } from "node:path";
 import { statfs } from "node:fs/promises";
-import type { Config } from "./config.ts";
+import {
+  decodeSnapshot,
+  encodeSnapshot,
+  saveSnapshotStream,
+  type SnapshotImportOptions,
+  snapshotSource,
+  transferSignal,
+} from "./snapshot_archive.ts";
+import { type Config, configuration } from "./config.ts";
 import type { Infrastructure } from "./docker.ts";
 import type { SnapshotOperation } from "./snapshot_operations.ts";
 import { type Bake, type BakedImage, canonical, type ProfileName, sha256 } from "./profiles.ts";
@@ -77,6 +85,94 @@ function imageIdentity(bake: Bake): SnapshotManifest["images"] {
 export class SnapshotStore {
   constructor(readonly store: StateStore, readonly infra: Infrastructure) {
     if (store.id !== infra.id) throw new Error("Snapshot infrastructure ownership mismatch");
+  }
+
+  /** Build a private export file while deletion/capture is excluded, then release the store lock. */
+  async export(id: string, signal?: AbortSignal) {
+    const lock = await StateLock.acquire(join(this.store.root, "snapshots.lock"));
+    let temporary: string | undefined;
+    try {
+      const manifest = await this.read(id);
+      temporary = await Deno.makeTempDir({
+        dir: await this.store.snapshotsDirectory(),
+        prefix: ".pending-export-",
+      });
+      const result = await saveSnapshotStream(
+        encodeSnapshot(manifest, join(await this.path(id), "data"), transferSignal(signal)),
+        join(temporary, "snapshot.gz"),
+        { signal },
+      );
+      const directory = temporary;
+      return { ...result, cleanup: () => Deno.remove(directory, { recursive: true }) };
+    } catch (error) {
+      if (temporary) await Deno.remove(temporary, { recursive: true });
+      throw error;
+    } finally {
+      lock.release();
+    }
+  }
+
+  /** Import publishes only an immutable artifact. Client startup uses the ordinary restore path. */
+  async import(source: string, options: SnapshotImportOptions = {}): Promise<SnapshotRef> {
+    await this.store.initialize();
+    const parent = await this.store.snapshotsDirectory();
+    const lock = await StateLock.acquire(join(this.store.root, "snapshots.lock"));
+    let temporary: string | undefined;
+    try {
+      const signal = transferSignal(options.signal);
+      temporary = await Deno.makeTempDir({ dir: parent, prefix: ".pending-import-" });
+      const download = await saveSnapshotStream(
+        await snapshotSource(source, signal),
+        join(temporary, "source.gz"),
+        { ...options, signal },
+      );
+      const { header, bake } = await decodeSnapshot(download.path, join(temporary, "data"), {
+        ...options,
+        signal,
+      });
+      const hash = download.sha256;
+      const id = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${
+        hash.slice(16, 20)
+      }-${hash.slice(20, 32)}`;
+      if (await this.removed(id)) throw new Error("Imported snapshot was removed; use a new owner");
+      const config = configuration({ ...header.config, id: this.store.id, bake: bake.tag });
+      const body = {
+        schema: 1 as const,
+        owner: this.store.id,
+        snapshot: { ...header.snapshot, id },
+        config,
+        checkpoint: header.checkpoint,
+        images: header.images,
+        files: header.files,
+        metadata: await treeMetadata(join(temporary, "data")),
+      };
+      const manifest: SnapshotManifest = { ...body, checksum: await sha256(canonical(body)) };
+      if (canonical(await fileInventory(join(temporary, "data"))) !== canonical(manifest.files)) {
+        throw new Error("Imported snapshot readback integrity failure");
+      }
+      try {
+        const previous = await this.read(id, bake, config);
+        if (canonical(previous) !== canonical(manifest)) {
+          throw new Error("Imported snapshot identity conflict");
+        }
+        return previous.snapshot;
+      } catch (error) {
+        if (!(error instanceof Deno.errors.NotFound)) throw error;
+      }
+      await Deno.remove(download.path);
+      await durableJson(join(temporary, "manifest.json"), manifest);
+      signal.throwIfAborted();
+      await Deno.rename(temporary, await this.path(id));
+      temporary = undefined;
+      await syncDirectory(parent);
+      return manifest.snapshot;
+    } finally {
+      try {
+        if (temporary) await Deno.remove(temporary, { recursive: true });
+      } finally {
+        lock.release();
+      }
+    }
   }
 
   /** Caller holds network and journal ownership. Only recorded work can be collected. */

@@ -8,6 +8,67 @@ import {
 } from "../container/service.ts";
 import { health } from "../container/health.ts";
 import { deadline } from "../src/http.ts";
+import { StateStore } from "../src/storage.ts";
+import { configuration } from "../src/config.ts";
+
+Deno.test("container imports its seed only before the first active generation", async () => {
+  const previous = Object.fromEntries(
+    ["PANDA_DATA_DIR", "PANDA_SNAPSHOT", "PANDA_SNAPSHOT_SHA256"].map((
+      name,
+    ) => [name, Deno.env.get(name)]),
+  );
+  const base = await Deno.makeTempDir();
+  Deno.env.set("PANDA_DATA_DIR", base);
+  Deno.env.set("PANDA_SNAPSHOT", "https://example.org/fixture.gz");
+  Deno.env.set("PANDA_SNAPSHOT_SHA256", "ab".repeat(32));
+  const originals = { start: Controller.start, fromSnapshot: Controller.fromSnapshot };
+  const calls: unknown[] = [];
+  const controller = {} as Controller;
+  Controller.start = (...args) => {
+    calls.push(["start", ...args]);
+    return Promise.resolve(controller);
+  };
+  Controller.fromSnapshot = (...args) => {
+    calls.push(["snapshot", ...args]);
+    return Promise.resolve(controller);
+  };
+  const signal = new AbortController().signal;
+  const bake = { profile: "gloas", tag: "pinned" } as Bake;
+  try {
+    assert.equal(await startServiceController(bake, signal), controller);
+    assert.deepEqual(calls[0], [
+      "snapshot",
+      "https://example.org/fixture.gz",
+      "service",
+      undefined,
+      { bake: "pinned", sha256: "ab".repeat(32), signal },
+    ]);
+    const store = new StateStore("service");
+    const active = await store.create(
+      configuration({ id: "service", profile: "gloas", bake: "pinned" }),
+      "ab".repeat(32),
+    );
+    for (const phase of ["starting", "running", "faulted", "stopped"] as const) {
+      await store.write({ ...active, phase });
+      await startServiceController(bake, signal);
+      assert.deepEqual(calls.at(-1), [
+        "start",
+        { id: "service", profile: "gloas", bake: "pinned" },
+        "auto",
+        signal,
+      ]);
+    }
+    await assert.rejects(startServiceController(bake, AbortSignal.abort()));
+    assert.equal(calls.length, 5);
+  } finally {
+    Object.assign(Controller, originals);
+    for (const [name, value] of Object.entries(previous)) {
+      if (value === undefined) Deno.env.delete(name);
+      else Deno.env.set(name, value);
+    }
+    await Deno.remove(base, { recursive: true });
+  }
+});
 
 for (const interruption of ["SIGTERM", "daemon exit"] as const) {
   Deno.test(`container startup ${interruption} interrupts a hanging readiness probe and enters cleanup`, async () => {

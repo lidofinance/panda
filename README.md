@@ -113,6 +113,22 @@ consumer databases explicitly. See [snapshots and lifecycle](docs/lifecycle.md) 
 crash recovery, compatibility, persistent Docker storage and the executable consumer example.
 Current acceptance status is recorded in the [snapshot plan](docs/snapshots-plan.md).
 
+To share prepared state, export a saved snapshot and start a new owner from the file or an HTTPS
+download URL:
+
+```ts
+const fixture = await net.createSnapshot();
+const archive = await net.exportSnapshot(fixture, "./ready.panda-snapshot.gz");
+await using copy = await Devnet.fromSnapshot("./ready.panda-snapshot.gz", {
+  id: "fixture-copy",
+  sha256: archive.sha256,
+});
+```
+
+The same call accepts a public GitHub Release asset URL. Clients, bake key and platform must match
+the archive; startup never compiles clients. Containers accept `PANDA_SNAPSHOT` on first startup.
+See [external snapshot usage](docs/lifecycle.md#external-snapshots-local-files-and-https).
+
 Automine is off by default. Enable it with `await net.setAutomine(true)` to produce blocks for
 eligible pending transactions, then wait for receipts as usual. See the
 [deployment example](bakes/shared/tests/deploy.ts) for sequential contract deployment with ethers.

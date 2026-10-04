@@ -95,11 +95,86 @@ PANDA_ID=resume-example deno run -A src/cli.ts snapshot remove <snapshot-id>
 recovery service for an existing unclean generation, without opening its databases. Both preserve
 state on SIGTERM; use `down` for explicit destruction of the active runtime.
 
-`snapshot list`, `snapshot operation` and `snapshot remove` also work without a live controller.
-Removal is serialized with capture/restore, deletes only the selected archive, and retains a small
-deletion record so interrupted deletion can finish safely. A removed ID cannot be recreated. A
-terminal failed removal keeps its recorded error; retry with a new operation ID to finish cleanup.
-An interrupted running removal can continue with the same operation ID.
+`snapshot list`, `snapshot operation`, `snapshot export` and `snapshot remove` also work without a
+live controller. Removal is serialized with capture/restore, deletes only the selected archive, and
+retains a small deletion record so interrupted deletion can finish safely. A removed ID cannot be
+recreated. A terminal failed removal keeps its recorded error; retry with a new operation ID to
+finish cleanup. An interrupted running removal can continue with the same operation ID.
+
+## External snapshots: local files and HTTPS
+
+Export a saved snapshot to a portable file. The SDK downloads it through Panda's HTTP API; the
+destination path belongs to the SDK caller. The controller never assumes it can write to a client's
+filesystem. Export does not stop clients or move protocol time, and it refuses to replace an
+existing output file.
+
+```ts
+const snapshot = await net.createSnapshot();
+const file = await net.exportSnapshot(snapshot, "./ready.panda-snapshot.gz");
+console.log(file.sha256, file.bytes);
+
+await using local = await Devnet.fromSnapshot(file.path, {
+  id: "local-fixture",
+  sha256: file.sha256,
+});
+
+await using remote = await Devnet.fromSnapshot(
+  "https://github.com/OWNER/REPO/releases/download/FIXTURE_TAG/ready.panda-snapshot.gz",
+  { id: "remote-fixture", sha256: file.sha256 },
+);
+```
+
+Publish the exported file as a Release asset yourself and substitute its direct download URL. Public
+HTTPS URLs and up to five HTTPS redirects are supported; HTML `blob` pages, HTTP downgrades, URL
+credentials and private-repository authentication are refused or unsupported. Pin `sha256` in CI to
+prevent an unexpectedly replaced asset from being used. Only import trusted test fixtures: these
+archives include validator keys, signing history and native client databases.
+
+The destination owner must have **no active generation**. Import creates its own immutable copy and
+then uses the normal verified restore pipeline. The original file and source owner stay unchanged.
+Configuration comes from the archive; ports and Docker resources belong to the new owner. Automine
+starts disabled. Existing external indexer/oracle databases still need their own reset/replay.
+
+The exact checkpoint-capable bake key, client image IDs and platform must already be installed.
+Panda finds a matching local bake, or accepts an explicit equivalent `bake` tag. A different label
+for identical images is fine; a different platform, client version or patch is rejected. Startup
+does not build clients, import arbitrary database dumps or migrate between client versions.
+
+```sh
+PANDA_ID=source deno run -A src/cli.ts snapshot export SNAPSHOT_ID ./ready.panda-snapshot.gz
+PANDA_ID=copy deno run -A src/cli.ts snapshot open ./ready.panda-snapshot.gz
+PANDA_ID=ci-copy deno run -A src/cli.ts snapshot open \
+  https://github.com/OWNER/REPO/releases/download/FIXTURE_TAG/ready.panda-snapshot.gz \
+  --sha256 SHA256_FROM_EXPORT
+```
+
+For a packaged service, mount a local archive read-only and set `PANDA_SNAPSHOT`, or set it to an
+HTTPS asset URL. `PANDA_SNAPSHOT_SHA256` is optional but recommended:
+
+```sh
+docker run --rm --privileged \
+  -p 127.0.0.1:8545:8545 -p 127.0.0.1:5052:5052 -p 127.0.0.1:5062:5062 \
+  -v panda-fixture-data:/data/panda \
+  -v "$PWD/ready.panda-snapshot.gz:/fixtures/ready.gz:ro" \
+  -e PANDA_SNAPSHOT=/fixtures/ready.gz \
+  -e PANDA_SNAPSHOT_SHA256=SHA256_FROM_EXPORT \
+  CHECKPOINT_CAPABLE_PANDA_IMAGE
+```
+
+The packaged bake must match the archive. The seed applies only when the persistent volume has no
+active generation. A normal restart resumes the current state; unclean state enters recovery.
+Neither case silently imports the original seed again. Choose a different volume to start another
+independent fixture.
+
+The format is versioned gzip with a canonical header and streaming SHA-256-checked files. Import
+rejects unsafe paths, links, special files, invalid lengths, trailing data and incompatible
+checkpoints before starting clients. Numeric ownership is recreated locally. The default limits are
+8 GiB for the compressed file and 8 GiB unpacked, with a 16 MiB header; the SDK's `maxBytes` option
+changes the import byte limits. Network/transfer watchdogs use `PANDA_TIMEOUT_MS` (one hour by
+default). Reserve space for the compressed download, unpacked archive and restored copy. Interrupted
+transfers do not publish partial snapshots; process-loss `.pending-*` remnants are hidden from
+snapshot listing. Reimporting the same file reuses its verified local archive. A removed archive ID
+stays retired: use another owner if that fixture is needed again.
 
 Archive integrity covers file bytes, names, permissions, numeric ownership and empty directories.
 Restore rejects changed metadata as well as changed database files. Snapshot storage is private and

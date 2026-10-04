@@ -3,6 +3,8 @@
 Current implementation plans, with prerequisites, status and acceptance criteria:
 
 - [Snapshots](snapshots-plan.md): creation, restore, recovery and consumer reset.
+- [External snapshots](external-snapshots-plan.md): portable files and HTTPS startup; local
+  acceptance complete, with one recorded PTC reliability follow-up.
 - [Hardfork transitions](hardforks-plan.md): schedules, honest/fast crossing and combined snapshot
   tests.
 

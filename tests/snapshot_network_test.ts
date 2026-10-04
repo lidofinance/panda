@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { configuration } from "../src/config.ts";
 import { EngineGate } from "../src/engine.ts";
 import { Network } from "../src/network.ts";
-import { readBake } from "../src/profiles.ts";
+import { canonical, readBake } from "../src/profiles.ts";
 import { SnapshotStore } from "../src/snapshots.ts";
 import { type ActiveGeneration, fileInventory } from "../src/storage.ts";
 
@@ -138,6 +138,32 @@ Deno.test("candidate starts parked without publishing active state or runtime en
     await network.setPhase("running");
     assert.equal((await network.store.active())!.phase, "running");
   });
+});
+
+Deno.test("resume accepts reordered JSON inventories but still rejects changed bytes", async (t) => {
+  for (const damaged of [false, true]) {
+    await t.step(
+      damaged ? "tampered key" : "canonical archive JSON",
+      () =>
+        fixture(async ({ network, candidate, clients }) => {
+          const reordered = JSON.parse(canonical(candidate)) as ActiveGeneration;
+          if (damaged) {
+            await Deno.writeTextFile(
+              join(
+                network.store.generationPath(candidate.generation),
+                "shared/validator-keys/keys/key.json",
+              ),
+              "tampered",
+            );
+            await assert.rejects(network.startCandidate(reordered), /Preserved genesis, keys/);
+            assert.equal(clients.size, 0);
+          } else {
+            await network.startCandidate(reordered);
+            assert.deepEqual([...clients.keys()], ["el", "bn", "vc"]);
+          }
+        }),
+    );
+  }
 });
 
 Deno.test("failed or abandoned candidate never faults or destroys the previous generation", async (t) => {

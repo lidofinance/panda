@@ -8,7 +8,14 @@ Deno.test("CLI snapshot commands keep snapshot references separate from operatio
   const snapshot = crypto.randomUUID();
   const operation = crypto.randomUUID();
   const calls: { method: string; params: unknown[] }[] = [];
+  const archive = new Uint8Array([0x1f, 0x8b, 1, 2]);
   const server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, async (request) => {
+    if (request.method === "GET") {
+      assert.equal(new URL(request.url).pathname, `/snapshots/${snapshot}/archive`);
+      return new Response(archive, {
+        headers: { "content-type": "application/gzip", "x-panda-sha256": await sha256(archive) },
+      });
+    }
     const call = await request.json();
     calls.push(call);
     return Response.json({
@@ -49,6 +56,30 @@ Deno.test("CLI snapshot commands keep snapshot references separate from operatio
       assert.deepEqual(calls, [{ method: "lifecycle", params: [] }, { method, params }]);
       assert.deepEqual(JSON.parse(new TextDecoder().decode(result.stdout)), { action: method });
     }
+    const path = `${directory}/cli-export.gz`;
+    const exported = await new Deno.Command(Deno.execPath(), {
+      args: [
+        "run",
+        "-A",
+        `--config=${resolve("deno.json")}`,
+        resolve("src/cli.ts"),
+        "snapshot",
+        "export",
+        snapshot,
+        path,
+      ],
+      cwd: directory,
+      env: { PANDA_ID: "fixture", PANDA_DATA_DIR: directory },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert.equal(exported.code, 0, new TextDecoder().decode(exported.stderr));
+    assert.deepEqual(await Deno.readFile(path), archive);
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(exported.stdout)), {
+      path,
+      sha256: await sha256(archive),
+      bytes: archive.length,
+    });
   } finally {
     await server.shutdown();
     await Deno.remove(directory, { recursive: true });

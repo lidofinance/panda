@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "elapsedMs": 148701.34770900002,
+  "elapsedMs": 155331.206,
   "sample": {
     "event": "restart-passed",
     "profile": "gloas",
@@ -92,10 +92,10 @@
         "epoch": "0",
         "root": "0x8fcb169555ae2aea5e63b3c636d5e97757bf288a03d1648fbfb39046e5404328"
       },
-      "opPoolHash": "0xf5bcdb3609d8b93de32f72e9f8af0c6fdead2c5414074db65e5f3b42189c5fdc",
-      "forkChoiceHash": "0x5d96f2c5b9038f54c2221d11612ade0655f76692ba3ab43f59b9a3705605c327",
+      "opPoolHash": "0x32a579e3dd8cb03e3563481271ec940550cb62b60e983561720ad81db54b659f",
+      "forkChoiceHash": "0x221509bed7c80cb5837e627ec655dfd4ef575c6cfb6403b98d9f2028a7f3115d",
       "custodyHash": "0x6ca82b34f44df6645fca93f2e29744377a38d27b2728726445db152a3424b139",
-      "checkpointHash": "0x815ba04faf2ed17d73d7a6bda17fdfab976ea720b50b551d36bf72770da150f2"
+      "checkpointHash": "0x393083cf7b1886f3f3c36bd59e96593d13f86f536c965d0993cd28efe1259848"
     }
   },
   "admission": {
@@ -148,6 +148,6 @@
   "profile": "gloas",
   "bake": "p3-checkpoint-r5",
   "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
-  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
-  "recordedAt": "2026-10-04T13:52:38.357Z"
+  "runId": "external-snapshots-final",
+  "recordedAt": "2026-10-04T14:59:42.179Z"
 }

@@ -1,14 +1,14 @@
 {
   "passed": true,
-  "captureMs": 17104.519833,
-  "snapshotBytes": 11681239,
+  "captureMs": 12987.869875,
+  "snapshotBytes": 11680842,
   "disk": {
     "basis": "du -sk filesystem-reported allocated bytes; whole owner includes data, archives, journals and logs",
     "beforeCapture": 25415680,
     "afterCapture": 26275840,
     "additionalAfterCapture": 860160,
     "archiveAllocatedBytes": 13877248,
-    "afterRemoval": 12701696,
+    "afterRemoval": 12697600,
     "transientPeakMeasured": false,
     "note": "Measurements are retained usage at each cut; shared filesystem extents may be counted per file"
   },
@@ -28,25 +28,25 @@
   "restores": [
     {
       "branch": "live",
-      "elapsedMs": 12202.887624999996,
-      "verificationMs": 215.86900000000605,
+      "elapsedMs": 13079.320458000002,
+      "verificationMs": 199.21854199999507,
       "ownerAllocatedBytes": 26259456
     },
     {
       "branch": "repeated",
-      "elapsedMs": 13241.407166999998,
-      "verificationMs": 313.99687500000437,
-      "ownerAllocatedBytes": 26374144
+      "elapsedMs": 12741.181249999994,
+      "verificationMs": 208.21387500000128,
+      "ownerAllocatedBytes": 26370048
     },
     {
       "branch": "crashed beacon",
-      "elapsedMs": 13311.213874999994,
-      "verificationMs": 248.33566599999904,
-      "ownerAllocatedBytes": 26484736
+      "elapsedMs": 12755.509874999996,
+      "verificationMs": 214.7605840000033,
+      "ownerAllocatedBytes": 26480640
     }
   ],
-  "removalMs": 142.45745899999747,
-  "firstTransactionMs": 142.67387500000768,
+  "removalMs": 121.72120799998811,
+  "firstTransactionMs": 129.78925000000163,
   "finalSlot": 128,
   "finalizedEpoch": "2",
   "schema": 1,
@@ -65,10 +65,10 @@
       "platform": "linux/arm64"
     }
   },
-  "elapsedMs": 91704.457333,
+  "elapsedMs": 85033.660625,
   "profile": "gloas",
   "bake": "p3-checkpoint-r5",
   "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
-  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
-  "recordedAt": "2026-10-04T13:54:58.626Z"
+  "runId": "external-snapshots-final",
+  "recordedAt": "2026-10-04T15:01:07.499Z"
 }

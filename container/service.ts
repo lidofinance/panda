@@ -1,6 +1,7 @@
 import { Controller } from "../src/controller.ts";
 import type { Bake } from "../src/profiles.ts";
 import { deadline, defaultTimeoutMs } from "../src/http.ts";
+import { StateStore } from "../src/storage.ts";
 
 /** Interruption ends startup even while the Docker socket request itself is still pending. */
 export async function waitForServiceDocker(
@@ -56,6 +57,14 @@ export async function startServiceController(
   signal?: AbortSignal,
 ): Promise<Controller> {
   signal?.throwIfAborted();
+  const source = Deno.env.get("PANDA_SNAPSHOT");
+  if (source && !await new StateStore("service").active()) {
+    return await Controller.fromSnapshot(source, "service", undefined, {
+      bake: bake.tag,
+      sha256: Deno.env.get("PANDA_SNAPSHOT_SHA256"),
+      signal,
+    });
+  }
   return await Controller.start(
     { id: "service", profile: bake.profile, bake: bake.tag },
     "auto",

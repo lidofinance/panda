@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "local": {
+    "passed": true,
+    "savedSlot": 3,
+    "finalSlot": 128,
+    "finalizedEpoch": "2",
+    "elapsedMs": 26348.312792
+  },
+  "https": {
+    "event": "external-snapshot-verified",
+    "passed": true,
+    "savedSlot": 3,
+    "finalSlot": 128,
+    "finalizedEpoch": "2",
+    "elapsedMs": 28505.524458
+  },
+  "archiveBytes": 524301,
+  "archiveSha256": "f46a92e35949b70a97155eaef038eb4d1130d8fb44947ce784ab52ed449efa21",
+  "elapsedMs": 79709.60654200001,
+  "profile": "gloas",
+  "bake": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "runId": "external-snapshots-final",
+  "recordedAt": "2026-10-04T15:02:28.707Z"
+}

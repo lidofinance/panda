@@ -5,6 +5,12 @@ import { deadline, defaultTimeoutMs, json } from "./http.ts";
 import type { Checkpoint } from "./storage.ts";
 import type { SnapshotRef } from "./snapshots.ts";
 import {
+  saveSnapshotStream,
+  type SnapshotExportResult,
+  type SnapshotImportOptions,
+} from "./snapshot_archive.ts";
+export type { SnapshotExportResult, SnapshotImportOptions } from "./snapshot_archive.ts";
+import {
   operationId,
   type SnapshotOperation,
   SnapshotOperationError,
@@ -17,8 +23,8 @@ export type { SnapshotOperation } from "./snapshot_operations.ts";
 export interface SnapshotOptions {
   operationId?: string;
 }
-export interface SnapshotStartOptions extends SnapshotOptions {
-  /** Owner of the persistent state directory containing this snapshot. */
+export interface SnapshotStartOptions extends SnapshotOptions, SnapshotImportOptions {
+  /** Existing snapshot owner, or a new owner for a local/HTTPS archive. */
   id: string;
 }
 
@@ -57,6 +63,7 @@ export class Devnet {
       typeof snapshot === "string" ? snapshot : snapshot.id,
       options.id,
       operationId(options.operationId ?? crypto.randomUUID()),
+      options,
     );
     return await Devnet.attachOwned(controller, true);
   }
@@ -150,6 +157,24 @@ export class Devnet {
   }
   listSnapshots(): Promise<SnapshotRef[]> {
     return this.call("snapshotList");
+  }
+  /** Download through HTTP; the destination belongs to the SDK caller, not the controller. */
+  async exportSnapshot(
+    snapshot: SnapshotRef | string,
+    path: string,
+  ): Promise<SnapshotExportResult> {
+    this.assertOpen();
+    const id = operationId(typeof snapshot === "string" ? snapshot : snapshot.id);
+    const response = await fetch(`${this.url}/snapshots/${id}/archive`, {
+      signal: AbortSignal.any([this.disconnected.signal, AbortSignal.timeout(defaultTimeoutMs())]),
+    });
+    if (!response.ok || !response.body) {
+      throw new Error(`Snapshot export: HTTP ${response.status}: ${await response.text()}`);
+    }
+    return await saveSnapshotStream(response.body, path, {
+      sha256: response.headers.get("x-panda-sha256") ?? undefined,
+      signal: this.disconnected.signal,
+    });
   }
   removeSnapshot(
     snapshot: SnapshotRef | string,

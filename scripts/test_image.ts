@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import { request } from "node:http";
 import { JsonRpcProvider, Wallet } from "ethers";
 import { Devnet } from "../src/api.ts";
@@ -17,14 +18,21 @@ const ports = [8545, 5052, 5062];
 const listeners = ports.map(() => Deno.listen({ hostname: "127.0.0.1", port: 0 }));
 const published = listeners.map((listener) => listener.addr.port);
 for (const listener of listeners) listener.close();
-const dataVolume = await infra.volume("data");
+let dataVolume = await infra.volume("data");
+let seed: { path: string; sha256: string } | undefined;
 const createContainer = () =>
   infra.container("service", {
     Image: image,
+    Env: seed
+      ? ["PANDA_SNAPSHOT=/fixtures/snapshot.gz", `PANDA_SNAPSHOT_SHA256=${seed.sha256}`]
+      : [],
     ExposedPorts: Object.fromEntries(ports.map((port) => [`${port}/tcp`, {}])),
     HostConfig: {
       Privileged: true,
-      Binds: [`${dataVolume}:/data/panda`],
+      Binds: [
+        `${dataVolume}:/data/panda`,
+        ...(seed ? [`${seed.path}:/fixtures/snapshot.gz:ro`] : []),
+      ],
       PortBindings: Object.fromEntries(ports.map((port, index) => [
         `${port}/tcp`,
         [{ HostIp: "127.0.0.1", HostPort: String(published[index]) }],
@@ -612,6 +620,43 @@ try {
       next,
       continued: afterRestore,
       finalizedExecutionHash: executionAfterRestore,
+    };
+
+    // A portable archive from the service must seed a completely different persistent volume.
+    const exported = await net.exportSnapshot(
+      snapshot,
+      resolve(`.cache/container-reports/${id}-seed.gz`),
+    );
+    await stopService();
+    assert.equal((await container.inspect()).Config.Labels[LABEL], id);
+    await container.remove({ v: true });
+    dataVolume = await infra.volume("seed-data");
+    seed = exported;
+    container = await createContainer();
+    await container.start();
+    await ready();
+    const seeded = await net.status();
+    assert.equal(seeded.now, saved.now);
+    assert.equal(seeded.el.hash, saved.el.hash);
+    assert.deepEqual(await beaconHead(), savedNativeHead);
+    assert.deepEqual(await net.rpc("eth_getTransactionReceipt", [nextTx.hash]), savedReceipt);
+    const seedNext = await send(7n);
+    const afterSeed = await net.status();
+    assert.equal(afterSeed.slot, saved.slot + 1);
+    await stopService();
+    // The seed is deliberately unusable now: persistent restart must not attempt a new import.
+    await Deno.writeTextFile(seed.path, "no longer a valid snapshot");
+    await container.start();
+    await ready();
+    const restartedSeed = await net.status();
+    assert.equal(restartedSeed.now, afterSeed.now);
+    assert.equal(restartedSeed.el.hash, afterSeed.el.hash);
+    evidence.externalSnapshot = {
+      seeded,
+      next: seedNext,
+      restarted: restartedSeed,
+      archiveBytes: exported.bytes,
+      archiveSha256: exported.sha256,
     };
   }
   await stopService();

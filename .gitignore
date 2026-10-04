@@ -40,3 +40,7 @@ api-token.txt
 jwtsecret
 validator-keys/
 keystores/
+
+# Portable network fixtures contain validator keys and native databases; publish assets explicitly.
+*.panda-snapshot.gz
+*.panda-snapshot.gz.*.tmp

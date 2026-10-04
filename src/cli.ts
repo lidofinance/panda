@@ -9,8 +9,9 @@ import { Network } from "./network.ts";
 import { stateDirectory, StateLock, StateStore } from "./storage.ts";
 import { SnapshotStore } from "./snapshots.ts";
 import { SnapshotJournal } from "./snapshot_operations.ts";
+import { isSnapshotId, saveSnapshotStream } from "./snapshot_archive.ts";
 
-const { flags, positional } = argumentsFor(Deno.args, ["profile", "bake", "operation"]);
+const { flags, positional } = argumentsFor(Deno.args, ["profile", "bake", "operation", "sha256"]);
 const [command = "up", argument] = positional;
 const id = Deno.env.get("PANDA_ID") ?? "local";
 const config = configuration({
@@ -101,7 +102,7 @@ async function down(): Promise<void> {
 async function up(
   mode: "new" | "resume" | "recover" | { snapshot: string } = "new",
 ): Promise<void> {
-  if (typeof mode === "object" && (flags.profile || flags.bake)) {
+  if (typeof mode === "object" && (flags.profile || (isSnapshotId(mode.snapshot) && flags.bake))) {
     throw new Error(
       "Snapshot startup uses its recorded configuration; omit profile/bake overrides",
     );
@@ -138,7 +139,11 @@ async function up(
   Deno.addSignalListener("SIGTERM", stop);
   try {
     controller = typeof mode === "object"
-      ? await Controller.fromSnapshot(mode.snapshot, id, flags.operation)
+      ? await Controller.fromSnapshot(mode.snapshot, id, flags.operation, {
+        bake: flags.bake,
+        sha256: flags.sha256,
+        signal: abort.signal,
+      })
       : mode === "recover"
       ? await Controller.recover(id, abort.signal)
       : await Controller.start(config, mode, abort.signal);
@@ -205,7 +210,9 @@ switch (command) {
     let result: unknown;
     if (net) {
       if (action === "create") result = await net.createSnapshot({ operationId: flags.operation });
-      else if (action === "restore" && reference) {
+      else if (action === "export" && reference && positional[3]) {
+        result = await net.exportSnapshot(reference, positional[3]);
+      } else if (action === "restore" && reference) {
         result = await net.restoreSnapshot(reference, { operationId: flags.operation });
       } else if (action === "remove" && reference) {
         result = await net.removeSnapshot(reference, { operationId: flags.operation });
@@ -217,7 +224,17 @@ switch (command) {
     } else {
       const store = new StateStore(id);
       if (action === "list") result = await new SnapshotStore(store, new Infrastructure(id)).list();
-      else if (action === "operation" && reference) {
+      else if (action === "export" && reference && positional[3]) {
+        const exported = await new SnapshotStore(store, new Infrastructure(id)).export(reference);
+        try {
+          const file = await Deno.open(exported.path, { read: true });
+          result = await saveSnapshotStream(file.readable, positional[3], {
+            sha256: exported.sha256,
+          });
+        } finally {
+          await exported.cleanup();
+        }
+      } else if (action === "operation" && reference) {
         result = await new SnapshotJournal(store).read(reference);
       } else if (action === "remove" && reference) {
         result = await new SnapshotJournal(store).remove(

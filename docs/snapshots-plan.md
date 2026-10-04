@@ -696,6 +696,11 @@ accepted separately.
 
 ## Review provenance
 
+The subsequent [external snapshot extension](external-snapshots-plan.md) adds portable file/HTTPS
+startup and records its own acceptance. It also records an unresolved source-continuation PTC stall
+observed on October 4 after the original acceptance; investigate that runtime observation
+separately.
+
 The original revision 4 was approved without blocking findings in three reviews covering
 snapshot/state/signing safety, fork/client compatibility and implementation order/API/recovery. This
 split preserves those contracts and assigns each check to its feature; it is not a new review or

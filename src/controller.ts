@@ -7,6 +7,7 @@ import { Ingress } from "./ingress.ts";
 import { type ActiveGeneration, type Checkpoint, durableJson, StateStore } from "./storage.ts";
 import { type Manifest, Network } from "./network.ts";
 import { type SnapshotRef, SnapshotStore } from "./snapshots.ts";
+import { isSnapshotId, type SnapshotImportOptions } from "./snapshot_archive.ts";
 import {
   operationId,
   SnapshotJournal,
@@ -295,14 +296,30 @@ export class Controller {
     snapshotId: string,
     id: string,
     requestId = crypto.randomUUID() as string,
+    options: SnapshotImportOptions = {},
   ): Promise<Controller> {
     const store = new StateStore(id);
     const reader = new SnapshotStore(store, new Network(configuration({ id })).infra);
+    const external = !isSnapshotId(snapshotId);
+    if (external) {
+      if (await store.active()) {
+        throw new Error("External snapshot startup requires an owner without active state");
+      }
+      snapshotId = (await reader.import(snapshotId, options)).id;
+    } else if (options.sha256 || options.bake || options.maxBytes) {
+      throw new Error("Snapshot import options require a local file or HTTPS URL");
+    }
+    options.signal?.throwIfAborted();
     const snapshot = await reader.read(snapshotId);
     const network = new Network(configuration(snapshot.config));
-    const controller = new Controller(network, await network.enterRecovery());
+    const controller = new Controller(network, await network.enterRecovery(options.signal));
     try {
+      // Recheck while holding network ownership: another startup may have won during download.
+      if (external && await store.active()) {
+        throw new Error("External snapshot startup requires an owner without active state");
+      }
       await controller.restoreSnapshot(snapshotId, requestId);
+      options.signal?.throwIfAborted();
       if (controller.lifecycle().recoveryRequired) {
         throw new Error(
           "Snapshot operation already completed in an earlier session; start with a new operation ID",
@@ -942,12 +959,30 @@ export class Controller {
       port,
       signal: this.serverAbort.signal,
       onListen() {},
-    }, async (request) => {
+    }, async (request, info) => {
       const url = new URL(request.url);
       const rejected = rejectForeignRequest(request);
       if (rejected) return rejected;
       try {
         if (url.pathname === "/lifecycle") return Response.json(this.lifecycle());
+        const archive = /^\/snapshots\/([a-f0-9-]+)\/archive$/.exec(url.pathname);
+        if (archive && request.method === "GET") {
+          if (this.closing || this.preserving) throw new Error("Controller is stopping");
+          const exported = await this.reserveLifecycle(() =>
+            this.snapshots.export(archive[1], this.serverAbort.signal)
+          );
+          // The response owns a separate temporary file. Slow readers cannot hold the archive lock.
+          void info.completed.then(exported.cleanup, exported.cleanup).catch(console.error);
+          const file = await Deno.open(exported.path, { read: true });
+          return new Response(file.readable, {
+            headers: {
+              "content-type": "application/gzip",
+              "content-length": String(exported.bytes),
+              "x-panda-sha256": exported.sha256,
+              "content-disposition": `attachment; filename="${archive[1]}.panda-snapshot.gz"`,
+            },
+          });
+        }
         if (url.pathname === "/control" && request.method === "POST") {
           const command = JSON.parse(
             await requestText(

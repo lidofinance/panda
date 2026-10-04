@@ -1,4 +1,4 @@
-import { type Bake, clockEnvironment, readBake } from "./profiles.ts";
+import { type Bake, canonical, clockEnvironment, readBake } from "./profiles.ts";
 import { requireImage } from "./artifacts.ts";
 import { account, type Config, configuration, mnemonic } from "./config.ts";
 import { GENERATION, Infrastructure, LABEL, ROLE } from "./docker.ts";
@@ -56,7 +56,7 @@ export class Network {
     try {
       signal?.throwIfAborted();
       const active = await this.store.active();
-      if (active && JSON.stringify(active.config) !== JSON.stringify(this.config)) {
+      if (active && canonical(active.config) !== canonical(this.config)) {
         throw new Error("Recovery configuration mismatch");
       }
       const bake = await readBake(this.config.profile, this.config.bake);
@@ -153,7 +153,7 @@ export class Network {
         this.candidate.sourceGeneration = active?.generation;
         this.generation = await this.store.validateCheckpoint(this.generation!);
       } else this.generation = await this.store.resumable();
-      if (JSON.stringify(this.generation.config) !== JSON.stringify(this.config)) {
+      if (canonical(this.generation.config) !== canonical(this.config)) {
         throw new Error("Preserved generation configuration mismatch");
       }
     } else if (active) {
@@ -215,7 +215,7 @@ export class Network {
         const shared = await this.sharedInventory();
         signal?.throwIfAborted();
         if (
-          !expected || JSON.stringify(shared) !== JSON.stringify(expected)
+          !expected || canonical(shared) !== canonical(expected)
         ) {
           throw new Error("Preserved genesis, keys or slashing protection data changed");
         }
@@ -223,7 +223,7 @@ export class Network {
         const actual = await this.databaseInventory();
         signal?.throwIfAborted();
         if (
-          !databases || JSON.stringify(actual) !== JSON.stringify(databases)
+          !databases || canonical(actual) !== canonical(databases)
         ) {
           throw new Error("Preserved execution or consensus database files changed");
         }

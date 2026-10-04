@@ -3,8 +3,10 @@ import { statfs } from "node:fs/promises";
 import { join } from "node:path";
 import { configuration } from "../src/config.ts";
 import { Infrastructure } from "../src/docker.ts";
-import { readBake } from "../src/profiles.ts";
-import { SnapshotStore } from "../src/snapshots.ts";
+import { canonical, readBake } from "../src/profiles.ts";
+import { type SnapshotManifest, SnapshotStore } from "../src/snapshots.ts";
+import { Devnet } from "../src/api.ts";
+import { saveSnapshotStream, snapshotSource } from "../src/snapshot_archive.ts";
 import { fileInventory, StateLock, StateStore } from "../src/storage.ts";
 
 async function fixture(
@@ -64,6 +66,358 @@ async function fixture(
     await Deno.remove(base, { recursive: true });
   }
 }
+
+Deno.test("portable snapshots rebind ownership and preserve bytes, keys and checkpoint", async () => {
+  await fixture(async ({ store, snapshots, bake }) => {
+    const saved = await snapshots.capture(bake);
+    const original = await snapshots.read(saved.id);
+    const exported = await snapshots.export(saved.id);
+    try {
+      const target = new StateStore("imported-owner");
+      const imported = new SnapshotStore(target, new Infrastructure(target.id));
+      const ref = await imported.import(exported.path, { sha256: exported.sha256 });
+      const manifest = await imported.read(ref.id, bake);
+      assert.equal(manifest.owner, target.id);
+      assert.equal(manifest.config.id, target.id);
+      assert.equal(JSON.stringify(manifest.config), JSON.stringify(configuration(manifest.config)));
+      assert.deepEqual(manifest.files, original.files);
+      assert.deepEqual(manifest.checkpoint, original.checkpoint);
+      assert.deepEqual(manifest.images, original.images);
+      assert.equal(await target.active(), undefined);
+      assert.deepEqual(await imported.import(exported.path), ref, "same file is idempotent");
+      assert.deepEqual(
+        await snapshots.read(saved.id),
+        original,
+        "export/import mutated the source",
+      );
+      assert.equal((await imported.list()).length, 1);
+      const decoded = await new Response(
+        new Blob([await Deno.readFile(exported.path)]).stream().pipeThrough(
+          new DecompressionStream("gzip"),
+        ),
+      ).arrayBuffer();
+      assert(
+        !new TextDecoder().decode(decoded).includes(store.id),
+        "source owner leaked into archive",
+      );
+      await imported.remove(ref.id);
+      await assert.rejects(imported.import(exported.path), /removed/);
+      await assert.rejects(
+        Devnet.fromSnapshot(exported.path, { id: store.id }),
+        /without active state/,
+      );
+      assert.deepEqual(await snapshots.read(saved.id), original);
+    } finally {
+      await exported.cleanup();
+    }
+  });
+});
+
+async function changeArchive(
+  source: string,
+  output: string,
+  change: (header: SnapshotManifest & { format: string }) => void,
+  payload: (bytes: Uint8Array) => Uint8Array = (bytes) => bytes,
+  serialize: (header: unknown) => string = canonical,
+) {
+  const decoded = new Uint8Array(
+    await new Response(
+      new Blob([await Deno.readFile(source)]).stream().pipeThrough(new DecompressionStream("gzip")),
+    ).arrayBuffer(),
+  );
+  const start = new TextEncoder().encode("PANDA_SNAPSHOT_V1\n").length;
+  const size = new DataView(decoded.buffer).getUint32(start);
+  const header = JSON.parse(
+    new TextDecoder().decode(decoded.subarray(start + 4, start + 4 + size)),
+  );
+  change(header);
+  const json = new TextEncoder().encode(serialize(header));
+  const length = new Uint8Array(4);
+  new DataView(length.buffer).setUint32(0, json.length);
+  await Deno.writeFile(
+    output,
+    new Uint8Array(
+      await new Response(
+        new Blob([
+          decoded.slice(0, start),
+          length,
+          json,
+          new Uint8Array(payload(decoded.slice(start + 4 + size))),
+        ])
+          .stream().pipeThrough(new CompressionStream("gzip")),
+      ).arrayBuffer(),
+    ),
+  );
+}
+
+Deno.test("external snapshot rejection leaves no published or pending artifact", async (t) => {
+  await fixture(async ({ store, snapshots, bake }) => {
+    const saved = await snapshots.capture(bake);
+    const exported = await snapshots.export(saved.id);
+    const target = new StateStore("invalid-import");
+    const imported = new SnapshotStore(target, new Infrastructure(target.id));
+    const changed = join(store.root, "changed.gz");
+    const cases: [string, (header: SnapshotManifest & { format: string }) => void][] = [
+      ["traversal", (h) => {
+        h.metadata["el/../../escaped"] = h.metadata["el/database"];
+      }],
+      ["absolute", (h) => {
+        h.metadata["/el/database"] = h.metadata["el/database"];
+      }],
+      ["backslash", (h) => {
+        h.metadata["el\\escaped"] = h.metadata["el/database"];
+      }],
+      ["symlink", (h) => {
+        Object.assign(h.metadata.el, { type: "symlink" });
+      }],
+      ["special permissions", (h) => {
+        h.metadata.el.mode = 0o4777;
+      }],
+      ["missing directory", (h) => {
+        delete h.metadata.el;
+      }],
+      ["negative size", (h) => {
+        h.files["el/database"].size = -1;
+      }],
+      ["unsafe size", (h) => {
+        h.files["el/database"].size = Number.MAX_SAFE_INTEGER;
+      }],
+      ["hash", (h) => {
+        h.files["admission.json"].hash = "ab".repeat(32);
+      }],
+      ["database receipt", (h) => {
+        h.checkpoint.databaseFiles = {};
+      }],
+      ["key receipt", (h) => {
+        h.checkpoint.sharedFiles = {};
+      }],
+      ["image", (h) => {
+        h.images.cl.id = `sha256:${"00".repeat(32)}`;
+      }],
+      ["platform", (h) => {
+        h.images.cl.platform = "linux/other";
+      }],
+      ["ABI", (h) => {
+        Object.assign(h.checkpoint, { abi: 2 });
+      }],
+      ["head slot", (h) => {
+        h.checkpoint.headSlot = h.snapshot.headSlot = 1234;
+      }],
+      ["unknown config", (h) => {
+        Object.assign(h.config, { directory: "/outside" });
+      }],
+      ["format", (h) => {
+        h.format = "tar";
+      }],
+    ];
+    try {
+      for (const [name, mutate] of cases) {
+        await t.step(name, async () => {
+          await changeArchive(exported.path, changed, mutate);
+          await assert.rejects(imported.import(changed));
+          assert.deepEqual(await imported.list(), []);
+          assert.deepEqual(
+            await Array.fromAsync(Deno.readDir(await target.snapshotsDirectory())),
+            [],
+          );
+        });
+      }
+      for (
+        const [name, mutate] of [
+          ["truncated", (bytes: Uint8Array) => bytes.slice(0, -1)],
+          ["trailing", (bytes: Uint8Array) => new Uint8Array([...bytes, 0])],
+          ["corrupt", (bytes: Uint8Array) => new Uint8Array(bytes).fill(0, 0, 1)],
+        ] as const
+      ) {
+        await t.step(name, async () => {
+          await changeArchive(exported.path, changed, () => {}, mutate);
+          await assert.rejects(imported.import(changed));
+        });
+      }
+      await assert.rejects(imported.import(exported.path, { sha256: "00".repeat(32) }), /SHA-256/);
+      await assert.rejects(imported.import(exported.path, { maxBytes: 20 }), /byte limit/);
+      await assert.rejects(
+        imported.import(exported.path, { maxBytes: exported.bytes + 1 }),
+        /Uncompressed snapshot exceeds/,
+      );
+      await changeArchive(
+        exported.path,
+        changed,
+        () => {},
+        undefined,
+        (header) =>
+          canonical(header).replace(
+            '"format":"panda-snapshot"',
+            '"format":"panda-snapshot","format":"panda-snapshot"',
+          ),
+      );
+      await assert.rejects(imported.import(changed), /duplicate keys/);
+      await assert.rejects(imported.import(exported.path, { bake: "../bad" }));
+      await assert.rejects(imported.import(exported.path, { signal: AbortSignal.abort() }));
+      const link = join(store.root, "link.gz");
+      await Deno.symlink(exported.path, link);
+      await assert.rejects(imported.import(link), /regular file/);
+      await assert.rejects(imported.import("http://example.org/snapshot.gz"), /HTTPS/);
+      assert.deepEqual(await imported.list(), []);
+      assert.deepEqual(await Array.fromAsync(Deno.readDir(await target.snapshotsDirectory())), []);
+      assert.equal(await target.active(), undefined);
+    } finally {
+      await exported.cleanup();
+    }
+  });
+});
+
+Deno.test("external snapshot can use an installed equivalent bake with a different tag", async () => {
+  await fixture(async ({ snapshots, store, bake }) => {
+    const saved = await snapshots.capture(bake);
+    const exported = await snapshots.export(saved.id);
+    const cwd = Deno.cwd();
+    try {
+      const repository = join(store.root, "alias-repo");
+      await Deno.mkdir(join(repository, "bakes/gloas/tags"), { recursive: true });
+      await Deno.writeTextFile(
+        join(repository, "bakes/gloas/tags/local-alias.json"),
+        JSON.stringify({ ...bake, tag: "local-alias" }),
+      );
+      Deno.chdir(repository);
+      for (const tag of [undefined, "local-alias"]) {
+        const target = new StateStore(tag ? "explicit-alias" : "automatic-alias");
+        const imported = new SnapshotStore(target, new Infrastructure(target.id));
+        const ref = await imported.import(exported.path, { bake: tag });
+        const result = await imported.read(ref.id);
+        assert.equal(result.config.bake, "local-alias");
+        assert.equal(result.snapshot.bakeKey, bake.key);
+      }
+    } finally {
+      Deno.chdir(cwd);
+      await exported.cleanup();
+    }
+  });
+});
+
+Deno.test("snapshot download follows bounded HTTPS redirects and refuses HTML or downgrade", async () => {
+  const original = globalThis.fetch;
+  const seen: string[] = [];
+  let response = new Response("archive");
+  globalThis.fetch = (input) => {
+    seen.push(String(input));
+    if (seen.length === 1) {
+      return Promise.resolve(
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://assets.example.org/snapshot.gz" },
+        }),
+      );
+    }
+    return Promise.resolve(response);
+  };
+  try {
+    assert.equal(
+      await new Response(
+        await snapshotSource(
+          "https://github.com/org/repo/releases/download/v1/fixture.gz",
+          AbortSignal.timeout(5000),
+        ),
+      ).text(),
+      "archive",
+    );
+    assert.equal(seen.length, 2);
+    response = new Response(null, {
+      status: 302,
+      headers: { location: "http://example.org/file" },
+    });
+    await assert.rejects(
+      snapshotSource("https://example.org/file", AbortSignal.timeout(5000)),
+      /HTTPS/,
+    );
+    response = new Response(null, { status: 302, headers: { location: "/again" } });
+    await assert.rejects(
+      snapshotSource("https://example.org/file", AbortSignal.timeout(5000)),
+      /Too many/,
+    );
+    response = new Response("<html>", { headers: { "content-type": "text/html" } });
+    await assert.rejects(
+      snapshotSource("https://example.org/blob/fixture", AbortSignal.timeout(5000)),
+      /raw file/,
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+Deno.test("canceling an HTTPS import releases the body, lock and partial artifact", async () => {
+  await fixture(async () => {
+    const original = globalThis.fetch;
+    const read = Promise.withResolvers<void>();
+    const abort = new AbortController();
+    let canceled = false;
+    globalThis.fetch = () =>
+      Promise.resolve(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull(controller) {
+              controller.enqueue(new Uint8Array([1, 2, 3]));
+              read.resolve();
+            },
+            cancel() {
+              canceled = true;
+            },
+          }),
+        ),
+      );
+    const store = new StateStore("canceled-import");
+    const snapshots = new SnapshotStore(store, new Infrastructure(store.id));
+    try {
+      const work = assert.rejects(
+        snapshots.import("https://example.org/fixture.gz", { signal: abort.signal }),
+      );
+      await read.promise;
+      abort.abort();
+      await work;
+      assert(canceled);
+      assert.equal(await store.active(), undefined);
+      assert.deepEqual(await snapshots.list(), []);
+      assert.deepEqual(await Array.fromAsync(Deno.readDir(await store.snapshotsDirectory())), []);
+      const lock = await StateLock.acquire(join(store.root, "snapshots.lock"));
+      lock.release();
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+});
+
+Deno.test("snapshot file output never replaces existing files and cleans canceled writes", async () => {
+  const base = await Deno.makeTempDir();
+  const path = join(base, "snapshot.gz");
+  try {
+    await Deno.writeTextFile(path, "keep");
+    await assert.rejects(saveSnapshotStream(new Blob(["new"]).stream(), path));
+    assert.equal(await Deno.readTextFile(path), "keep");
+    let canceled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      cancel() {
+        canceled = true;
+      },
+    });
+    await assert.rejects(
+      saveSnapshotStream(stream, join(base, "cancel.gz"), { signal: AbortSignal.abort() }),
+    );
+    assert(canceled);
+    assert.equal((await Array.fromAsync(Deno.readDir(base))).length, 1);
+    for (const options of [{ maxBytes: 0 }, { sha256: "bad" }]) {
+      let released = false;
+      const input = new ReadableStream<Uint8Array>({
+        cancel() {
+          released = true;
+        },
+      });
+      await assert.rejects(saveSnapshotStream(input, join(base, "invalid.gz"), options));
+      assert(released, "invalid options must release the input stream");
+    }
+  } finally {
+    await Deno.remove(base, { recursive: true });
+  }
+});
 
 Deno.test("snapshot capture publishes a separate immutable artifact and preserves its source", async () => {
   await fixture(async ({ store, snapshots, bake, source }) => {

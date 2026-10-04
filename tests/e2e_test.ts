@@ -27,6 +27,8 @@ const descriptions: Record<string, string> = {
   "snapshot-withdrawals": "consolidation, signed exits and actual withdrawals survive restore",
   "snapshot-consumer":
     "external EL/CL history resets and replays with fresh provider and nonce caches",
+  "snapshot-external":
+    "local and HTTPS fixtures preserve chain state, signing history and finality",
   baseline: "ordinary unmodified clients produce an agreed execution payload",
   lifecycle: "CLI up/down/reset, ownership and profile mismatch rejection",
 };

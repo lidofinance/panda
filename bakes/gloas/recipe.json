@@ -83,7 +83,8 @@
     "snapshot-creation": "bakes/gloas/tests/snapshot_creation.ts",
     "snapshot-deposits": "bakes/gloas/tests/snapshot_deposits.ts",
     "snapshot-withdrawals": "bakes/gloas/tests/snapshot_withdrawals.ts",
-    "snapshot-consumer": "bakes/gloas/tests/snapshot_consumer.ts"
+    "snapshot-consumer": "bakes/gloas/tests/snapshot_consumer.ts",
+    "snapshot-external": "bakes/gloas/tests/snapshot_external.ts"
   },
   "name": "gloas",
   "elFork": "amsterdam",

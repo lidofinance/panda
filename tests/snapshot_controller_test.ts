@@ -13,6 +13,26 @@ import { type SnapshotRef, SnapshotStore } from "../src/snapshots.ts";
 import { type Checkpoint, fileInventory, StateStore } from "../src/storage.ts";
 import { Timeline } from "../src/time.ts";
 
+Deno.test("saved snapshots can be downloaded through the controller without moving the chain", async () => {
+  await fixture(async ({ controller, events }) => {
+    await using net = new Devnet(controller.serve(0));
+    const saved = await net.createSnapshot();
+    const before = controller.lifecycle();
+    const response = await fetch(`${net.url}/snapshots/${saved.id}/archive`);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "application/gzip");
+    assert.deepEqual([...bytes.slice(0, 2)], [0x1f, 0x8b]);
+    const path = join(controller.network.store.root, "fixture.panda-snapshot.gz");
+    const exported = await net.exportSnapshot(saved, path);
+    assert.deepEqual(await Deno.readFile(path), bytes);
+    assert.equal(exported.bytes, bytes.length);
+    await assert.rejects(net.exportSnapshot(saved, path), /exist/i);
+    assert.deepEqual(controller.lifecycle(), before);
+    assert.deepEqual(events, ["stop", "capture", "resume"]);
+  });
+});
+
 async function fixture(
   run: (context: {
     controller: Controller;
