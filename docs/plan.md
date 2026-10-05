@@ -1,5 +1,27 @@
 # Panda project plan
 
+Current implementation plans, with prerequisites, status and acceptance criteria:
+
+- [Snapshots](snapshots-plan.md): creation, restore, recovery and consumer reset.
+- [External snapshots](external-snapshots-plan.md): portable files and HTTPS startup; local
+  acceptance complete, with one recorded PTC reliability follow-up.
+- [Hardfork transitions](hardforks-plan.md): schedules, honest/fast crossing and combined snapshot
+  tests.
+
+Snapshot work as of October 4, 2026: **P0–P5, snapshot P9 and P10 are complete locally**.
+Independent contract storage, receipt and Beacon SSZ checks, seven persistence failures and eight
+real creation process-loss cuts passed. P5 filesystem cleanup, 11 real recovery cuts and persistent
+packaged container replacement also passed; its acceptance matrix is reconciled. P9's
+deposit/activation, consolidation/exit/payout and external consumer reset/replay scenarios passed
+and are registered. The final current Gloas profile passed **19/19** in **32 min 56 s**, with
+unit/static, Docker/baker, current packaged-service and measurement gates also passed. See the
+[final snapshot acceptance report](snapshots-verification.md). Publication needs the normal
+Lighthouse baker 3 release PR and AMD64 verification; dynamic fork work remains in its separate
+plan.
+
+Current P0–P3 acceptance, completed checks and audit:
+[verification report](snapshots-p0-p3-status.md).
+
 Recorded status as of September 29, 2026. The first working version was implemented and verified on
 macOS arm64 with Docker Desktop. The current priority is to consolidate the selected stable version.
 Further optimization was paused at the user's request; the later stages below remain possible future
@@ -96,10 +118,12 @@ These are correctness checks; their duration while compilation is running is not
    images match their sources and patches. Only macOS arm64 with Docker Desktop has been confirmed
    so far.
 
+Controlled Gloas bakes declaring `checkpointAbi: 1` now support clean stop and cold resume with the
+same compatible bake. Unclean data is refused. See
+[stop/resume and persistent storage](lifecycle.md) for the API, ownership and shutdown semantics.
+
 ## Possible later extensions
 
-- Resume existing state after a controller restart. Recovery currently uses `down` and a fresh
-  startup/reset; clock synchronization and incomplete phases need a separate design.
 - WebSocket JSON-RPC and long-lived Beacon SSE for services that need more than HTTP.
 - Multiple beacon nodes, external validators and transitions between Ethereum forks, with separate
   scheduler changes and e2e coverage.

@@ -1,0 +1,234 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Panda control API",
+    "version": "unreleased",
+    "description": "Generated from src/api_contract.ts. Describes the source at this Git revision; older images may lack checkpoint/snapshot support. Query lifecycle.checkpointCapable. A disconnected mutation may still complete; query its operation ID before retrying."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8545"
+    }
+  ],
+  "paths": {
+    "/control": {
+      "post": {
+        "operationId": "control",
+        "summary": "Execute a Panda command",
+        "description": "Commands share this single endpoint and use positional parameters. This is not JSON-RPC 2.0. Most successes return {result}; shutdown returns {id}; an unknown snapshot operation returns {}. See each request variant for its result type.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRequest"
+              },
+              "examples": {
+                "status": {
+                  "value": {
+                    "method": "status",
+                    "params": []
+                  }
+                },
+                "stepSlot": {
+                  "value": {
+                    "method": "stepSlot",
+                    "params": []
+                  }
+                },
+                "fastAdvance": {
+                  "value": {
+                    "method": "advanceTime",
+                    "params": [
+                      384,
+                      {
+                        "mode": "fast"
+                      }
+                    ]
+                  }
+                },
+                "snapshotOperation": {
+                  "value": {
+                    "method": "snapshotOperation",
+                    "params": [
+                      "00000000-0000-4000-8000-000000000001"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Command result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Foreign Host or Origin rejected",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Command failed while the service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service is parked, in maintenance or faulted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lifecycle": {
+      "get": {
+        "operationId": "lifecycle",
+        "summary": "Inspect service readiness and session",
+        "responses": {
+          "200": {
+            "description": "Lifecycle state without a result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LifecycleState"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Foreign Host or Origin rejected",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Command failed while the service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service is parked, in maintenance or faulted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/snapshots/{id}/archive": {
+      "get": {
+        "operationId": "downloadSnapshot",
+        "summary": "Stream a saved snapshot archive",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consume or cancel the stream; verify the declared SHA-256 when saving",
+            "headers": {
+              "x-panda-sha256": {
+                "description": "Hex SHA-256 of the compressed bytes",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "content-length": {
+                "description": "Compressed length in bytes",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "content-disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/gzip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Foreign Host or Origin rejected",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Command failed while the service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service is parked, in maintenance or faulted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

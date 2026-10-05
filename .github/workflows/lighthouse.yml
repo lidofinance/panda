@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       profile:
-        description: Registered hardfork name, or all. Upstream and baker versions come from its recipe.
+        description: Active hardfork name, or all (currently Gloas only; Pectra is paused).
         required: true
         default: all
         type: string

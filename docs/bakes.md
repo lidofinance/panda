@@ -13,6 +13,11 @@ Both profiles use the mainnet preset: 12-second slots and 32-slot epochs. Gloas 
 experimental implementation in `bakes/gloas/recipe.json`. Compatibility with another upstream commit
 requires verification with the test suite.
 
+Current development and CI focus on Gloas. Pectra is temporarily paused in `src/active_profiles.ts`;
+its recipes and historical artifacts remain readable. Explicit local Pectra runs are still possible,
+but release workflows reject the paused profile. Both `bake` and its `build:clients` alias default
+to Gloas when no hardfork is specified; an explicit local profile takes precedence.
+
 ## Hardfork layout
 
 Recipes, patches, profile-specific Rust sources and additional tests live in `bakes/<hardfork>/`.
@@ -26,10 +31,10 @@ recorded in the [relocation report](bake-layout-verification.md).
 ## Build, verify and start
 
 ```sh
-deno task bake pectra --replace
+deno task bake gloas --replace
 deno task bake gloas --tag experiment-2
 
-deno task test:profile pectra
+deno task test:profile gloas
 deno task test:profile gloas --bake experiment-2
 
 deno task bakes
@@ -46,7 +51,7 @@ jobs are a separate setting; they do not determine the Docker CPU limit.
 
 On a new machine, `--replace` builds local artifacts from the pinned recipe: committed manifests may
 refer to images from another host, and Git does not transfer `.cache/`. For an existing local tag,
-`deno task bake pectra` reuses its pinned artifacts.
+`deno task bake gloas` reuses its pinned artifacts.
 
 ```ts
 import { Devnet } from "../src/api.ts";
@@ -58,11 +63,12 @@ await net.setAutomine(true);
 ```
 
 `PANDA_PROFILE` and `PANDA_BAKE` select the same settings through the environment, including for
-individual `e2e:*` tasks. Explicit API/CLI options take precedence. The default is `pectra:default`.
-The validator lifecycle commands `test:protocol`, `e2e:protocol` and `e2e:withdrawal` instead cover
-all registered hardfork profiles when `PANDA_PROFILE` is unset, using the selected bake tag for
-each. See the [readable protocol suites](../bakes/shared/tests/README.md) for their steps and
-selection. `build:clients` is an alias for `bake`.
+individual `e2e:*` tasks. Explicit API/CLI options take precedence. The runtime default is
+`gloas:default`. The validator lifecycle commands `test:protocol`, `e2e:protocol` and
+`e2e:withdrawal` instead cover all active hardfork profiles (currently Gloas only) when
+`PANDA_PROFILE` is unset, using the selected bake tag for each. See the
+[readable protocol suites](../bakes/shared/tests/README.md) for their steps and selection.
+`build:clients` is an alias for `bake`.
 
 ## Other EL and CL versions
 
@@ -78,7 +84,10 @@ deno task bake gloas --tag el-source --el-ref <commit-or-ref>
 deno task bake gloas --tag genesis-candidate --genesis-image <image-tag-or-digest>
 ```
 
-EL and genesis default to the recipe's pinned images. CL is built from its pinned commit with the
+Genesis defaults to the recipe's pinned image. EL uses `recipe.elRef` when present; otherwise it
+uses the pinned image. The Gloas recipe builds the clean Geth revision recorded during P0. An
+explicit `--el-ref` replaces the recipe ref; `--el-image` selects an image instead of a source
+build. The two explicit overrides cannot be combined. CL is built from its pinned commit with the
 profile patch and shared clock source. The builder runs the native Rust clock test before compiling
 Lighthouse. Git refs resolve to commits; Docker refs resolve to image IDs/digests and platforms. If
 a mutable Docker tag already exists locally, the builder pins that local image. Use a digest to
@@ -110,6 +119,21 @@ choose another tag. A new manifest is published atomically after a successful bu
 preserves the previous manifest. Locks protect tags and shared compiler caches against concurrent
 writes. Identical inputs under another tag reuse the built artifact. A running network keeps its own
 copy of the bake manifest.
+
+Source-built Geth has a separate `.cache/baker/execution/<key>.json` cache. Its key binds the
+repository and resolved commit, Go builder and runtime image IDs, their platform, and the explicit
+EL build revision. A Lighthouse source or patch change can therefore reuse Geth. Geth is compiled
+when those EL inputs change or no matching image can be restored; changing a mutable toolchain alias
+that still resolves to the same image does not invalidate it. Compiler command, environment or
+runtime installation changes require incrementing `EL_BUILD_REVISION` in `src/execution_build.ts`.
+
+Older complete bake artifacts can populate this cache only after their original build key, EL
+source, toolchain, runtime, platform and image owner have been verified. The migrated entry retains
+that bake as source proof, and new manifests keep `source.el`. Imported EL images without this
+provenance are not treated as source builds. Missing image bytes are a cache miss; conflicting
+metadata or image ownership is an error. Deleting the independent cache metadata can require a new
+compilation even when a newer complete bake still references the image. Existing immutable tags
+continue to reuse their pinned complete bake as before.
 
 The local `bake` command does not publish images. A manifest alone cannot transfer binaries to
 another machine. Use a separate build tag for another architecture; image identity and platform

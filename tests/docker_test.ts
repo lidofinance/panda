@@ -10,13 +10,27 @@ Deno.test({
     const id = `rollback-${crypto.randomUUID().slice(0, 8)}`;
     const infra = new Infrastructure(id);
     const foreign = new Infrastructure(`other-${crypto.randomUUID().slice(0, 8)}`);
+    const network = new Network(configuration({ id }));
     const collision = `panda-${id}-bn`;
     assert.deepEqual(infra.labels, { "io.panda.id": id });
-    await foreign.docker.createVolume({ Name: collision, Labels: foreign.labels });
     try {
-      await assert.rejects(new Network(configuration({ id })).start(), /Foreign volume/);
-      await infra.cleanup();
-      await infra.cleanup();
+      // Databases now use generation directories. A foreign BN container name forces
+      // failure after genesis and EL startup, exercising actual partial rollback.
+      await foreign.image("alpine:3.21.3");
+      const blocker = await foreign.docker.createContainer({
+        name: collision,
+        Image: "alpine:3.21.3",
+        Cmd: ["true"],
+        Labels: foreign.labels,
+      });
+      await assert.rejects(network.start(), /container name.*already in use/i);
+      await network.stop();
+      await network.stop();
+      assert.equal(
+        (await infra.docker.listContainers({ all: true, filters: { label: [`${LABEL}=${id}`] } }))
+          .length,
+        0,
+      );
       assert.equal(
         (await infra.docker.listNetworks({ filters: { label: [`${LABEL}=${id}`] } })).length,
         0,
@@ -26,10 +40,13 @@ Deno.test({
           ?.length ?? 0,
         0,
       );
-      assert.equal((await foreign.docker.getVolume(collision).inspect()).Labels[LABEL], foreign.id);
+      assert.equal((await blocker.inspect()).Config.Labels?.[LABEL], foreign.id);
     } finally {
-      await infra.cleanup();
-      await foreign.cleanup();
+      try {
+        await network.stop();
+      } finally {
+        await foreign.cleanup();
+      }
     }
   },
 });

@@ -1,107 +1,76 @@
-import { type Config } from "./config.ts";
+import type { Config } from "./config.ts";
 import { Controller } from "./controller.ts";
-import { defaultTimeoutMs, json, rpc, waitFor } from "./http.ts";
-import type { WarpOptions } from "./time.ts";
-export type { WarpMode, WarpOptions } from "./time.ts";
-
-export class Devnet {
+import { defaultTimeoutMs } from "./http.ts";
+import { operationId, PandaClient, type SnapshotOptions, type SnapshotRef } from "./client.ts";
+import {
+  saveSnapshotStream,
+  type SnapshotExportResult,
+  type SnapshotImportOptions,
+} from "./snapshot_archive.ts";
+export * from "./client.ts";
+export type { SnapshotExportResult, SnapshotImportOptions } from "./snapshot_archive.ts";
+export interface SnapshotStartOptions extends SnapshotOptions, SnapshotImportOptions {
+  id: string;
+}
+/** Internal Deno adapter for local startup, filesystem export and owned cleanup. */
+export class Devnet extends PandaClient {
   private controller?: Controller;
-  constructor(readonly url: string) {}
+  private closing?: Promise<void>;
+  constructor(url: string) {
+    super(url, { timeoutMs: defaultTimeoutMs() });
+  }
   static async start(config: Partial<Config> = {}): Promise<Devnet> {
-    const controller = await Controller.start(config);
+    return await Devnet.owned(config, "new");
+  }
+  /** Open an existing verified checkpoint; never initialize fresh genesis as a fallback. */
+  static async open(config: Partial<Config> = {}): Promise<Devnet> {
+    return await Devnet.owned(config, "resume");
+  }
+  static async fromSnapshot(
+    snapshot: SnapshotRef | string,
+    options: SnapshotStartOptions,
+  ): Promise<Devnet> {
+    const controller = await Controller.fromSnapshot(
+      typeof snapshot === "string" ? snapshot : snapshot.id,
+      options.id,
+      operationId(options.operationId ?? crypto.randomUUID()),
+      options,
+    );
+    return await Devnet.attachOwned(controller, true);
+  }
+  private static async owned(config: Partial<Config>, mode: "new" | "resume"): Promise<Devnet> {
+    const controller = await Controller.start(config, mode);
+    return await Devnet.attachOwned(controller, mode === "resume");
+  }
+  private static async attachOwned(
+    controller: Controller,
+    preserveOnFailure: boolean,
+  ): Promise<Devnet> {
     try {
       const api = new Devnet(controller.serve(0));
       api.controller = controller;
       return api;
     } catch (error) {
-      await controller.close();
+      if (preserveOnFailure) await controller.closePreserving();
+      else await controller.close();
       throw error;
     }
   }
-  private async call<T = unknown>(method: string, params: unknown[] = []): Promise<T> {
-    return (await json<{ result: T }>(`${this.url}/control`, {
-      method: "POST",
-      body: JSON.stringify({ method, params }),
-      signal: AbortSignal.timeout(defaultTimeoutMs()),
-    })).result;
+  /** Save the HTTP archive to a file on this caller's machine. */
+  async exportSnapshot(
+    snapshot: SnapshotRef | string,
+    path: string,
+  ): Promise<SnapshotExportResult> {
+    const response = await this.downloadSnapshot(snapshot);
+    return await saveSnapshotStream(response.body!, path, {
+      sha256: response.headers.get("x-panda-sha256") ?? undefined,
+      signal: this.disconnected.signal,
+    });
   }
-  status(): Promise<
-    {
-      id: string;
-      profile: import("./profiles.ts").ProfileName;
-      bake: string;
-      bakeKey: string;
-      now: number;
-      slot: number;
-      automine: boolean;
-      automineError?: string;
-      el: { hash: string; number: string; timestamp: string };
-      finality: { data: { finalized: { epoch: string; root: string } } };
-    }
-  > {
-    return this.call("status");
-  }
-  stepSlot(): Promise<void> {
-    return this.call("stepSlot");
-  }
-  advanceSlots(count: number): Promise<void> {
-    return this.call("advanceSlots", [count]);
-  }
-  advanceEpochs(count: number): Promise<void> {
-    return this.call("advanceEpochs", [count]);
-  }
-  advanceTime(seconds: number, options?: WarpOptions): Promise<void> {
-    return this.call("advanceTime", options === undefined ? [seconds] : [seconds, options]);
-  }
-  advanceTo(timestamp: number | Date, options?: WarpOptions): Promise<void> {
-    const seconds = timestamp instanceof Date ? timestamp.getTime() / 1000 : timestamp;
-    return this.call("advanceTo", options === undefined ? [seconds] : [seconds, options]);
-  }
-  skipSlots(count: number): Promise<void> {
-    return this.call("skipSlots", [count]);
-  }
-  setAutomine(enabled: boolean): Promise<void> {
-    return this.call("setAutomine", [enabled]);
-  }
-  importValidator(keystore: string, password: string): Promise<void> {
-    return this.call("importValidator", [keystore, password]);
-  }
-  exitValidator(pubkey: string): Promise<void> {
-    return this.call("exitValidator", [pubkey]);
-  }
-  rpc<T = unknown>(method: string, params: unknown[] = []): Promise<T> {
-    return rpc(this.url, method, params);
-  }
-  async beacon<T = unknown>(path: string): Promise<T> {
-    return await json(`${this.url}${path}`);
-  }
-  async advanceUntil(
-    predicate: () => Promise<boolean>,
-    options: { maxSlots: number; timeoutMs?: number },
-  ): Promise<number> {
-    if (!Number.isSafeInteger(options.maxSlots) || options.maxSlots < 0) {
-      throw new Error("maxSlots must be a non-negative integer");
-    }
-    const deadline = performance.now() + (options.timeoutMs ?? defaultTimeoutMs());
-    for (let count = 0;; count++) {
-      if (await predicate()) return count;
-      if (count === options.maxSlots || performance.now() >= deadline) {
-        throw new Error("advanceUntil limit reached");
-      }
-      await this.stepSlot();
-    }
-  }
-  waitForService<T>(
-    description: string,
-    probe: () => Promise<T | undefined>,
-    timeoutMs = defaultTimeoutMs(),
-  ): Promise<T> {
-    return waitFor(description, probe, timeoutMs);
-  }
-  async close(): Promise<void> {
-    await this.controller?.close();
-  }
-  async [Symbol.asyncDispose](): Promise<void> {
-    await this.close();
+  override close(): Promise<void> {
+    return this.closing ??= (async () => {
+      await super.close();
+      await this.controller?.close();
+    })();
   }
 }

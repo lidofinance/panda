@@ -2,11 +2,8 @@ import { defaultTimeoutMs } from "./http.ts";
 export const SLOT_MS = 12_000;
 export const SLOTS_PER_EPOCH = 32;
 export const PHASES = [0, 4_000, 6_000, 8_000, 9_000, 11_500] as const;
-export type WarpMode = "honest" | "fast";
-export interface WarpOptions {
-  /** Honest executes every duty; fast permits empty slots and their inactivity penalties. */
-  mode?: WarpMode;
-}
+import type { WarpMode, WarpOptions } from "./api_contract.ts";
+export type { WarpMode, WarpOptions } from "./api_contract.ts";
 export function warpMode(options: unknown = {}): WarpMode {
   if (options === null || typeof options !== "object" || Array.isArray(options)) {
     throw new Error("Warp options must be an object");
@@ -19,6 +16,7 @@ export function warpMode(options: unknown = {}): WarpMode {
 export interface TimeBackend {
   move(nowMs: number, phase?: number): Promise<void>;
   skip?(nowMs: number): Promise<void>;
+  cancel?(reason: Error): void;
 }
 export class Serial {
   private tail: Promise<unknown> = Promise.resolve();
@@ -46,6 +44,7 @@ export function milliseconds(seconds: number): number {
 /** Single writer for protocol time. Ambiguous partial progress faults until reset. */
 export class Timeline {
   readonly queue = new Serial();
+  onFault?: (error: unknown) => void;
   private fault?: unknown;
   private stopped = false;
   constructor(
@@ -66,6 +65,11 @@ export class Timeline {
   }
   stop(): void {
     this.stopped = true;
+    this.backend.cancel?.(new Error("Panda session stopped"));
+  }
+  private fail(error: unknown): void {
+    this.fault = error;
+    this.onFault?.(error);
   }
   async exclusive<T>(fn: () => Promise<T>): Promise<T> {
     return await this.queue.run(() => {
@@ -87,7 +91,7 @@ export class Timeline {
         this.nowMs = at;
       }
     } catch (error) {
-      this.fault = error;
+      this.fail(error);
       throw error;
     }
   }
@@ -115,7 +119,7 @@ export class Timeline {
         await this.backend.skip(beforeDestination);
         this.nowMs = beforeDestination;
       } catch (error) {
-        this.fault = error;
+        this.fail(error);
         throw error;
       }
     }
@@ -166,7 +170,7 @@ export class Timeline {
         await this.backend.skip(target);
         this.nowMs = target;
       } catch (error) {
-        this.fault = error;
+        this.fail(error);
         throw error;
       }
     });

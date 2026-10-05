@@ -1,13 +1,14 @@
 import { Writable } from "node:stream";
 // @deno-types="@types/dockerode"
 import type Docker from "dockerode";
-import { deadline, defaultTimeoutMs } from "./http.ts";
+import { deadline, defaultTimeoutMs, withWatchdog } from "./http.ts";
 import { type Infrastructure } from "./docker.ts";
 
 export async function checkEngineCapabilities(
   url: string,
   secret: string,
   required: string[],
+  signal?: AbortSignal,
 ): Promise<string[]> {
   const bytes = Uint8Array.from(
     secret.trim().replace(/^0x/, "").match(/../g)!.map((x) => parseInt(x, 16)),
@@ -40,7 +41,7 @@ export async function checkEngineCapabilities(
       method: "engine_exchangeCapabilities",
       params: [required],
     }),
-    signal: AbortSignal.timeout(defaultTimeoutMs()),
+    signal: withWatchdog(signal),
   });
   const data = await response.json();
   if (
@@ -72,7 +73,9 @@ export class EngineGate {
     upstream: string,
     nowMs: number,
     jwt: string,
+    signal?: AbortSignal,
   ): Promise<EngineGate> {
+    signal?.throwIfAborted();
     const gate = new EngineGate(upstream, nowMs);
     const bytes = Uint8Array.from(
       jwt.trim().replace(/^0x/, "").match(/../g)!.map((part) => parseInt(part, 16)),
@@ -84,8 +87,33 @@ export class EngineGate {
       false,
       ["verify"],
     );
-    const stream = await container.logs({ follow: true, stdout: true, stderr: true, tail: 0 });
-    gate.stream = stream as import("node:stream").Readable;
+    signal?.throwIfAborted();
+    // The service's later SIGTERM must not close this stream before checkpoint drain.
+    // Cancellation and its watchdog cover only opening the subscription.
+    const opening = new AbortController();
+    const cancel = () => opening.abort(signal?.reason);
+    signal?.addEventListener("abort", cancel, { once: true });
+    const timer = setTimeout(
+      () => opening.abort(new Error("Timed out: Geth log subscription")),
+      defaultTimeoutMs(),
+    );
+    try {
+      gate.stream = await container.logs({
+        follow: true,
+        stdout: true,
+        stderr: true,
+        tail: 0,
+        abortSignal: opening.signal,
+      }) as import("node:stream").Readable;
+      signal?.throwIfAborted();
+      opening.signal.throwIfAborted();
+    } catch (error) {
+      gate.stream?.destroy();
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", cancel);
+    }
     let buffer = "";
     const output = new Writable({
       write(chunk, _encoding, callback) {
@@ -104,7 +132,7 @@ export class EngineGate {
         callback();
       },
     });
-    infra.docker.modem.demuxStream(stream, output, output);
+    infra.docker.modem.demuxStream(gate.stream, output, output);
     gate.stream.on("error", (error) => {
       gate.logError = error;
     });

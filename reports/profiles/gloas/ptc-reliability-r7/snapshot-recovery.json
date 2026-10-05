@@ -1,0 +1,66 @@
+{
+  "passed": true,
+  "cuts": [
+    {
+      "stage": "accepted",
+      "elapsedMs": 18672.603167,
+      "generation": "c0a6a5e7-f154-4236-83a6-ca05b72f55be"
+    },
+    {
+      "stage": "preparing",
+      "elapsedMs": 18937.453916,
+      "generation": "f54fb5fe-2ecc-4618-88a9-dfaf63dbdb9f"
+    },
+    {
+      "stage": "partial-copy",
+      "elapsedMs": 18851.497917,
+      "generation": "5e1c745e-9530-4c52-a5b5-54220c3cddab"
+    },
+    {
+      "stage": "prepared",
+      "elapsedMs": 26629.195083,
+      "generation": "fa67e5c9-c11d-4b29-8f38-8b4d9be323a7"
+    },
+    {
+      "stage": "source-stopping",
+      "elapsedMs": 26226.902749999994,
+      "generation": "3dd21658-4d74-4d53-abea-d602ce45f284"
+    },
+    {
+      "stage": "source-stopped",
+      "elapsedMs": 26547.003500000006,
+      "generation": "17529514-2473-4afb-b4fa-393a007455a4"
+    },
+    {
+      "stage": "candidate-verified",
+      "elapsedMs": 31552.298167,
+      "generation": "e21a9d9d-7da6-4a7f-8e33-e91afba12878"
+    },
+    {
+      "stage": "committed",
+      "elapsedMs": 34328.866125,
+      "generation": "89bea4c6-acc9-482c-a2c6-76b93fc51368"
+    },
+    {
+      "stage": "published",
+      "elapsedMs": 32677.752542000002,
+      "generation": "cfcfec46-852f-4b27-8d25-9504be486c73"
+    },
+    {
+      "stage": "cleanup-renamed",
+      "elapsedMs": 31587.23995800002,
+      "generation": "5e7b8bc3-6fd0-44f8-8c00-099cec39bff0"
+    },
+    {
+      "stage": "cleanup-unlink",
+      "elapsedMs": 31347.455041999987,
+      "generation": "3a52b191-5434-4464-8c31-afe3d52caa4d"
+    }
+  ],
+  "elapsedMs": 318857.836084,
+  "profile": "gloas",
+  "bake": "ptc-reliability-r7",
+  "bakeKey": "6c4a05573eb71bf8a3c2298cc015ac71508c3f6451b235108c0b7517fe4f7908",
+  "runId": "1c2a6833-b068-4a07-bf11-db1f26078a7e",
+  "recordedAt": "2026-10-04T18:12:09.515Z"
+}

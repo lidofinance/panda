@@ -83,13 +83,58 @@ Deno.test("Panda release selection takes its version from a Git tag, never manua
     );
     assert.equal(values.revision, "v1.2.3-rc.1");
     assert.deepEqual(JSON.parse(values.matrix), {
-      include: Object.keys(profiles).map((profile) => ({
+      include: ["gloas"].map((profile) => ({
         profile,
         image: `ghcr.io/eddort/panda-${profile}:v1.2.3-rc.1`,
       })),
     });
   } finally {
     await Deno.remove(output);
+  }
+});
+
+Deno.test("release entry points reject paused Pectra before accessing the registry", async () => {
+  for (
+    const [script, commands] of [
+      ["lighthouse_ci.ts", ["matrix", "resolve", "publish"]],
+      ["release_ci.ts", ["matrix", "check"]],
+    ] as const
+  ) {
+    for (const command of commands) {
+      const result = await new Deno.Command(Deno.execPath(), {
+        args: [
+          "run",
+          "--config=deno.json",
+          "-A",
+          "--deny-net",
+          `scripts/${script}`,
+          command,
+          "pectra",
+        ],
+        env: { GITHUB_REF: "refs/tags/v1.2.3", GITHUB_REPOSITORY_OWNER: "eddort" },
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      assert.equal(result.success, false);
+      assert.match(new TextDecoder().decode(result.stderr), /pectra.*temporarily disabled/i);
+    }
+  }
+  for (const command of ["check", "open"]) {
+    const result = await new Deno.Command(Deno.execPath(), {
+      args: ["run", "--config=deno.json", "-A", "--deny-net", "scripts/release_pr.ts", command],
+      env: {
+        GITHUB_REF: "refs/heads/main",
+        GITHUB_REPOSITORY: "eddort/panda",
+        DEFAULT_BRANCH: "main",
+        PANDA_VERSION: "v1.2.3",
+        PROFILE: "pectra",
+        GH_TOKEN: "test-token-never-sent",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert.equal(result.success, false);
+    assert.match(new TextDecoder().decode(result.stderr), /pectra.*temporarily disabled/i);
   }
 });
 

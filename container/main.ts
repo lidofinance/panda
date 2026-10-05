@@ -1,6 +1,6 @@
-import { Controller } from "../src/controller.ts";
+import type { Controller } from "../src/controller.ts";
+import { startServiceController, stopServiceController, waitForServiceDocker } from "./service.ts";
 import { Infrastructure } from "../src/docker.ts";
-import { waitFor } from "../src/http.ts";
 import { profileName, readBake } from "../src/profiles.ts";
 import { releaseMetadata } from "../src/release.ts";
 import { type Relay, tcpRelay } from "./relay.ts";
@@ -13,7 +13,8 @@ if (
 ) {
   throw new Error("Packaged release metadata does not match the bake");
 }
-const id = `ci-${crypto.randomUUID().slice(0, 8)}`;
+if (!Deno.env.has("PANDA_DATA_DIR")) Deno.env.set("PANDA_DATA_DIR", "/data/panda");
+const id = "service";
 const infra = new Infrastructure(id);
 const abort = new AbortController();
 const stop = () => abort.abort();
@@ -30,41 +31,40 @@ const daemon = new Deno.Command("dockerd-entrypoint.sh", {
   stderr: "inherit",
 }).spawn();
 let daemonExited = false;
+const daemonStopped = new AbortController();
 const daemonExit = daemon.status.then((status) => {
   daemonExited = true;
+  daemonStopped.abort(new Error(`Private Docker exited: ${status.code}`));
   return status;
 });
+const startupSignal = AbortSignal.any([abort.signal, daemonStopped.signal]);
 let controller: Controller | undefined;
 const relays: Relay[] = [];
 try {
-  await waitFor("private Docker daemon", async () => {
-    if (daemonExited || abort.signal.aborted) throw new Error("Docker startup interrupted");
-    return await infra.docker.ping().then(() => true).catch(() => undefined);
-  });
+  await waitForServiceDocker(() => infra.docker.ping(), abort.signal, daemonExit);
   for (const role of ["el", "cl", "genesis"] as const) {
-    if (abort.signal.aborted) throw new Error("Image loading interrupted");
+    startupSignal.throwIfAborted();
     if (!await infra.restoreImage(bake.images[role].id)) throw new Error(`Missing ${role} archive`);
+    startupSignal.throwIfAborted();
   }
   await Deno.mkdir("/run/panda", { recursive: true });
   await Deno.writeTextFile("/run/panda/id", id, { mode: 0o600 });
-  controller = await Controller.start({ id, profile: bake.profile, bake: bake.tag });
+  startupSignal.throwIfAborted();
+  controller = await startServiceController(bake, startupSignal);
+  startupSignal.throwIfAborted();
   const upstream = controller.serve(0);
-  const initial = await controller.status();
-  if (
-    initial.slot !== 0 || initial.automine ||
-    BigInt((initial.el as { number: string }).number) !== 0n
-  ) {
-    throw new Error("Service must expose fresh genesis");
-  }
+  const beacon = controller.serveClient("beacon");
+  const validator = controller.serveClient("vc");
   relays.push(tcpRelay(() => upstream, 8545));
-  relays.push(tcpRelay(() => controller!.manifest.beacon, 5052));
-  relays.push(tcpRelay(() => controller!.manifest.vc, 5062));
+  relays.push(tcpRelay(() => beacon, 5052));
+  relays.push(tcpRelay(() => validator, 5062));
   console.log(JSON.stringify({
-    event: "ready",
+    event: controller.lifecycle().ready ? "ready" : "recovery-required",
     id,
     url: "http://127.0.0.1:8545",
     beacon: "http://127.0.0.1:5052",
     validator: "http://127.0.0.1:5062",
+    persistence: controller.lifecycle().checkpointCapable ? "checkpoint" : "ephemeral-legacy-bake",
     ...release,
   }));
   if (!abort.signal.aborted) {
@@ -83,7 +83,7 @@ try {
   stop();
   await Promise.allSettled(relays.map((relay) => relay.close()));
   try {
-    await controller?.close();
+    if (controller) await stopServiceController(controller);
   } finally {
     if (!daemonExited) daemon.kill("SIGTERM");
     const timeout = setTimeout(() => {

@@ -1,0 +1,33 @@
+{
+  "profile": "gloas",
+  "tag": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "suiteHash": "adbcaa27d5111209db8f1521364f04a42e32b6769f7e2e1b9e60b3e3fd109449",
+  "startedAt": "2026-10-04T13:38:23.139Z",
+  "scenarios": [
+    "baseline",
+    "lifecycle",
+    "e2e",
+    "warp",
+    "warp-fast",
+    "warp-economics",
+    "protocol",
+    "withdrawal",
+    "deploy",
+    "gloas",
+    "restart",
+    "resume",
+    "blob-checkpoint",
+    "snapshots",
+    "snapshot-recovery",
+    "snapshot-creation",
+    "snapshot-deposits",
+    "snapshot-withdrawals",
+    "snapshot-consumer"
+  ],
+  "finishedAt": "2026-10-04T14:11:19.142Z",
+  "elapsedMs": 1975948.748333,
+  "passed": true,
+  "status": "passed"
+}

@@ -1,0 +1,251 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "scope": "Local Linux ARM64 packaged service; no image publication or AMD64/CI claim",
+  "command": "deno task test:image panda-ci-gloas:p3-r5.1 gloas",
+  "image": "panda-ci-gloas:p3-r5.1",
+  "imageId": "sha256:a3ea69cdc7f7412e9d1103cc16b391e752afce7934143075a543e0d188eef0fd",
+  "profile": "gloas",
+  "bake": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "sourceInputs": {
+    "src/active_profiles.ts": "edaf1a327b5b80ae2ca64f1283b631dedb0fe162c70db28f1d9e90185ab0d462",
+    "src/admission.ts": "f9bed88bd966584f0c7ef64a5ee7e2f78bf6b3b447a64938ad633b0e788c7369",
+    "src/api.ts": "883c0e98db6193e8244f549bb423311e796dd5c2663aab8c806a7e7fe57d6e08",
+    "src/arguments.ts": "49711c36ca58eaf00d9ff5aaf73f5d23fb0cb09ffe59d690ce6737588f92774c",
+    "src/artifacts.ts": "bd5be09e3f564be0f58167e240e676565f7e181425c8f6c5647ccf103a9e3c02",
+    "src/automine.ts": "ab9ebd98ea7d4ec2ce0f0922f2650dda20ca13f26b1c442566cd29cf74c9a64b",
+    "src/baker.ts": "3d1702975acd9d69eeb600df79abe8da42b0d3099be28b9838aacc1db68efc2b",
+    "src/cli.ts": "816dcd305b65034577b665f46bec87e74c068fee184801ff0e83fc70a230d049",
+    "src/client_release.ts": "a79f50c9e3ab49c0b9ab14297847931b21de3b3aa7273f3bd9e0f4edf5c6ddff",
+    "src/config.ts": "798438c60dff88c6e57a4ecc7b86adade8af6efe1eb8d1a1797e7f18d297b71c",
+    "src/consensus.ts": "f4674e561e06694a06514ba34130c6ba97d41082a18c20838bc04608c2bbb71c",
+    "src/controller.ts": "52348757a598da2df64c6974f91e9e199c83e204420b089585ec2511f7d47ae9",
+    "src/docker.ts": "b6097c5b61839e6348dcb44ea3454f5ced3f60f3ee544d65465f4f1f4335dd54",
+    "src/engine.ts": "fd3ddae271d9d705e53c22f632c43fea3ea917294d29b2103fb232d266499e2f",
+    "src/execution_build.ts": "ee661071c8e99f093b4309c486b8f80bac767fe83fca1d002acc4a21b2babc9c",
+    "src/http.ts": "95f8b3292d35ab96b08b09d6c9f4d40c66cec356b4a293c71b19db20e14e86e5",
+    "src/ingress.ts": "d440d35706b8b202d48fb00a32187f0c362d216c1ca20df59a763ed193a933c2",
+    "src/lighthouse_build.ts": "e2216715cd7a9bc717bb77bc3a4f3a85d92579f13ab0add9fc44fecffc8f2835",
+    "src/lighthouse_publish.ts": "b291d7f78c3f57e254651ff93ae65f2d4d53757fc0cfab34539fbe811f17d1c3",
+    "src/network.ts": "d307825bca5eefe67cf9101c8471d6fbeca399a5391ef579b94d8f035702861b",
+    "src/profile.ts": "ea3645315732379250c9079d72325bf1a0ef87892c7e9d1973cac99502b96f61",
+    "src/profiles.ts": "5a137b466d6aa02f141cebb4c2bed864341aa666d90e9030f2f21fdc378222d5",
+    "src/registry.ts": "a71e7ff2df70abefd39589b3e3530ee1dbf7ab1cb504caf6a19d087cb33c53a3",
+    "src/release.ts": "09ce213f360dd9c17e60ea486b6b8a6b819278b70a3006fd82e87961d75ad6ab",
+    "src/release_artifacts.ts": "405a83b63c23990d77afd72c343fb592624d00ac25beae9d6528fb28da6822ac",
+    "src/release_pr.ts": "ff612986b4884b99e596bbe6741cd6b0911d3aa0e1bd3036fd17584abbe18b48",
+    "src/storage.ts": "2cf0efc66f3e7d1017cfbd1267e1ba57f6246a24d3d7acdb65e2dd4cef3841cd",
+    "src/time.ts": "d2b387e07dde9f4d8e7b97a6b10cd1747802ecd2150dfbbd2b63efa08f532c32",
+    "src/validators.ts": "6cd70723dc28e8c05fdd4cf7968f6529ebfe30163fae1c76b801bfc164700219",
+    "src/verification.ts": "134bc39727a9d5c581900d9772637a59e7b9aa54749dcd3f48022dffb9f053c2",
+    "container/Dockerfile": "870dcc067ae546bb3e44bb3ef655dd37c8b3d3bc2dcf57a1da2a5df8c0617ceb",
+    "container/clients.ts": "892f58ef6d471c07e58ef2153dd5ec9bb54ec9c509f045a36943049ba71ddb9d",
+    "container/daemon.json": "3ecd6f222a3f705e3832c2e73122af1b759c474652ed7fe8ad00d9fe6cfa6009",
+    "container/health.ts": "029401b92c4027989e54f0ccdfa59dc6619190d3e8e9c872092f1ab603d4fa81",
+    "container/main.ts": "b5a2ec95b872b55022bd38106194b974e3e2c809d19bb1e783c99184569f1a1e",
+    "container/panda": "3695827f35a16307e6a2ce63ba63effae04d74e82695afb09bdf5f18a69ddccf",
+    "container/relay.ts": "c67523c4ade63e2e0e5e859b40e6c0c24fd498d148e01d4e598c53a7af7f3f31",
+    "container/service.ts": "5a2952520d40f582efdee05c2415ea66a672c1fa5a472d4bb5f70aa3db6f416f",
+    "deno.json": "a58cfdf8882ccd3ae584b895b6eca826ccb498548369522706168e64a694faad",
+    "deno.lock": "33f37f9b05323319b95e1bc2a7914a85a6ad788204142ed8565c6d4bb00d985e",
+    "LICENSE": "8733a523a6ff431652566c0814a51f7f635f1378970d9938805c89d4b93fcfc1"
+  },
+  "passed": true,
+  "elapsedMs": 80297.73004200001,
+  "interruptedStartup": {
+    "generation": "1870a977-3959-4a36-9dbf-6833538f4a4a",
+    "exitCode": 1,
+    "elapsedMs": 1765.0978749999995
+  },
+  "interruptedStartupAssertions": [
+    "genuine genesis running and paused with exact owner/role",
+    "SIGTERM exits without SIGKILL or OOM",
+    "no false ready event",
+    "same outer container, ports and volume restart",
+    "new generation at genesis; previous unfinished job removed"
+  ],
+  "initial": {
+    "now": 2000000011.5,
+    "slot": 0,
+    "executionHash": "0x0ba7a8ae75439088094d035dfa9d54b49eb6e9c4de716f356d8dc0d97fdb9886",
+    "finality": {
+      "execution_optimistic": false,
+      "finalized": false,
+      "data": {
+        "previous_justified": {
+          "epoch": "0",
+          "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "current_justified": {
+          "epoch": "0",
+          "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "finalized": {
+          "epoch": "0",
+          "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      }
+    }
+  },
+  "transaction": "0x7df9038e359beab7ae16eef2ea67c888edcb519d7c2b6c32e4896e0b853d7bd9",
+  "managedStopResume": {
+    "generation": "0e60838b-9862-4185-ba58-1dea9fed76e7",
+    "before": "8d8626ce-ee77-432d-8ad7-d9794e8c8bd9",
+    "after": "d1deeb3d-f3e1-4666-84d0-b022451df078"
+  },
+  "beforeContainerRestart": {
+    "now": 2000000803.5,
+    "slot": 66,
+    "executionHash": "0xa32f645df069e2de53751a426281cf40896e2f711e9d4a1b0565c8bd62eeed49",
+    "finality": {
+      "execution_optimistic": false,
+      "finalized": false,
+      "data": {
+        "previous_justified": {
+          "epoch": "0",
+          "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "current_justified": {
+          "epoch": "0",
+          "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "finalized": {
+          "epoch": "0",
+          "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      }
+    }
+  },
+  "clientAccess": {
+    "beacon": true,
+    "validator": true,
+    "validatorAfterFastWarp": true
+  },
+  "firstRestart": {
+    "status": {
+      "now": 2000000803.5,
+      "slot": 66,
+      "executionHash": "0xa32f645df069e2de53751a426281cf40896e2f711e9d4a1b0565c8bd62eeed49",
+      "finality": {
+        "execution_optimistic": false,
+        "finalized": false,
+        "data": {
+          "previous_justified": {
+            "epoch": "0",
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "current_justified": {
+            "epoch": "0",
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "finalized": {
+            "epoch": "0",
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "phase": "ready",
+      "ready": true,
+      "generation": "0e60838b-9862-4185-ba58-1dea9fed76e7",
+      "active": 0,
+      "streams": 0,
+      "id": "service",
+      "profile": "gloas",
+      "bake": "p3-checkpoint-r5",
+      "sessionId": "9b40f92e-6ad3-4b8a-b323-47339b970cc8",
+      "now": 2000000803.5,
+      "slot": 66,
+      "checkpointCapable": true
+    },
+    "head": {
+      "root": "0x68da4adcf0de2915bda97cb919b4627d26094519cb757c5a20db2f63bb39caf7",
+      "stateRoot": "0x165a167ef95d2c41c11607b1e510233e1c6eba4d27c78c3e3d24189d115d8d47",
+      "slot": 66
+    }
+  },
+  "nextTransaction": "0x66e921871dddb0206efa9b00005bd144902e1d834d08aa5cad22cbd6b934d657",
+  "nextReceipt": {
+    "status": 1,
+    "blockHash": "0x2eba1c0288d15600d58205a50c4b9c9b4b4d2fca33691699432f3ec8e9fa79c8",
+    "blockNumber": 4
+  },
+  "finalizedExecutionHash": "0x35251f62051a02571e9d354e47c6bba2371cbcb9ca3f2109e9b503d4625ff706",
+  "stoppedCheckpoint": {
+    "abi": 1,
+    "nowMs": 2000002351500,
+    "headSlot": 195,
+    "headBlockRoot": "0x89f48c8fd2e11ca3c1b27e69cca22e60e7f7bc86b38896b020d6a90cdaa77bce",
+    "headStateRoot": "0xfed17dff01c13c700e79d5b85505430c465c3bdee9d5ea9c37d80d5f5a56ab07",
+    "forkChoiceSlot": 196,
+    "justified": {
+      "epoch": "5",
+      "root": "0x82415530391a9632937666841d8f4fb12bb9c635f7ad820bcc7f565856136558"
+    },
+    "finalized": {
+      "epoch": "4",
+      "root": "0xbfd093f028392ba3fee46dc05d28f9bbbe331e474fc15450aae6570dd7e3c07b"
+    },
+    "opPoolHash": "0x12141ee1884220c1453e0dd776577868f4811bac64bc0bd79fd76cf0c8033fb5",
+    "forkChoiceHash": "0x9a771dd3ebae7e46bdcae9171c510da65927245721b8477a60660e819fbe3c5f",
+    "custodyHash": "0x6ca82b34f44df6645fca93f2e29744377a38d27b2728726445db152a3424b139",
+    "checkpointHash": "0x6b6c0b5acbaee7cae9e7f3aadd66dd63459716dba94596aa7d7fbffd5d63ea37",
+    "executionHash": "0xda003634343cca36c7e929896231fe948f09a2a9c85c635113f4058ff932b4b9"
+  },
+  "afterSdkStopAndSigterm": {
+    "status": {
+      "now": 2000002351.5,
+      "slot": 195,
+      "executionHash": "0xda003634343cca36c7e929896231fe948f09a2a9c85c635113f4058ff932b4b9",
+      "finality": {
+        "execution_optimistic": false,
+        "finalized": false,
+        "data": {
+          "previous_justified": {
+            "epoch": "4",
+            "root": "0xbfd093f028392ba3fee46dc05d28f9bbbe331e474fc15450aae6570dd7e3c07b"
+          },
+          "current_justified": {
+            "epoch": "5",
+            "root": "0x82415530391a9632937666841d8f4fb12bb9c635f7ad820bcc7f565856136558"
+          },
+          "finalized": {
+            "epoch": "4",
+            "root": "0xbfd093f028392ba3fee46dc05d28f9bbbe331e474fc15450aae6570dd7e3c07b"
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "phase": "ready",
+      "ready": true,
+      "generation": "0e60838b-9862-4185-ba58-1dea9fed76e7",
+      "active": 0,
+      "streams": 0,
+      "id": "service",
+      "profile": "gloas",
+      "bake": "p3-checkpoint-r5",
+      "sessionId": "d23d4480-e56f-4650-b2e8-7bf4cee84057",
+      "now": 2000002351.5,
+      "slot": 195,
+      "checkpointCapable": true
+    },
+    "head": {
+      "root": "0x89f48c8fd2e11ca3c1b27e69cca22e60e7f7bc86b38896b020d6a90cdaa77bce",
+      "stateRoot": "0xfed17dff01c13c700e79d5b85505430c465c3bdee9d5ea9c37d80d5f5a56ab07",
+      "slot": 195
+    }
+  },
+  "serviceAssertions": [
+    "health does not mine",
+    "native VC authorization and key access",
+    "foreign Host rejected",
+    "CL/VC return 503 while parked",
+    "keys and token remain identical after fast warp/restart",
+    "SIGTERM of ready service exits 0 without OOM",
+    "next transaction and 4 honest epochs restore real finality with EL agreement",
+    "EL/CL/VC logs readable"
+  ]
+}

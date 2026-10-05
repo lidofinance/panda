@@ -1,17 +1,21 @@
+Translation note: The Russian excerpt in this historical formatting diff has been
+translated into English. The command and failure result are preserved; the excerpt
+is not byte-for-byte command output. Decimal separators use English notation.
+
 Task check ./scripts/deno fmt --check && ./scripts/deno lint && ./scripts/deno check src/*.ts scripts/*.ts tests/*.ts bakes/*/tests/*.ts
 
 from /workspace/panda/docs/warp-algorithm-budget.md:
- 18 | -Если предположить, что сокращение isolated sync crypto **27,816 → 1,563 мс** целиком переносится
- 18 | +Если предположить, что сокращение isolated sync crypto **27,816 → 1,563 мс** целиком переносится на
- 19 | -на последовательный путь каждого слота, получится `(92,382 − 27,816 + 1,563) ×8192 /1000` =
- 19 | +последовательный путь каждого слота, получится `(92,382 − 27,816 + 1,563) ×8192 /1000` = **541,7 с,
- 20 | -**541,7 с, около 9 мин 2 с**. Это условная модель: приблизительно **1,40×** для всей перемотки,
- 20 | +около 9 мин 2 с**. Это условная модель: приблизительно **1,40×** для всей перемотки, или **28,4%
- 21 | -или **28,4% меньше времени**, при **17,8×** для одного компонента. Перекрытие стадий и новые
- 21 | +меньше времени**, при **17,8×** для одного компонента. Перекрытие стадий и новые расходы интеграции
- 22 | -расходы интеграции неизвестны; модель не является измеренным прогнозом. Первая следующая
- 22 | +неизвестны; модель не является измеренным прогнозом. Первая следующая транзакция сюда ещё не
- 23 | -транзакция сюда ещё не включена и должна измеряться вместе с integrated warp.
- 23 | +включена и должна измеряться вместе с integrated warp.
+ 18 | -Assuming the isolated sync crypto reduction from **27.816 to 1.563 ms** carries over entirely
+ 18 | +Assuming the isolated sync crypto reduction from **27.816 to 1.563 ms** carries over entirely to
+ 19 | -to each slot's sequential path, the result is `(92.382 - 27.816 + 1.563) x8192 /1000` =
+ 19 | +each slot's sequential path, the result is `(92.382 - 27.816 + 1.563) x8192 /1000` = **541.7 s,
+ 20 | -**541.7 s, about 9 min 2 s**. This conditional model gives approximately **1.40x** for the whole warp,
+ 20 | +about 9 min 2 s**. This conditional model gives approximately **1.40x** for the whole warp, or **28.4%
+ 21 | -or **28.4% less time**, with **17.8x** for one component. Stage overlap and additional
+ 21 | +less time**, with **17.8x** for one component. Stage overlap and additional integration overhead
+ 22 | -integration overhead are unknown; this model is not a measured forecast. The first subsequent
+ 22 | +are unknown; this model is not a measured forecast. The first subsequent transaction is not yet
+ 23 | -transaction is not yet included and must be measured together with the integrated warp.
+ 23 | +included and must be measured together with the integrated warp.
 
 error: Found 1 not formatted file in 107 files

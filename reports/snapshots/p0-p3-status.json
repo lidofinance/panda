@@ -1,0 +1,288 @@
+{
+  "schema": 2,
+  "recordedAt": "2026-10-04",
+  "status": "accepted_local_gloas_p0_p3",
+  "accepted": true,
+  "scope": "P0-P3 Gloas lifecycle, admission and clean checkpoint/resume; Pectra and P4+ deferred",
+  "identity": {
+    "profile": "gloas",
+    "tag": "p3-checkpoint-r5",
+    "key": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+    "platform": "linux/arm64"
+  },
+  "clientRevisions": {
+    "cl": "2d281dfa1b407f7c81cd123954a9fd18ee8f02d2",
+    "el": "5d8fd6b6082f9aa330dbaf5df52dfcfdb445f186"
+  },
+  "checkpointAbi": 1,
+  "localChecks": {
+    "typecheck": {
+      "passed": true,
+      "command": "deno task check",
+      "log": ".cache/p0-p3/http-explicit-timeout-check.log"
+    },
+    "unit": {
+      "command": "deno task test",
+      "passed": 240,
+      "steps": 75,
+      "failed": 0,
+      "ignored": 17,
+      "log": ".cache/p0-p3/http-explicit-timeout-unit.log"
+    }
+  },
+  "native": {
+    "passed": true,
+    "checkpointCases": 14,
+    "checks": [
+      "clock",
+      "BLS",
+      "weighted selection",
+      "direct sync",
+      "checkpoint/restart",
+      "HTTP admission/cancellation",
+      "signing cancellation",
+      "migrator admission",
+      "real KZG reconstruction"
+    ],
+    "buildEvidence": ".cache/p3/r5-build-evidence.json",
+    "sourceEquality": ".cache/p3/r5-tested-source-equality.json"
+  },
+  "dockerSmoke": {
+    "passed": true,
+    "elapsedMs": 3932,
+    "log": ".cache/p0-p3/smoke-r5.log"
+  },
+  "bakerTests": {
+    "passed": 4,
+    "failed": 0,
+    "log": ".cache/p0-p3/baker-real-r5.log"
+  },
+  "managedResume": {
+    "passed": true,
+    "report": "reports/profiles/gloas/p3-checkpoint-r5/resume.json",
+    "elapsedMs": 147939.552333,
+    "standaloneBeforeHttpCorrection": {
+      "passed": true,
+      "elapsedMs": 194500.085541
+    }
+  },
+  "packagedService": {
+    "passed": true,
+    "elapsedMs": 80297.730042,
+    "report": "reports/snapshots/p0-p3-packaged-r5.json",
+    "image": "panda-ci-gloas:p3-r5.1",
+    "imageId": "sha256:a3ea69cdc7f7412e9d1103cc16b391e752afce7934143075a543e0d188eef0fd",
+    "interruptedStartupExitMs": 1765.097875,
+    "runtimeSourceHashesChecked": 41,
+    "environmentScope": "Previously completed on Docker Engine 29.2.0. The artifact and all 41 packaged source hashes were independently rechecked after the host update; the packaged scenario was not rerun on 29.8.1."
+  },
+  "economicsAfterHttpFix": {
+    "passed": true,
+    "report": ".cache/p0-p3/economics-r5-final.json",
+    "failureSafetyElapsedMs": 30082.761625,
+    "assertionsWeakened": false
+  },
+  "fullProfile": {
+    "passed": true,
+    "passedScenarios": 13,
+    "failedScenarios": [],
+    "elapsedMs": 911668.578167,
+    "runId": "a6c28953-f8eb-428a-891b-088ed9d5335f",
+    "suiteHash": "90ebf7455ea68a15e025fb737d2ee9b0a0c7eb002ed8d746f9bcd09a9902a1f6",
+    "verification": "reports/profiles/gloas/p3-checkpoint-r5/verification.json",
+    "log": ".cache/p0-p3/profile-real-r5-recovered.log",
+    "startedAt": "2026-10-04T08:40:32.624Z",
+    "finishedAt": "2026-10-04T08:55:44.251Z",
+    "scenarios": [
+      "baseline",
+      "lifecycle",
+      "e2e",
+      "warp",
+      "warp-fast",
+      "warp-economics",
+      "protocol",
+      "withdrawal",
+      "deploy",
+      "gloas",
+      "restart",
+      "resume",
+      "blob-checkpoint"
+    ]
+  },
+  "historicalRedGreen": [
+    {
+      "check": "multiple_sse_drain",
+      "defect": "First SSE cancellation previously released maintenance before the second upstream cancellation completed.",
+      "red": ".cache/p2/audit-stream-red.log",
+      "green": ".cache/p2/audit-stream-green.log",
+      "result": "6 passed"
+    },
+    {
+      "check": "parent_directory_durability",
+      "defect": "The generation directory entry was not fsynced before publishing active.json.",
+      "red": ".cache/p2/directory-sync-red.log",
+      "green": ".cache/p2/directory-sync-green.log",
+      "result": "27 passed, 35 steps"
+    },
+    {
+      "check": "stopped_database_inventory",
+      "defect": "Missing/changed stopped EL/BN data was not rejected before runtime creation; inventory allocated entire large files.",
+      "red": ".cache/p0-p3/audit-database-inventory-red-actual.log",
+      "green": ".cache/p0-p3/audit-database-inventory-green.log",
+      "result": "30 passed, 39 steps"
+    },
+    {
+      "check": "managed_validator_fixture",
+      "defect": "Deposit key import used a private VC upstream instead of the managed endpoint.",
+      "red": ".cache/p2/managed-fixture-red.log",
+      "green": ".cache/p2/managed-fixture-green.log",
+      "result": "9 passed"
+    },
+    {
+      "check": "pinned_geth_source_selection",
+      "defect": "Default recipe source selection did not use its pinned EL revision.",
+      "red": ".cache/p2/baker-selection-red.log",
+      "green": ".cache/p2/baker-selection-green.log",
+      "result": "19 passed"
+    },
+    {
+      "check": "decoded_http_compression",
+      "defect": "Decoded fetch bodies retained gzip encoding/length on reconstructed EL/CL/VC responses.",
+      "red": ".cache/p2/proxy-gzip-red.log",
+      "green": ".cache/p2/proxy-gzip-green.log",
+      "result": "23 passed, 14 steps"
+    },
+    {
+      "check": "invalid_signature_rejection",
+      "defect": "Exact pinned-Geth invalid-signature response was left ambiguous instead of terminal rejected.",
+      "red": ".cache/p0-p3/invalid-signature-unit-red.log",
+      "green": ".cache/p0-p3/invalid-signature-unit-green.log",
+      "result": "11 passed, 7 steps"
+    },
+    {
+      "check": "startup_cancellation",
+      "defect": "SIGTERM and daemon exit during a pending readiness probe waited for the watchdog instead of entering cleanup.",
+      "red": ".cache/p2/container-startup-red.log",
+      "green": ".cache/p2/container-startup-green.log",
+      "result": "13 passed"
+    }
+  ],
+  "httpExplicitDeadlineRegression": {
+    "red": ".cache/p0-p3/http-explicit-timeout-red.log",
+    "green": ".cache/p0-p3/http-explicit-timeout-green.log",
+    "independentGreen": ".cache/p0-p3/audit-http-explicit-timeout-green.log",
+    "focusedPassed": 36
+  },
+  "historicalRuns": [
+    {
+      "tag": "p3-checkpoint-r3",
+      "passed": false,
+      "passedScenarios": 9,
+      "failedScenarios": 3,
+      "verification": "reports/profiles/gloas/p3-checkpoint-r3/verification.json"
+    },
+    {
+      "tag": "p3-checkpoint-r5",
+      "passed": false,
+      "passedScenarios": 12,
+      "failedScenarios": 1,
+      "resolution": "Explicit HTTP deadline regression subsequently fixed and checked; original run remains failed.",
+      "runId": "5303a426-3b2c-4494-954e-45b38084160d",
+      "suiteHash": "933caa0732e9f73664d1a82186181114957ef307f7fd740f15a34e91198b3e98",
+      "startedAt": "2026-10-04T06:35:12.391Z",
+      "finishedAt": "2026-10-04T06:54:07.246Z",
+      "elapsedMs": 1135017.7271669998,
+      "failedScenarioNames": [
+        "warp-economics"
+      ],
+      "privateEvidence": ".cache/p0-p3/profile-r5-first-failed/",
+      "cause": "Generic HTTP helper incorrectly clipped an explicit 40-second client deadline to the configured 30-second server watchdog. The negative duty test received a transport timeout instead of the server native-barrier failure."
+    },
+    {
+      "tag": "p3-checkpoint-r5",
+      "runId": "82157c19-2be3-41cd-a059-4368adbc587e",
+      "passed": false,
+      "passedScenarios": 10,
+      "failedScenarios": 3,
+      "resolution": "The environment was corrected. New targeted and full runs passed with the same client images; this historical run remains failed.",
+      "suiteHash": "90ebf7455ea68a15e025fb737d2ee9b0a0c7eb002ed8d746f9bcd09a9902a1f6",
+      "startedAt": "2026-10-04T07:10:11.414Z",
+      "finishedAt": "2026-10-04T07:26:20.471Z",
+      "elapsedMs": 969116.714208,
+      "failedScenarioNames": [
+        "withdrawal",
+        "restart",
+        "blob-checkpoint"
+      ],
+      "privateEvidence": ".cache/p0-p3/profile-r5-image-loss-failed/",
+      "cause": "Host image garbage collection removed the exact EL/CL images between scenarios. The Panda trace contained no image deletion or prune requests."
+    }
+  ],
+  "nextSteps": [
+    "P4+ reusable snapshots and hardfork transitions remain separate, unimplemented stages."
+  ],
+  "limitations": [
+    "Local Gloas Linux ARM64 acceptance only; AMD64/CI and publication were not checked here.",
+    "Pectra and P4+ snapshots/fork transitions deferred.",
+    "Peer delivery of partial columns is not claimed as end-to-end coverage; real KZG reconstruction is covered by the native component test."
+  ],
+  "audit": "docs/snapshots-p0-p3-status.md",
+  "finalDockerCheck": {
+    "allFourBakeImagesPresent": true,
+    "images": [
+      {
+        "role": "cl",
+        "imageId": "sha256:940bf27d9dbfaa772a424035f0a3d93c1d39757feb75b6a5da7539420ce01224"
+      },
+      {
+        "role": "el",
+        "imageId": "sha256:b882c20ed0c3f59aa6b253fe94f56e33266f4c43720c41d064e127355b4b2208"
+      },
+      {
+        "role": "genesis",
+        "imageId": "sha256:95d66723fab247e476861b7168e8b20150e85daeee734f2417a79c2db8e2b1a3"
+      },
+      {
+        "role": "baseline",
+        "imageId": "sha256:e2ccd0b4a799d87de2bc89dd61e72bc3f4ae125c97d8bfcd3b1088a615b33fde"
+      }
+    ],
+    "remainingPandaContainers": 0,
+    "removedUnrelatedWorkloads": false,
+    "rebuiltClients": false
+  },
+  "fullProfileDockerApi": {
+    "requests": 2257,
+    "imageDeletes": 0,
+    "pruneRequests": 0
+  },
+  "targetedRepeat": {
+    "date": "2026-10-04",
+    "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+    "suiteHash": "90ebf7455ea68a15e025fb737d2ee9b0a0c7eb002ed8d746f9bcd09a9902a1f6",
+    "runId": "r5-disk-recovery-20261004",
+    "passed": true,
+    "results": [
+      {
+        "scenario": "withdrawal",
+        "passed": true,
+        "elapsedMs": 44515.854125000005,
+        "runId": "r5-disk-recovery-20261004"
+      },
+      {
+        "scenario": "restart",
+        "passed": true,
+        "elapsedMs": 165877.679542,
+        "runId": "r5-disk-recovery-20261004"
+      },
+      {
+        "scenario": "blob-checkpoint",
+        "passed": true,
+        "elapsedMs": 45822.218415999996,
+        "runId": "r5-disk-recovery-20261004"
+      }
+    ],
+    "log": ".cache/p0-p3/recovery-three-r5.log",
+    "scope": "Three interrupted scenarios repeated on unchanged sources and client images after environment correction. This targeted pass is separate from full-profile verification."
+  }
+}

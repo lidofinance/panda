@@ -1,0 +1,2169 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Panda control API",
+    "version": "unreleased",
+    "description": "Generated from src/api_contract.ts. Describes the source at this Git revision; older images may lack checkpoint/snapshot support. Query lifecycle.checkpointCapable. A disconnected mutation may still complete; query its operation ID before retrying."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8545"
+    }
+  ],
+  "paths": {
+    "/control": {
+      "post": {
+        "operationId": "control",
+        "summary": "Execute a Panda command",
+        "description": "Commands share this single endpoint and use positional parameters. This is not JSON-RPC 2.0. Most successes return {result}; shutdown returns {id}; an unknown snapshot operation returns {}. See each request variant for its result type.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRequest"
+              },
+              "examples": {
+                "status": {
+                  "value": {
+                    "method": "status",
+                    "params": []
+                  }
+                },
+                "stepSlot": {
+                  "value": {
+                    "method": "stepSlot",
+                    "params": []
+                  }
+                },
+                "fastAdvance": {
+                  "value": {
+                    "method": "advanceTime",
+                    "params": [
+                      384,
+                      {
+                        "mode": "fast"
+                      }
+                    ]
+                  }
+                },
+                "snapshotOperation": {
+                  "value": {
+                    "method": "snapshotOperation",
+                    "params": [
+                      "00000000-0000-4000-8000-000000000001"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Command result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Foreign Host or Origin rejected",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Command failed while the service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service is parked, in maintenance or faulted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lifecycle": {
+      "get": {
+        "operationId": "lifecycle",
+        "summary": "Inspect service readiness and session",
+        "responses": {
+          "200": {
+            "description": "Lifecycle state without a result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LifecycleState"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Foreign Host or Origin rejected",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Command failed while the service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service is parked, in maintenance or faulted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/snapshots/{id}/archive": {
+      "get": {
+        "operationId": "downloadSnapshot",
+        "summary": "Stream a saved snapshot archive",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consume or cancel the stream; verify the declared SHA-256 when saving",
+            "headers": {
+              "x-panda-sha256": {
+                "description": "Hex SHA-256 of the compressed bytes",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "content-length": {
+                "description": "Compressed length in bytes",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "content-disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/gzip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Foreign Host or Origin rejected",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Command failed while the service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service is parked, in maintenance or faulted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ControlCommands": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "result": {
+                "$ref": "#/components/schemas/NetworkStatus"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Read protocol time, execution head and Beacon finality."
+          },
+          "lifecycle": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "result": {
+                "$ref": "#/components/schemas/LifecycleState"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Inspect readiness, recovery, checkpoint support and session identity."
+          },
+          "resources": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "result": {
+                "$ref": "#/components/schemas/Resources"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Read controller CPU and memory usage."
+          },
+          "stop": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "result": {
+                "$ref": "#/components/schemas/Checkpoint"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Stop native clients at a checkpoint while HTTP remains available."
+          },
+          "resume": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "result": {
+                "$ref": "#/components/schemas/LifecycleState"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Resume checkpointed clients and replace the session identity."
+          },
+          "stepSlot": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "result": {
+                "$ref": "#/components/schemas/TimeState"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Produce the next slot and complete its duties and tail."
+          },
+          "advanceSlots": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "title": "count"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "result": {
+                "$ref": "#/components/schemas/TimeState"
+              }
+            },
+            "required": [
+              "params",
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Advance a non-negative integer count of slots honestly."
+          },
+          "advanceEpochs": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "title": "count"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "result": {
+                "$ref": "#/components/schemas/TimeState"
+              }
+            },
+            "required": [
+              "params",
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Advance a non-negative integer count of 32-slot epochs honestly."
+          },
+          "advanceTime": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number",
+                      "title": "seconds"
+                    },
+                    "minItems": 1,
+                    "maxItems": 1
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "number",
+                        "title": "seconds"
+                      },
+                      {
+                        "$ref": "#/components/schemas/WarpOptions",
+                        "title": "options"
+                      }
+                    ],
+                    "items": false,
+                    "maxItems": 2
+                  }
+                ]
+              },
+              "result": {
+                "$ref": "#/components/schemas/TimeState"
+              }
+            },
+            "required": [
+              "params",
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Advance by seconds; honest mode is the default."
+          },
+          "advanceTo": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number",
+                      "title": "unixSeconds"
+                    },
+                    "minItems": 1,
+                    "maxItems": 1
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "number",
+                        "title": "unixSeconds"
+                      },
+                      {
+                        "$ref": "#/components/schemas/WarpOptions",
+                        "title": "options"
+                      }
+                    ],
+                    "items": false,
+                    "maxItems": 2
+                  }
+                ]
+              },
+              "result": {
+                "$ref": "#/components/schemas/TimeState"
+              }
+            },
+            "required": [
+              "params",
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Advance to Unix seconds; the target cannot precede current protocol time."
+          },
+          "skipSlots": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "title": "count"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "result": {
+                "$ref": "#/components/schemas/TimeState"
+              }
+            },
+            "required": [
+              "params",
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Skip slots as downtime without producing a destination block."
+          },
+          "setAutomine": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "boolean",
+                  "title": "enabled"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "result": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "params",
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Enable or disable mining eligible pending transactions."
+          },
+          "importValidator": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "title": "keystore"
+                  },
+                  {
+                    "type": "string",
+                    "title": "password"
+                  }
+                ],
+                "items": false,
+                "maxItems": 2
+              },
+              "result": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "params",
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Import one EIP-2335 keystore JSON string with its password."
+          },
+          "exitValidator": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "title": "pubkey"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "result": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "params",
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Sign and submit a voluntary exit for a locally managed 48-byte hex public key."
+          },
+          "snapshotCreate": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "title": "operationId"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "result": {
+                "$ref": "#/components/schemas/SnapshotRef"
+              }
+            },
+            "required": [
+              "params",
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Save state at a completed slot tail with an empty transaction pool. Retain the operation UUID."
+          },
+          "snapshotRestore": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "title": "snapshotId"
+                  },
+                  {
+                    "type": "string",
+                    "title": "operationId"
+                  }
+                ],
+                "items": false,
+                "maxItems": 2
+              },
+              "result": {
+                "$ref": "#/components/schemas/SnapshotRestoreResult"
+              }
+            },
+            "required": [
+              "params",
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Restore saved state, replace the session and disable automine. Reset external consumers."
+          },
+          "snapshotRemove": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "title": "snapshotId"
+                  },
+                  {
+                    "type": "string",
+                    "title": "operationId"
+                  }
+                ],
+                "items": false,
+                "maxItems": 2
+              },
+              "result": {
+                "$ref": "#/components/schemas/SnapshotRef"
+              }
+            },
+            "required": [
+              "params",
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "Delete a saved snapshot without changing the active branch."
+          },
+          "snapshotList": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "result": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SnapshotRef"
+                }
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false,
+            "description": "List saved snapshots belonging to this network owner."
+          },
+          "snapshotOperation": {
+            "type": "object",
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "title": "operationId"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "result": {
+                "$ref": "#/components/schemas/SnapshotOperation"
+              }
+            },
+            "required": [
+              "params"
+            ],
+            "additionalProperties": false,
+            "description": "Query a durable outcome; an unknown UUID returns an empty response object."
+          }
+        },
+        "required": [
+          "status",
+          "lifecycle",
+          "resources",
+          "stop",
+          "resume",
+          "stepSlot",
+          "advanceSlots",
+          "advanceEpochs",
+          "advanceTime",
+          "advanceTo",
+          "skipSlots",
+          "setAutomine",
+          "importValidator",
+          "exitValidator",
+          "snapshotCreate",
+          "snapshotRestore",
+          "snapshotRemove",
+          "snapshotList",
+          "snapshotOperation"
+        ],
+        "additionalProperties": false,
+        "description": "Wire commands: positional arguments and the value inside the result envelope."
+      },
+      "NetworkStatus": {
+        "type": "object",
+        "properties": {
+          "now": {
+            "type": "number",
+            "description": "Unix seconds with millisecond precision."
+          },
+          "slot": {
+            "type": "number"
+          },
+          "id": {
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ProfileName"
+          },
+          "bake": {
+            "type": "string"
+          },
+          "bakeKey": {
+            "type": "string"
+          },
+          "automine": {
+            "type": "boolean"
+          },
+          "automineError": {
+            "type": "string"
+          },
+          "el": {
+            "$ref": "#/components/schemas/ExecutionBlock"
+          },
+          "finality": {
+            "$ref": "#/components/schemas/FinalityState"
+          }
+        },
+        "required": [
+          "automine",
+          "bake",
+          "bakeKey",
+          "el",
+          "finality",
+          "id",
+          "now",
+          "profile",
+          "slot"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileName": {
+        "type": "string",
+        "enum": [
+          "pectra",
+          "gloas"
+        ],
+        "description": "Public wire types shared by the HTTP client and Panda's controller."
+      },
+      "ExecutionBlock": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "transactions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "hash",
+          "number",
+          "timestamp",
+          "transactions"
+        ],
+        "additionalProperties": {},
+        "description": "Latest execution block with transaction hashes and Ethereum hex quantities."
+      },
+      "FinalityState": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "previous_justified": {
+                "$ref": "#/components/schemas/FinalityCheckpoint"
+              },
+              "current_justified": {
+                "$ref": "#/components/schemas/FinalityCheckpoint"
+              },
+              "finalized": {
+                "$ref": "#/components/schemas/FinalityCheckpoint"
+              }
+            },
+            "required": [
+              "previous_justified",
+              "current_justified",
+              "finalized"
+            ],
+            "additionalProperties": false
+          },
+          "execution_optimistic": {
+            "type": "boolean"
+          },
+          "finalized": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "FinalityCheckpoint": {
+        "type": "object",
+        "properties": {
+          "epoch": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "epoch",
+          "root"
+        ],
+        "additionalProperties": false
+      },
+      "LifecycleState": {
+        "type": "object",
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "maintenance",
+              "parked",
+              "faulted"
+            ]
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ProfileName"
+          },
+          "bake": {
+            "type": "string"
+          },
+          "generation": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "now": {
+            "type": "number"
+          },
+          "slot": {
+            "type": "number"
+          },
+          "recoveryRequired": {
+            "type": "boolean"
+          },
+          "checkpointCapable": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "number"
+          },
+          "streams": {
+            "type": "number"
+          },
+          "error": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "running",
+                  "succeeded",
+                  "failed"
+                ]
+              },
+              "result": {},
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "state"
+            ],
+            "additionalProperties": false
+          },
+          "cleanup": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "succeeded",
+                  "failed"
+                ]
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "phase",
+          "ready",
+          "id",
+          "profile",
+          "bake",
+          "sessionId",
+          "recoveryRequired",
+          "checkpointCapable",
+          "active",
+          "streams"
+        ],
+        "additionalProperties": false,
+        "description": "Available while clients are running, stopped or faulted."
+      },
+      "Resources": {
+        "type": "object",
+        "properties": {
+          "cpu": {
+            "type": "object",
+            "properties": {
+              "user": {
+                "type": "number"
+              },
+              "system": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "user",
+              "system"
+            ],
+            "additionalProperties": false,
+            "description": "Process CPU time in microseconds."
+          },
+          "memory": {
+            "type": "object",
+            "properties": {
+              "rss": {
+                "type": "number"
+              },
+              "heapTotal": {
+                "type": "number"
+              },
+              "heapUsed": {
+                "type": "number"
+              },
+              "external": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "rss",
+              "heapTotal",
+              "heapUsed",
+              "external"
+            ],
+            "additionalProperties": false,
+            "description": "Memory in bytes."
+          }
+        },
+        "required": [
+          "cpu",
+          "memory"
+        ],
+        "additionalProperties": false,
+        "description": "Controller process metrics; excludes native client processes."
+      },
+      "Checkpoint": {
+        "type": "object",
+        "properties": {
+          "abi": {
+            "type": "number",
+            "const": 1
+          },
+          "nowMs": {
+            "type": "number"
+          },
+          "headSlot": {
+            "type": "number"
+          },
+          "headBlockRoot": {
+            "type": "string"
+          },
+          "headStateRoot": {
+            "type": "string"
+          },
+          "forkChoiceSlot": {
+            "type": "number"
+          },
+          "checkpointHash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "abi",
+          "nowMs",
+          "headSlot",
+          "headBlockRoot",
+          "headStateRoot",
+          "forkChoiceSlot",
+          "checkpointHash"
+        ],
+        "additionalProperties": {},
+        "description": "Native checkpoint receipt; extension fields depend on the checkpoint ABI."
+      },
+      "TimeState": {
+        "type": "object",
+        "properties": {
+          "now": {
+            "type": "number",
+            "description": "Unix seconds with millisecond precision."
+          },
+          "slot": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "now",
+          "slot"
+        ],
+        "additionalProperties": false,
+        "description": "Completed protocol time advancement."
+      },
+      "WarpOptions": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/WarpMode",
+            "description": "Honest executes every duty; fast permits missed duties and inactivity penalties.",
+            "default": "honest"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WarpMode": {
+        "type": "string",
+        "enum": [
+          "honest",
+          "fast"
+        ]
+      },
+      "SnapshotRef": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ProfileName"
+          },
+          "bakeKey": {
+            "type": "string"
+          },
+          "nowMs": {
+            "type": "number",
+            "description": "Protocol time in milliseconds."
+          },
+          "headSlot": {
+            "type": "number"
+          },
+          "headBlockRoot": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "profile",
+          "bakeKey",
+          "nowMs",
+          "headSlot",
+          "headBlockRoot"
+        ],
+        "additionalProperties": false
+      },
+      "SnapshotRestoreResult": {
+        "type": "object",
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/SnapshotRef"
+          },
+          "generation": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Reset external providers and indexers for this replacement session."
+          },
+          "nowMs": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "snapshot",
+          "generation",
+          "sessionId",
+          "nowMs"
+        ],
+        "additionalProperties": false
+      },
+      "SnapshotOperation": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "request": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "create",
+                      "remove"
+                    ]
+                  },
+                  "snapshotId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              "result": {
+                "$ref": "#/components/schemas/SnapshotRef"
+              },
+              "schema": {
+                "type": "number",
+                "const": 1
+              },
+              "owner": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "running",
+                  "succeeded",
+                  "failed"
+                ]
+              },
+              "stage": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "string"
+              },
+              "updatedAt": {
+                "type": "string"
+              },
+              "snapshot": {
+                "$ref": "#/components/schemas/SnapshotRef"
+              },
+              "sourceGeneration": {
+                "type": "string"
+              },
+              "candidateGeneration": {
+                "type": "string"
+              },
+              "automine": {
+                "type": "boolean"
+              },
+              "error": {
+                "type": "string"
+              },
+              "cleanup": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "succeeded",
+                      "failed"
+                    ]
+                  },
+                  "error": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "state"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "createdAt",
+              "id",
+              "owner",
+              "request",
+              "schema",
+              "stage",
+              "state",
+              "updatedAt"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "request": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "restore"
+                  },
+                  "snapshotId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "snapshotId"
+                ],
+                "additionalProperties": false
+              },
+              "result": {
+                "$ref": "#/components/schemas/SnapshotRestoreResult"
+              },
+              "schema": {
+                "type": "number",
+                "const": 1
+              },
+              "owner": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "running",
+                  "succeeded",
+                  "failed"
+                ]
+              },
+              "stage": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "string"
+              },
+              "updatedAt": {
+                "type": "string"
+              },
+              "snapshot": {
+                "$ref": "#/components/schemas/SnapshotRef"
+              },
+              "sourceGeneration": {
+                "type": "string"
+              },
+              "candidateGeneration": {
+                "type": "string"
+              },
+              "automine": {
+                "type": "boolean"
+              },
+              "error": {
+                "type": "string"
+              },
+              "cleanup": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "succeeded",
+                      "failed"
+                    ]
+                  },
+                  "error": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "state"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "createdAt",
+              "id",
+              "owner",
+              "request",
+              "schema",
+              "stage",
+              "state",
+              "updatedAt"
+            ]
+          }
+        ],
+        "description": "Result shape follows the recorded request; a failure may still retain a result."
+      },
+      "ControlRequest": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "method": {
+                "type": "string",
+                "const": "status"
+              }
+            },
+            "required": [
+              "method"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "method": {
+                "type": "string",
+                "const": "lifecycle"
+              }
+            },
+            "required": [
+              "method"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "method": {
+                "type": "string",
+                "const": "resources"
+              }
+            },
+            "required": [
+              "method"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "method": {
+                "type": "string",
+                "const": "stop"
+              }
+            },
+            "required": [
+              "method"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "method": {
+                "type": "string",
+                "const": "resume"
+              }
+            },
+            "required": [
+              "method"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "method": {
+                "type": "string",
+                "const": "stepSlot"
+              }
+            },
+            "required": [
+              "method"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "title": "count"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "method": {
+                "type": "string",
+                "const": "advanceSlots"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "title": "count"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "method": {
+                "type": "string",
+                "const": "advanceEpochs"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number",
+                      "title": "seconds"
+                    },
+                    "minItems": 1,
+                    "maxItems": 1
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "number",
+                        "title": "seconds"
+                      },
+                      {
+                        "$ref": "#/components/schemas/WarpOptions",
+                        "title": "options"
+                      }
+                    ],
+                    "items": false,
+                    "maxItems": 2
+                  }
+                ]
+              },
+              "method": {
+                "type": "string",
+                "const": "advanceTime"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number",
+                      "title": "unixSeconds"
+                    },
+                    "minItems": 1,
+                    "maxItems": 1
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "number",
+                        "title": "unixSeconds"
+                      },
+                      {
+                        "$ref": "#/components/schemas/WarpOptions",
+                        "title": "options"
+                      }
+                    ],
+                    "items": false,
+                    "maxItems": 2
+                  }
+                ]
+              },
+              "method": {
+                "type": "string",
+                "const": "advanceTo"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "title": "count"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "method": {
+                "type": "string",
+                "const": "skipSlots"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "boolean",
+                  "title": "enabled"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "method": {
+                "type": "string",
+                "const": "setAutomine"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "title": "keystore"
+                  },
+                  {
+                    "type": "string",
+                    "title": "password"
+                  }
+                ],
+                "items": false,
+                "maxItems": 2
+              },
+              "method": {
+                "type": "string",
+                "const": "importValidator"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "title": "pubkey"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "method": {
+                "type": "string",
+                "const": "exitValidator"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "title": "operationId"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "method": {
+                "type": "string",
+                "const": "snapshotCreate"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "title": "snapshotId"
+                  },
+                  {
+                    "type": "string",
+                    "title": "operationId"
+                  }
+                ],
+                "items": false,
+                "maxItems": 2
+              },
+              "method": {
+                "type": "string",
+                "const": "snapshotRestore"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "title": "snapshotId"
+                  },
+                  {
+                    "type": "string",
+                    "title": "operationId"
+                  }
+                ],
+                "items": false,
+                "maxItems": 2
+              },
+              "method": {
+                "type": "string",
+                "const": "snapshotRemove"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              },
+              "method": {
+                "type": "string",
+                "const": "snapshotList"
+              }
+            },
+            "required": [
+              "method"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "params": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "title": "operationId"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "method": {
+                "type": "string",
+                "const": "snapshotOperation"
+              }
+            },
+            "required": [
+              "method",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "const": "shutdown"
+              },
+              "params": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 0
+              }
+            },
+            "required": [
+              "method"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ControlResponse": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__status__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__lifecycle__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__resources__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__stop__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__resume__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__stepSlot__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__advanceSlots__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__advanceEpochs__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__advanceTime__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__advanceTo__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__skipSlots__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__setAutomine__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__importValidator__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__exitValidator__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__snapshotCreate__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__snapshotRestore__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__snapshotRemove__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/CommandResult__snapshotList__"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/SnapshotOperation"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "CommandResult__status__": {
+        "$ref": "#/components/schemas/NetworkStatus"
+      },
+      "CommandResult__lifecycle__": {
+        "$ref": "#/components/schemas/LifecycleState"
+      },
+      "CommandResult__resources__": {
+        "$ref": "#/components/schemas/Resources"
+      },
+      "CommandResult__stop__": {
+        "$ref": "#/components/schemas/Checkpoint"
+      },
+      "CommandResult__resume__": {
+        "$ref": "#/components/schemas/LifecycleState"
+      },
+      "CommandResult__stepSlot__": {
+        "$ref": "#/components/schemas/TimeState"
+      },
+      "CommandResult__advanceSlots__": {
+        "$ref": "#/components/schemas/TimeState"
+      },
+      "CommandResult__advanceEpochs__": {
+        "$ref": "#/components/schemas/TimeState"
+      },
+      "CommandResult__advanceTime__": {
+        "$ref": "#/components/schemas/TimeState"
+      },
+      "CommandResult__advanceTo__": {
+        "$ref": "#/components/schemas/TimeState"
+      },
+      "CommandResult__skipSlots__": {
+        "$ref": "#/components/schemas/TimeState"
+      },
+      "CommandResult__setAutomine__": {
+        "type": "null"
+      },
+      "CommandResult__importValidator__": {
+        "type": "null"
+      },
+      "CommandResult__exitValidator__": {
+        "type": "null"
+      },
+      "CommandResult__snapshotCreate__": {
+        "$ref": "#/components/schemas/SnapshotRef"
+      },
+      "CommandResult__snapshotRestore__": {
+        "$ref": "#/components/schemas/SnapshotRestoreResult"
+      },
+      "CommandResult__snapshotRemove__": {
+        "$ref": "#/components/schemas/SnapshotRef"
+      },
+      "CommandResult__snapshotList__": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SnapshotRef"
+        }
+      },
+      "ControlError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

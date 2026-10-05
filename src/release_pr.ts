@@ -4,7 +4,8 @@ import {
   type PublishedClients,
   validatePublishedClients,
 } from "./client_release.ts";
-import { canonical, profileName, profiles, sha256 } from "./profiles.ts";
+import { canonical, profileName, sha256 } from "./profiles.ts";
+import { activeProfiles } from "./active_profiles.ts";
 import { pandaRevision } from "./release.ts";
 
 export const releasePlanPath = ".github/panda-release.json";
@@ -74,8 +75,8 @@ export async function prepareRelease(
 ): Promise<ReleaseFiles> {
   releaseBranch(version);
   assertCommit(sourceCommit);
-  if (canonical(Object.keys(clients).sort()) !== canonical(Object.keys(profiles).sort())) {
-    throw new Error("A Panda release requires published clients for every registered profile");
+  if (canonical(Object.keys(clients).sort()) !== canonical([...activeProfiles].sort())) {
+    throw new Error("A Panda release requires published clients for exactly the active profiles");
   }
   const plan: ReleasePlan = { schema: 1, version, sourceCommit, clients: {} };
   const files: Record<string, string> = {};

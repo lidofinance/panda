@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "elapsedMs": 48055.013333,
+  "transaction": "0x7a35f5b4f1c6551317fd8ca8356f4be6bc7633d584fd9f554fe4641dc764f191",
+  "blockRoot": "0x618cc6d3c88ea00534aa769bc5ef223bbe779cdf1446159e00bc212c89fba69c",
+  "stateRoot": "0x84a7354b986034413b3d33ab8ecaed7671305cb5726d5f80f2467e2e23db639d",
+  "columns": {
+    "count": 128,
+    "bytes": 275968,
+    "sha256": "0xab4370b9131ccbead49b4f13e879c46fc128e07ba1d059f5741d12a930923add"
+  },
+  "envelope": {
+    "bytes": 1955,
+    "sha256": "0x9fbdc731cae7c7533dd53027baef5e07bbe3f5ead1c8c3d7a1dd35a2da4201db"
+  },
+  "continuationStateRoot": "0x7da1417f727c79d03d7568228e05f0c6f86277b1945232fd7112957b999507dd",
+  "finalStateRoot": "0x38c0a4565d6a7ffbe2cb882dc7c19ef7f42152acd0d9e4c8805b19a9dd3e868a",
+  "finalizedExecution": "0xa9ea5170f9632750f0e3cfdb42f734ab0ccca6bb4a64ddd3ecb69895a75ca67c",
+  "coverage": "Geth KZG, self-built verified DA, cold persistent resume, exact reference continuation",
+  "profile": "gloas",
+  "bake": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "recordedAt": "2026-10-04T13:53:26.683Z"
+}

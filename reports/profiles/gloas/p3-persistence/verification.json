@@ -1,0 +1,25 @@
+{
+  "profile": "gloas",
+  "tag": "p3-persistence",
+  "bakeKey": "6e3bdd2927d87e250435fb39ca0ce836d5423c54c845033f647a2d6a54327caa",
+  "runId": "17a945d2-d5d4-4fc1-97fa-cbe928a23596",
+  "suiteHash": "9873d9cc25c0a399a16804c4fceee90d76a2fcda373a6f4224840e7c7d4d95f4",
+  "startedAt": "2026-10-02T11:44:24.545Z",
+  "scenarios": [
+    "baseline",
+    "lifecycle",
+    "e2e",
+    "warp",
+    "warp-fast",
+    "warp-economics",
+    "protocol",
+    "withdrawal",
+    "deploy",
+    "gloas",
+    "restart"
+  ],
+  "finishedAt": "2026-10-02T11:58:01.415Z",
+  "elapsedMs": 816853.115958,
+  "passed": true,
+  "status": "passed"
+}

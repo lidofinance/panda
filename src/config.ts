@@ -1,4 +1,5 @@
 import { bakeTag, type ProfileName, profileName, profiles } from "./profiles.ts";
+import { defaultProfile } from "./active_profiles.ts";
 export const images = {
   geth:
     "ethereum/client-go@sha256:798b7eb1bcef6d4be7576232beea63bf291450f48b025dc8fb5c6e37840e4364",
@@ -28,7 +29,7 @@ export interface Config {
   consolidationChurnLimitQuotient: number;
 }
 export function configuration(input: Partial<Config> = {}): Config {
-  const profile = profileName(input.profile ?? Deno.env.get("PANDA_PROFILE") ?? "pectra");
+  const profile = profileName(input.profile ?? Deno.env.get("PANDA_PROFILE") ?? defaultProfile);
   const result: Config = {
     profile,
     bake: bakeTag(input.bake ?? Deno.env.get("PANDA_BAKE") ?? "default"),

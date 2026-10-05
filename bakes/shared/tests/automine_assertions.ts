@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { delay } from "../../../src/http.ts";
 
 interface AutomineNetwork {
-  setAutomine(enabled: boolean): Promise<void>;
+  setAutomine(enabled: boolean): Promise<unknown>;
   status(): Promise<{
     now: number;
     slot: number;

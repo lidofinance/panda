@@ -1,5 +1,6 @@
 import { stderr, stdout } from "node:process";
 import { Infrastructure } from "../src/docker.ts";
+import { Network } from "../src/network.ts";
 
 const usage = "Usage: panda logs <el|cl|vc> [--tail <N|all>] [--follow] | panda validator-token";
 export function clientCommand(args: string[]):
@@ -29,8 +30,9 @@ if (import.meta.main) {
     const id = (await Deno.readTextFile("/run/panda/id")).trim();
     const infra = new Infrastructure(id);
     if (command.command === "validator-token") {
+      const manifest = await Network.manifest(id);
       const token = await Deno.readTextFile(
-        `/opt/panda/.panda/${id}/validator-keys/keys/api-token.txt`,
+        `${manifest.directory}/validator-keys/keys/api-token.txt`,
       );
       console.log(token.trim());
     } else {

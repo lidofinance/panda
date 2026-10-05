@@ -1,0 +1,74 @@
+{
+  "passed": true,
+  "captureMs": 12987.869875,
+  "snapshotBytes": 11680842,
+  "disk": {
+    "basis": "du -sk filesystem-reported allocated bytes; whole owner includes data, archives, journals and logs",
+    "beforeCapture": 25415680,
+    "afterCapture": 26275840,
+    "additionalAfterCapture": 860160,
+    "archiveAllocatedBytes": 13877248,
+    "afterRemoval": 12697600,
+    "transientPeakMeasured": false,
+    "note": "Measurements are retained usage at each cut; shared filesystem extents may be counted per file"
+  },
+  "independentState": {
+    "storage": "0x0000000000000000000000000000000000000000000000000123456789abcdef",
+    "includedTransaction": "0x6a45cb8933d0e958c1d4415a0df7487b3da6defa02ab01ac7e04ce6e1c82d87b",
+    "beaconSszBytes": 3144225,
+    "beaconSszSha256": "957b47872227d9df5f6af08a4bf827e2bbd43b0d9f347048c4c99a57d17ff53e",
+    "checks": [
+      "source resume",
+      "live restore",
+      "repeated restore",
+      "crashed beacon",
+      "offline"
+    ]
+  },
+  "restores": [
+    {
+      "branch": "live",
+      "elapsedMs": 13079.320458000002,
+      "verificationMs": 199.21854199999507,
+      "ownerAllocatedBytes": 26259456
+    },
+    {
+      "branch": "repeated",
+      "elapsedMs": 12741.181249999994,
+      "verificationMs": 208.21387500000128,
+      "ownerAllocatedBytes": 26370048
+    },
+    {
+      "branch": "crashed beacon",
+      "elapsedMs": 12755.509874999996,
+      "verificationMs": 214.7605840000033,
+      "ownerAllocatedBytes": 26480640
+    }
+  ],
+  "removalMs": 121.72120799998811,
+  "firstTransactionMs": 129.78925000000163,
+  "finalSlot": 128,
+  "finalizedEpoch": "2",
+  "schema": 1,
+  "checkpointAbi": 1,
+  "images": {
+    "el": {
+      "id": "sha256:b882c20ed0c3f59aa6b253fe94f56e33266f4c43720c41d064e127355b4b2208",
+      "platform": "linux/arm64"
+    },
+    "cl": {
+      "id": "sha256:940bf27d9dbfaa772a424035f0a3d93c1d39757feb75b6a5da7539420ce01224",
+      "platform": "linux/arm64"
+    },
+    "genesis": {
+      "id": "sha256:95d66723fab247e476861b7168e8b20150e85daeee734f2417a79c2db8e2b1a3",
+      "platform": "linux/arm64"
+    }
+  },
+  "elapsedMs": 85033.660625,
+  "profile": "gloas",
+  "bake": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "runId": "external-snapshots-final",
+  "recordedAt": "2026-10-04T15:01:07.499Z"
+}

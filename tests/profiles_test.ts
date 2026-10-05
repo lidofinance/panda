@@ -5,6 +5,37 @@ import { snapshotSources } from "../src/baker.ts";
 import { configuration } from "../src/config.ts";
 import { bakePath, bakeTag, canonical, profileName, profiles, sha256 } from "../src/profiles.ts";
 import { Timeline } from "../src/time.ts";
+
+Deno.test("bake and build:clients default to Gloas and retain explicit profile selection", async () => {
+  for (const script of ["bake.ts", "build.ts"]) {
+    for (const profile of [undefined, "gloas", "pectra"]) {
+      // Both profiles have this immutable tag. An override must be rejected before Docker access;
+      // the diagnostic identifies the profile selected by the real CLI.
+      const result = await new Deno.Command(Deno.execPath(), {
+        args: [
+          "run",
+          "--config=deno.json",
+          "--allow-read",
+          "--allow-env",
+          "--allow-write=.cache/baker/locks",
+          `scripts/${script}`,
+          ...profile ? [profile] : [],
+          "--tag",
+          "panda",
+          "--cl-ref",
+          "test-override",
+        ],
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      assert.equal(result.success, false);
+      assert.match(
+        new TextDecoder().decode(result.stderr),
+        new RegExp(`Bake ${profile ?? "gloas"}:panda already exists`),
+      );
+    }
+  }
+});
 Deno.test("hardfork profiles reject unknown names and unsafe bake paths", () => {
   for (const name of ["main", "../gloas", "toString"]) assert.throws(() => profileName(name));
   for (const tag of ["../x", "", "a/b", "A", "x".repeat(65)]) assert.throws(() => bakeTag(tag));

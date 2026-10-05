@@ -1,0 +1,51 @@
+{
+  "passed": true,
+  "cuts": [
+    {
+      "cut": "checkpointing",
+      "published": false,
+      "elapsedMs": 33012.524625000005
+    },
+    {
+      "cut": "copying",
+      "published": false,
+      "elapsedMs": 32672.090000000004
+    },
+    {
+      "cut": "partial-copy",
+      "published": false,
+      "elapsedMs": 32800.54549999999
+    },
+    {
+      "cut": "manifest-written",
+      "published": false,
+      "elapsedMs": 37984.171208
+    },
+    {
+      "cut": "before-publication",
+      "published": false,
+      "elapsedMs": 38521.94037499998
+    },
+    {
+      "cut": "after-publication",
+      "published": true,
+      "elapsedMs": 40131.96108400001
+    },
+    {
+      "cut": "captured",
+      "published": true,
+      "elapsedMs": 40510.61733299997
+    },
+    {
+      "cut": "completed",
+      "published": true,
+      "elapsedMs": 44746.769875
+    }
+  ],
+  "elapsedMs": 321618.984291,
+  "profile": "gloas",
+  "bake": "p3-checkpoint-r5",
+  "bakeKey": "24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53",
+  "runId": "8316eab3-3db9-4e11-b8c5-b038b84762f1",
+  "recordedAt": "2026-10-04T14:05:49.777Z"
+}

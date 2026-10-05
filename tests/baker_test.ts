@@ -16,12 +16,20 @@ Deno.test({
     const first = `test-${crypto.randomUUID().slice(0, 8)}`;
     const second = `${first}-alias`;
     try {
-      const one = await bake(config.profile, { tag: first, importCl: selected.images.cl.id });
+      const one = await bake(config.profile, {
+        tag: first,
+        importCl: selected.images.cl.id,
+        elImage: selected.images.el.id,
+      });
       assert.equal(one.images.cl.id, selected.images.cl.id);
       assert.equal(one.source.importedCl, selected.images.cl.id);
       const reused = await bake(config.profile, { tag: first });
       assert.deepEqual(reused, one);
-      const alias = await bake(config.profile, { tag: second, importCl: selected.images.cl.id });
+      const alias = await bake(config.profile, {
+        tag: second,
+        importCl: selected.images.cl.id,
+        elImage: selected.images.el.id,
+      });
       assert.equal(alias.key, one.key);
       assert.deepEqual(alias.images, one.images);
       const before = await Deno.readTextFile(bakePath(config.profile, first));

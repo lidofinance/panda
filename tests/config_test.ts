@@ -4,12 +4,15 @@ import { dockerClient, Infrastructure, LABEL, ROLE } from "../src/docker.ts";
 import { Network } from "../src/network.ts";
 import { clockEnvironment, profiles } from "../src/profiles.ts";
 
-function withEnv(values: Record<string, string>, check: () => void): void {
+function withEnv(values: Record<string, string | undefined>, check: () => void): void {
   const previous = Object.fromEntries(
     Object.keys(values).map((name) => [name, Deno.env.get(name)]),
   );
   try {
-    for (const [name, value] of Object.entries(values)) Deno.env.set(name, value);
+    for (const [name, value] of Object.entries(values)) {
+      if (value === undefined) Deno.env.delete(name);
+      else Deno.env.set(name, value);
+    }
     check();
   } finally {
     for (const [name, value] of Object.entries(previous)) {
@@ -18,6 +21,10 @@ function withEnv(values: Record<string, string>, check: () => void): void {
     }
   }
 }
+
+Deno.test("local runs default to Gloas while Pectra is paused", () => {
+  withEnv({ PANDA_PROFILE: undefined }, () => assert.equal(configuration().profile, "gloas"));
+});
 
 Deno.test("Panda environment selects the hardfork and bake; explicit options take precedence", () => {
   withEnv({ PANDA_PROFILE: "gloas", PANDA_BAKE: "candidate" }, () => {

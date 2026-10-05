@@ -11,7 +11,23 @@
     "bakes/shared/native/sync_batch.rs",
     "bakes/gloas/native/weighted_selection.rs",
     "bakes/gloas/native/prepare_skip.rs",
-    "bakes/shared/native/direct_sync_test.rs"
+    "bakes/shared/native/direct_sync_test.rs",
+    "bakes/gloas/native/persistence.rs",
+    "bakes/gloas/native/restart_test.rs",
+    "bakes/gloas/native/checkpoint.rs",
+    "bakes/gloas/native/admission_test.rs",
+    "bakes/gloas/native/signing_admission_test.rs",
+    "bakes/gloas/native/vc_admission.rs",
+    "bakes/gloas/patch_migrator.py",
+    "bakes/gloas/native/migrator_admission.rs",
+    "bakes/gloas/native/migrator_admission_test.rs",
+    "bakes/gloas/native/reconstruction_test.rs",
+    "bakes/gloas/native/blob_checkpoint_fixture.json",
+    "bakes/gloas/patch_reconstruction.py",
+    "bakes/gloas/native/ptc_bootstrap_test.rs",
+    "bakes/gloas/native/ptc_bootstrap_mock.rs",
+    "bakes/gloas/native/ptc_deadline_context.rs",
+    "bakes/gloas/native/ptc_deadline_test.rs"
   ],
   "preparedSkip": true,
   "nativeTests": [
@@ -26,12 +42,36 @@
     {
       "package": "beacon_chain",
       "target": "panda_direct_sync"
+    },
+    {
+      "package": "beacon_chain",
+      "target": "panda_restart"
+    },
+    {
+      "package": "http_api",
+      "target": "panda_checkpoint_admission"
+    },
+    {
+      "package": "signing_method",
+      "target": "panda_signing_admission"
+    },
+    {
+      "package": "beacon_chain",
+      "target": "panda_migrator_admission"
+    },
+    {
+      "package": "beacon_chain",
+      "target": "panda_reconstruction"
+    },
+    {
+      "package": "validator_services",
+      "target": "panda_ptc"
     }
   ],
   "runtime": "debian@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251",
   "clRepository": "https://github.com/sigp/lighthouse.git",
   "elRepository": "https://github.com/ethereum/go-ethereum.git",
-  "goBuilder": "golang:1.25-bookworm",
+  "goBuilder": "golang@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437",
   "tests": {
     "baseline": "bakes/shared/tests/baseline.ts",
     "lifecycle": "bakes/shared/tests/lifecycle.ts",
@@ -42,7 +82,17 @@
     "protocol": "bakes/shared/tests/protocol_test.ts",
     "withdrawal": "bakes/shared/tests/withdrawal_test.ts",
     "deploy": "bakes/shared/tests/deploy.ts",
-    "gloas": "bakes/gloas/tests/gloas.ts"
+    "gloas": "bakes/gloas/tests/gloas.ts",
+    "restart": "bakes/gloas/tests/restart.ts",
+    "resume": "bakes/gloas/tests/resume.ts",
+    "blob-checkpoint": "bakes/gloas/tests/blob_checkpoint.ts",
+    "snapshots": "bakes/gloas/tests/snapshots.ts",
+    "snapshot-recovery": "bakes/gloas/tests/snapshot_recovery.ts",
+    "snapshot-creation": "bakes/gloas/tests/snapshot_creation.ts",
+    "snapshot-deposits": "bakes/gloas/tests/snapshot_deposits.ts",
+    "snapshot-withdrawals": "bakes/gloas/tests/snapshot_withdrawals.ts",
+    "snapshot-consumer": "bakes/gloas/tests/snapshot_consumer.ts",
+    "snapshot-external": "bakes/gloas/tests/snapshot_external.ts"
   },
   "name": "gloas",
   "elFork": "amsterdam",
@@ -77,7 +127,9 @@
     "SLOT_DURATION_MS": "12000"
   },
   "clVersion": "8.2.2",
-  "bakerVersion": 1,
+  "bakerVersion": 4,
   "clockWait": true,
-  "directSync": true
+  "directSync": true,
+  "checkpointAbi": 1,
+  "elRef": "5d8fd6b6082f9aa330dbaf5df52dfcfdb445f186"
 }

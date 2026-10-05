@@ -1,0 +1,51 @@
+{
+  "passed": true,
+  "cuts": [
+    {
+      "cut": "checkpointing",
+      "published": false,
+      "elapsedMs": 31939.452291999998
+    },
+    {
+      "cut": "copying",
+      "published": false,
+      "elapsedMs": 31666.76375
+    },
+    {
+      "cut": "partial-copy",
+      "published": false,
+      "elapsedMs": 34296.780792000005
+    },
+    {
+      "cut": "manifest-written",
+      "published": false,
+      "elapsedMs": 42276.53570800001
+    },
+    {
+      "cut": "before-publication",
+      "published": false,
+      "elapsedMs": 42410.584292000014
+    },
+    {
+      "cut": "after-publication",
+      "published": true,
+      "elapsedMs": 41427.18612500001
+    },
+    {
+      "cut": "captured",
+      "published": true,
+      "elapsedMs": 39624.52045800004
+    },
+    {
+      "cut": "completed",
+      "published": true,
+      "elapsedMs": 46334.38358299999
+    }
+  ],
+  "elapsedMs": 330463.201542,
+  "profile": "gloas",
+  "bake": "ptc-reliability-r7",
+  "bakeKey": "6c4a05573eb71bf8a3c2298cc015ac71508c3f6451b235108c0b7517fe4f7908",
+  "runId": "1c2a6833-b068-4a07-bf11-db1f26078a7e",
+  "recordedAt": "2026-10-04T18:17:40.532Z"
+}

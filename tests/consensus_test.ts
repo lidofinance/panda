@@ -92,7 +92,7 @@ async function restartedPayloadFixture(
   try {
     const endpoint = `http://127.0.0.1:${server.addr.port}`;
     const manifest = {
-      config: { profile: "gloas", genesisTime: 0 },
+      config: { id: "consensus-adapter", profile: "gloas", genesisTime: 0 },
       bake: { recipe: { clockWait: true, preparedSkip: true } },
       bnClock: `${endpoint}/bn`,
       vcClock: `${endpoint}/vc`,

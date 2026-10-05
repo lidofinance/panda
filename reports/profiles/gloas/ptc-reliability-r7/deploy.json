@@ -1,0 +1,282 @@
+{
+  "event": "sequential-deploy-passed",
+  "recordedAt": "2026-10-04T17:59:10.080Z",
+  "elapsedMs": 9235.041,
+  "readyMs": 6727.902,
+  "environment": {
+    "host": "aarch64-apple-darwin",
+    "engine": "29.8.1",
+    "dockerCpus": 6,
+    "dockerMemoryBytes": 8320028672,
+    "otherRunningContainers": 1
+  },
+  "provider": {
+    "pollingInterval": 25,
+    "cacheTimeout": -1,
+    "batchMaxCount": 1
+  },
+  "count": 20,
+  "modes": [
+    {
+      "mode": "raw-rpc",
+      "count": 10,
+      "elapsedMs": 1041.3459169999996
+    },
+    {
+      "mode": "ethers-factory",
+      "count": 10,
+      "elapsedMs": 1400.3112920000003
+    }
+  ],
+  "medianReceiptMs": 110.05370850000054,
+  "p95ReceiptMs": 173.15616600000067,
+  "maxReceiptMs": 258.6077920000007,
+  "maxReceiptGapMs": 262.10091699999975,
+  "protocolSeconds": 240,
+  "manualAdvanceCalls": 0,
+  "deployments": [
+    {
+      "mode": "raw-rpc",
+      "nonce": 0,
+      "runtimeBytes": 15,
+      "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "predecessor": "0x0000000000000000000000000000000000000000",
+      "hash": "0x86af65a0e143f1f3d1b3e8d0cf34c44b74b14a5018de2144b97af14a6c21c894",
+      "block": 1,
+      "timestamp": 2000000012,
+      "sendToReceiptMs": 99.8745829999998
+    },
+    {
+      "mode": "raw-rpc",
+      "nonce": 1,
+      "runtimeBytes": 4096,
+      "address": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+      "predecessor": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "hash": "0xef5c42d468027e094ba51d3a5e56f7fec51bd168a7218c15a64ae8501e418148",
+      "block": 2,
+      "timestamp": 2000000024,
+      "sendToReceiptMs": 140.73283400000037,
+      "receiptGapMs": 145.52341700000034
+    },
+    {
+      "mode": "raw-rpc",
+      "nonce": 2,
+      "runtimeBytes": 15,
+      "address": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+      "predecessor": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+      "hash": "0x53db0ffcb57a592ebdbccfb3c3f43d48dfcfcf491b13971c9d4121804b16b2fd",
+      "block": 3,
+      "timestamp": 2000000036,
+      "sendToReceiptMs": 89.01616700000068,
+      "receiptGapMs": 92.64912499999991
+    },
+    {
+      "mode": "raw-rpc",
+      "nonce": 3,
+      "runtimeBytes": 4096,
+      "address": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
+      "predecessor": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+      "hash": "0x2e0185e730d3541ce6c216dc6b693c321d182c087f9707e67dd8f0a88ee93d9f",
+      "block": 4,
+      "timestamp": 2000000048,
+      "sendToReceiptMs": 88.53154100000029,
+      "receiptGapMs": 93.14691599999969
+    },
+    {
+      "mode": "raw-rpc",
+      "nonce": 4,
+      "runtimeBytes": 15,
+      "address": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
+      "predecessor": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
+      "hash": "0x27af10cbca804d45ed6a6b1f154b881b0c211ae0c5b5e002e4f633b33cfba1ec",
+      "block": 5,
+      "timestamp": 2000000060,
+      "sendToReceiptMs": 77.80145900000025,
+      "receiptGapMs": 81.40245899999991
+    },
+    {
+      "mode": "raw-rpc",
+      "nonce": 5,
+      "runtimeBytes": 4096,
+      "address": "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707",
+      "predecessor": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
+      "hash": "0xb89383c7df77cea16fba4f9f1f24c3ba4b1d8e5dd9537a146395dfd58ca5d068",
+      "block": 6,
+      "timestamp": 2000000072,
+      "sendToReceiptMs": 86.68583299999955,
+      "receiptGapMs": 91.89079099999981
+    },
+    {
+      "mode": "raw-rpc",
+      "nonce": 6,
+      "runtimeBytes": 15,
+      "address": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "predecessor": "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707",
+      "hash": "0x5f987e8dc6df684f1fef337914b369c1a787cd38deeb3026d60c47edcb2b4904",
+      "block": 7,
+      "timestamp": 2000000084,
+      "sendToReceiptMs": 127.28995899999973,
+      "receiptGapMs": 133.66220900000008
+    },
+    {
+      "mode": "raw-rpc",
+      "nonce": 7,
+      "runtimeBytes": 4096,
+      "address": "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853",
+      "predecessor": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "hash": "0x841eb9d4f64e8c13d0b8ee946d705d04c7593b64925ef37b5dc9b05d47262bd7",
+      "block": 8,
+      "timestamp": 2000000096,
+      "sendToReceiptMs": 96.98666700000012,
+      "receiptGapMs": 100.44025000000056
+    },
+    {
+      "mode": "raw-rpc",
+      "nonce": 8,
+      "runtimeBytes": 15,
+      "address": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+      "predecessor": "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853",
+      "hash": "0x4f67a04a5cc12f2e93738a822603754b4363d7b5c504107fa8f50b3ad2439983",
+      "block": 9,
+      "timestamp": 2000000108,
+      "sendToReceiptMs": 90.55500000000029,
+      "receiptGapMs": 95.22629099999995
+    },
+    {
+      "mode": "raw-rpc",
+      "nonce": 9,
+      "runtimeBytes": 4096,
+      "address": "0x8a791620dd6260079bf849dc5567adc3f2fdc318",
+      "predecessor": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+      "hash": "0x630a0e8acd096b033131e493e8e1fb2fc20628779764832c0c8002ad2424a35f",
+      "block": 10,
+      "timestamp": 2000000120,
+      "sendToReceiptMs": 93.83233299999938,
+      "receiptGapMs": 99.13974999999937
+    },
+    {
+      "mode": "ethers-factory",
+      "nonce": 10,
+      "runtimeBytes": 15,
+      "address": "0x610178da211fef7d417bc0e6fed39f05609ad788",
+      "predecessor": "0x8a791620dd6260079bf849dc5567adc3f2fdc318",
+      "hash": "0x517ec40417e7cd8e233b25fa2581254a674291c5d55a6a429859117fa545345e",
+      "block": 11,
+      "timestamp": 2000000132,
+      "sendToReceiptMs": 117.60320800000045,
+      "receiptGapMs": 125.74562500000047
+    },
+    {
+      "mode": "ethers-factory",
+      "nonce": 11,
+      "runtimeBytes": 4096,
+      "address": "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
+      "predecessor": "0x610178da211fef7d417bc0e6fed39f05609ad788",
+      "hash": "0x41fed15c96ec95b211517f26278c89e5d072fee35ae74b565181e8c0d660f739",
+      "block": 12,
+      "timestamp": 2000000144,
+      "sendToReceiptMs": 113.57312499999989,
+      "receiptGapMs": 117.00704200000018
+    },
+    {
+      "mode": "ethers-factory",
+      "nonce": 12,
+      "runtimeBytes": 15,
+      "address": "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0",
+      "predecessor": "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
+      "hash": "0x2e5519cc2c5e98187bdf1f5a13b00d51f6b2e5069576a24497b08525d308ac9b",
+      "block": 13,
+      "timestamp": 2000000156,
+      "sendToReceiptMs": 116.11837500000001,
+      "receiptGapMs": 120.6127919999999
+    },
+    {
+      "mode": "ethers-factory",
+      "nonce": 13,
+      "runtimeBytes": 4096,
+      "address": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
+      "predecessor": "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0",
+      "hash": "0x7c019419c3b1452d9e0cf425eb0c1957cb5060d3c45018171ee98060ded25b20",
+      "block": 14,
+      "timestamp": 2000000168,
+      "sendToReceiptMs": 143.82025000000067,
+      "receiptGapMs": 148.4254579999997
+    },
+    {
+      "mode": "ethers-factory",
+      "nonce": 14,
+      "runtimeBytes": 15,
+      "address": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+      "predecessor": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
+      "hash": "0x0621689bc42850a330fdc2de8786ab07409ab393c48d929b5505d01cbfce98b8",
+      "block": 15,
+      "timestamp": 2000000180,
+      "sendToReceiptMs": 111.28266700000131,
+      "receiptGapMs": 115.60100000000057
+    },
+    {
+      "mode": "ethers-factory",
+      "nonce": 15,
+      "runtimeBytes": 4096,
+      "address": "0x0b306bf915c4d645ff596e518faf3f9669b97016",
+      "predecessor": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+      "hash": "0xae14e44bd41db261543ead6f2055c5726c0fc714482b55b466af748c23e21810",
+      "block": 16,
+      "timestamp": 2000000192,
+      "sendToReceiptMs": 258.6077920000007,
+      "receiptGapMs": 262.10091699999975
+    },
+    {
+      "mode": "ethers-factory",
+      "nonce": 16,
+      "runtimeBytes": 15,
+      "address": "0x959922be3caee4b8cd9a407cc3ac1c251c2007b1",
+      "predecessor": "0x0b306bf915c4d645ff596e518faf3f9669b97016",
+      "hash": "0x1dd311752da213b1f61ca031c964c718203e9c8dbfa3dbad1e5a3239c467043d",
+      "block": 17,
+      "timestamp": 2000000204,
+      "sendToReceiptMs": 114.77729099999851,
+      "receiptGapMs": 119.25329099999908
+    },
+    {
+      "mode": "ethers-factory",
+      "nonce": 17,
+      "runtimeBytes": 4096,
+      "address": "0x9a9f2ccfde556a7e9ff0848998aa4a0cfd8863ae",
+      "predecessor": "0x959922be3caee4b8cd9a407cc3ac1c251c2007b1",
+      "hash": "0x6752d7daf47b9c63a691260a6984de1010f6f31ebf85ddf56e688e63e6926b1b",
+      "block": 18,
+      "timestamp": 2000000216,
+      "sendToReceiptMs": 108.82474999999977,
+      "receiptGapMs": 114.61879200000112
+    },
+    {
+      "mode": "ethers-factory",
+      "nonce": 18,
+      "runtimeBytes": 15,
+      "address": "0x68b1d87f95878fe05b998f19b66f4baba5de1aed",
+      "predecessor": "0x9a9f2ccfde556a7e9ff0848998aa4a0cfd8863ae",
+      "hash": "0xe96b4dc707ed361d1e5874e9e33dffd9e3877e4255497b0d517af3c544ed7826",
+      "block": 19,
+      "timestamp": 2000000228,
+      "sendToReceiptMs": 101.47425000000112,
+      "receiptGapMs": 104.59291699999994
+    },
+    {
+      "mode": "ethers-factory",
+      "nonce": 19,
+      "runtimeBytes": 4096,
+      "address": "0x3aa5ebb10dc797cac828524e59a333d0a371443c",
+      "predecessor": "0x68b1d87f95878fe05b998f19b66f4baba5de1aed",
+      "hash": "0xa8b76f6bfcfbaa03b70d1ba8a18c076ee6e6b0055c4cf0707b9093ea2559dd05",
+      "block": 20,
+      "timestamp": 2000000240,
+      "sendToReceiptMs": 173.15616600000067,
+      "receiptGapMs": 176.87854100000004
+    }
+  ],
+  "profile": "gloas",
+  "bake": "ptc-reliability-r7",
+  "bakeKey": "6c4a05573eb71bf8a3c2298cc015ac71508c3f6451b235108c0b7517fe4f7908",
+  "runId": "1c2a6833-b068-4a07-bf11-db1f26078a7e"
+}

@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "elapsedMs": 36720.638084,
+  "savedSlot": 1,
+  "futureSlot": 4,
+  "restoredSlot": 1,
+  "cachedNonce": 2,
+  "restoredNonce": 1,
+  "preserved": "0x631322f0f798479f11d3ab3a5a19a9dffa71691102784ba217ca2703c8d2473d",
+  "discarded": "0x0171e93166e3470ea99f579f22f359a59fcaad2378663e5dac5197a76cbc20e7",
+  "next": "0xa2d2def7ba1bdfbd2b0c8f5fbcf498a03f684c356354ed98d6896d6cb5043e9f",
+  "replayedExecutionBlocks": 2,
+  "replayedConsensusBlocks": 2,
+  "continuedExecutionBlocks": 3,
+  "independentDatabase": true,
+  "freshConsumerProcess": true,
+  "profile": "gloas",
+  "bake": "ptc-reliability-r7",
+  "bakeKey": "6c4a05573eb71bf8a3c2298cc015ac71508c3f6451b235108c0b7517fe4f7908",
+  "runId": "1c2a6833-b068-4a07-bf11-db1f26078a7e",
+  "recordedAt": "2026-10-04T18:23:03.381Z"
+}

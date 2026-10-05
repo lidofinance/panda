@@ -58,14 +58,17 @@ export async function depositValidator(net: Devnet, index: number): Promise<stri
   const pubkey = `0x${deposit.pubkey}`;
   const token = (await Deno.readTextFile(`${m.directory}/validator-keys/keys/api-token.txt`))
     .trim();
-  const imported = await json<{ data: { status: string }[] }>(`${m.vc}/eth/v1/keystores`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-    body: JSON.stringify({
-      keystores: [await Deno.readTextFile(`${dir}/keys/${pubkey}/voting-keystore.json`)],
-      passwords: [(await Deno.readTextFile(`${dir}/secrets/${pubkey}`)).trim()],
-    }),
-  });
+  const imported = await json<{ data: { status: string }[] }>(
+    `${net.validatorUrl}/eth/v1/keystores`,
+    {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        keystores: [await Deno.readTextFile(`${dir}/keys/${pubkey}/voting-keystore.json`)],
+        passwords: [(await Deno.readTextFile(`${dir}/secrets/${pubkey}`)).trim()],
+      }),
+    },
+  );
   if (imported.data[0]?.status !== "imported") {
     throw new Error(`Key import failed: ${JSON.stringify(imported)}`);
   }
