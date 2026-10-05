@@ -11,7 +11,7 @@ import {
 import { type Config, configuration } from "./config.ts";
 import type { Infrastructure } from "./docker.ts";
 import type { SnapshotOperation } from "./snapshot_operations.ts";
-import { type Bake, type BakedImage, canonical, type ProfileName, sha256 } from "./profiles.ts";
+import { type Bake, type BakedImage, canonical, sha256 } from "./profiles.ts";
 import {
   type ActiveGeneration,
   type Checkpoint,
@@ -22,16 +22,8 @@ import {
   treeMetadata,
 } from "./storage.ts";
 
-export interface SnapshotRef {
-  id: string;
-  createdAt: string;
-  profile: ProfileName;
-  bakeKey: string;
-  nowMs: number;
-  headSlot: number;
-  headBlockRoot: string;
-}
-
+import type { SnapshotRef } from "./api_contract.ts";
+export type { SnapshotRef } from "./api_contract.ts";
 export interface SnapshotManifest {
   schema: 1;
   owner: string;

@@ -3,41 +3,13 @@ import { canonical } from "./profiles.ts";
 import type { SnapshotRef, SnapshotStore } from "./snapshots.ts";
 import { durableJson, StateLock, StateStore } from "./storage.ts";
 
-export interface SnapshotRequest {
-  kind: "create" | "restore" | "remove";
-  snapshotId?: string;
-}
-export interface SnapshotOperation {
-  schema: 1;
-  owner: string;
-  id: string;
-  request: SnapshotRequest;
-  state: "running" | "succeeded" | "failed";
-  stage: string;
-  createdAt: string;
-  updatedAt: string;
-  snapshot?: SnapshotRef;
-  sourceGeneration?: string;
-  candidateGeneration?: string;
-  automine?: boolean;
-  result?: unknown;
-  error?: string;
-  cleanup?: { state: "pending" | "succeeded" | "failed"; error?: string };
-}
-
-export function operationId(id: unknown): string {
-  if (typeof id !== "string" || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id)) {
-    throw new Error("Snapshot operation requires a UUID operation ID");
-  }
-  return id;
-}
-
-export class SnapshotOperationError extends Error {
-  constructor(readonly operation: SnapshotOperation) {
-    super(operation.error ?? `Snapshot operation is ${operation.state} at ${operation.stage}`);
-    this.name = "SnapshotOperationError";
-  }
-}
+import { operationId, SnapshotOperationError } from "./api_contract.ts";
+import type {
+  SnapshotOperationRecord as SnapshotOperation,
+  SnapshotRequest,
+} from "./api_contract.ts";
+export { operationId, SnapshotOperationError };
+export type { SnapshotOperation, SnapshotRequest };
 
 /** Per-request durable outcomes survive HTTP response loss and controller process exit. */
 export class SnapshotJournal {

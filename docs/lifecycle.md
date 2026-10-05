@@ -6,7 +6,11 @@ checkpoint. Local Gloas/Linux ARM64 acceptance is recorded in the
 [verification report](snapshots-verification.md) and [snapshot plan](snapshots-plan.md). Dynamic
 schedules are separate work in the [hardfork transition plan](hardforks-plan.md).
 
-## SDK and local controller
+## Local Deno controller
+
+For a running Docker service, use the
+[HTTP snapshot and lifecycle commands](http-api.md#snapshots-and-lifecycle). The examples below use
+the internal Deno client for local Panda development and tests.
 
 ```ts
 import { Devnet } from "../src/api.ts";

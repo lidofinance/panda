@@ -1,3 +1,6 @@
+import { HttpError } from "./api_contract.ts";
+export { HttpError };
+
 /** A runtime watchdog, not a performance target. Tests may supply a stricter budget. */
 export function defaultTimeoutMs(): number {
   const value = Number(Deno.env.get("PANDA_TIMEOUT_MS") ?? 3_600_000);
@@ -66,11 +69,6 @@ export async function waitFor<T>(
     pause = Math.min(250, pause * 1.5);
   }
   throw new Error(`Timed out: ${description} (${timeoutMs} ms)${last ? ` (${last})` : ""}`);
-}
-export class HttpError extends Error {
-  constructor(readonly status: number, url: string, body: string) {
-    super(`${status} ${url}: ${body}`);
-  }
 }
 /** Deno fetch decodes these encodings but retains the original wire headers. */
 export function forwardedHeaders(response: Response): Headers {

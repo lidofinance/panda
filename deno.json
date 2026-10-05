@@ -14,7 +14,9 @@
     ".tools",
     ".panda",
     "node_modules",
-    "reports"
+    "reports",
+    "docs/openapi.json",
+    "docs/api-reference.md"
   ],
   "tasks": {
     "up": "deno run -A src/cli.ts up",
@@ -22,7 +24,7 @@
     "reset": "deno run -A src/cli.ts reset",
     "test": "deno test -A tests",
     "test:baker": "PANDA_DOCKER_TEST=1 deno test -A tests/baker_test.ts tests/docker_test.ts",
-    "check": "deno fmt --check && deno lint && deno check src/*.ts scripts/*.ts container/*.ts tests/*.ts bakes/*/tests/*.ts",
+    "check": "deno fmt --check && deno lint && deno check src/*.ts scripts/*.ts container/*.ts tests/*.ts bakes/*/tests/*.ts && deno task docs:check",
     "smoke:docker": "deno run -A scripts/smoke_docker.ts",
     "baseline": "deno run -A scripts/baseline.ts",
     "profile": "deno run -A scripts/profile.ts",
@@ -45,6 +47,9 @@
     "clients:pin": "deno run -A scripts/clients.ts pin",
     "clients:restore": "deno run -A scripts/clients.ts restore",
     "e2e:warp-fast": "deno run -A bakes/shared/tests/warp_fast.ts",
-    "test:protocol": "deno test -A bakes/shared/tests/protocol_test.ts bakes/shared/tests/withdrawal_test.ts"
+    "test:protocol": "deno test -A bakes/shared/tests/protocol_test.ts bakes/shared/tests/withdrawal_test.ts",
+    "docs:generate": "deno run --config tools/api-docs/deno.json --frozen-lockfile --allow-read '--allow-env=TSC_*,NODE_ENV,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,__MINIMATCH_TESTING_PLATFORM__' --allow-write=docs/openapi.json,docs/api-reference.md tools/api-docs/generate.js",
+    "docs:check": "deno test --config tools/api-docs/deno.json --frozen-lockfile --allow-read '--allow-env=TSC_*,NODE_ENV,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,__MINIMATCH_TESTING_PLATFORM__' tools/api-docs/generate_test.ts",
+    "docs:reference": "deno doc --no-config --no-lock --no-npm --html --name=Panda --output=.cache/docs src/client.ts"
   }
 }

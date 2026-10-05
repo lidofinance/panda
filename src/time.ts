@@ -2,11 +2,8 @@ import { defaultTimeoutMs } from "./http.ts";
 export const SLOT_MS = 12_000;
 export const SLOTS_PER_EPOCH = 32;
 export const PHASES = [0, 4_000, 6_000, 8_000, 9_000, 11_500] as const;
-export type WarpMode = "honest" | "fast";
-export interface WarpOptions {
-  /** Honest executes every duty; fast permits empty slots and their inactivity penalties. */
-  mode?: WarpMode;
-}
+import type { WarpMode, WarpOptions } from "./api_contract.ts";
+export type { WarpMode, WarpOptions } from "./api_contract.ts";
 export function warpMode(options: unknown = {}): WarpMode {
   if (options === null || typeof options !== "object" || Array.isArray(options)) {
     throw new Error("Warp options must be an object");

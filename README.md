@@ -5,8 +5,8 @@
 **Ethereum development with real clients and validators.**
 
 Panda is a local Ethereum development environment built from Geth, a Lighthouse beacon node and real
-validators. One Deno controller manages the clients in Docker and exposes a small TypeScript API for
-network lifecycle, transactions, consensus state and protocol time.
+validators. A Docker image exposes HTTP APIs for network lifecycle, transactions, consensus state
+and protocol time.
 
 The goal is to make the full execution and consensus stack practical to use in application
 development and integration tests. Start an isolated network, deploy contracts, inspect both layers,
@@ -48,101 +48,88 @@ to use real time, including while protocol time is paused.
 
 ## Requirements
 
-- **Deno 2.9.7** installed and available as `deno` on `PATH`.
-- **Docker** with a running local daemon.
+- Docker with a running daemon for the service image.
+- curl 7.82+ for the HTTP examples below.
+- Panda development and local client builds require Deno 2.9.7; see
+  [local development](docs/usage.md#setup-and-startup).
 
 ## Quick start
 
-The first Lighthouse build takes time; client compilation is separate from ordinary network startup.
+Start the latest stable Gloas image (`latest` updates after each successful stable release):
 
 ```sh
-deno task smoke:docker
-deno task bake gloas --tag local
-deno task test:profile gloas --bake local
-deno task up --profile gloas --bake local
+docker run -d --name panda \
+  --pull=always \
+  --privileged \
+  --stop-timeout 120 \
+  -p 127.0.0.1:8545:8545 \
+  ghcr.io/lidofinance/panda-gloas:latest
 ```
 
-HTTP JSON-RPC and Beacon API share `http://127.0.0.1:8545`: use `/` for JSON-RPC and the standard
-`/eth/v1/...` and `/eth/v2/...` paths for Beacon API. Container images also expose native CL and VC
-APIs on ports 5052 and 5062. See [client APIs and logs](docs/ci-containers.md#client-apis-and-logs)
-for port mappings, the VC token and `panda logs el|cl|vc`.
+Wait for the Docker health status to become `healthy`:
 
-Press Ctrl-C to stop and clean up, or run `deno task down` in another terminal.
-`deno task reset --profile gloas --bake local` starts again with fresh state. Use `PANDA_ID` and
-`PANDA_PORT` for separate instances.
-
-## TypeScript API
-
-From a TypeScript file in the repository root, using the bake built above:
-
-```ts
-import { Devnet } from "./src/api.ts";
-
-await using net = await Devnet.start({ id: "my-test", profile: "gloas", bake: "local" });
-
-const chainId = await net.rpc<string>("eth_chainId");
-const validators = await net.beacon("/eth/v1/beacon/states/head/validators");
-await net.stepSlot(); // Produce a block and complete the slot's duties.
-await net.advanceEpochs(2); // Advance through two epochs.
-
-await net.advanceUntil(
-  async () => BigInt((await net.status()).finality.data.finalized.epoch) >= 3n,
-  { maxSlots: 160 },
-);
+```sh
+docker inspect --format '{{.State.Health.Status}}' panda
 ```
 
-`await using` cleans up the instance when the scope ends. To connect to an existing controller, use
-`new Devnet("http://127.0.0.1:8545")`; closing that connection does not stop the network.
+Then advance one slot and inspect the network:
 
-Checkpoint-capable Gloas builds also provide `net.stop()` and `net.resume()` to preserve and reopen
-the same network at an exact completed slot. Snapshots retain a reusable copy of EL/CL/VC state:
-
-```ts
-const snapshot = await net.createSnapshot();
-await net.advanceSlots(10);
-await net.restoreSnapshot(snapshot); // Return to the saved state; automine is off.
-await net.stepSlot();
-await net.restoreSnapshot(snapshot); // The same archive can be restored again.
-await net.removeSnapshot(snapshot); // Remove the archive when it is no longer needed.
+```sh
+curl localhost:8545/control --json '{"method":"stepSlot"}'
+curl localhost:8545/control --json '{"method":"status"}'
 ```
 
-Use a completed slot tail with no pending or unresolved transaction submissions. A snapshot retains
-the exact bake, configuration, keys and signing history; it survives ordinary runtime cleanup.
-Restore keeps Panda's public URLs stable. Restart external providers/subscriptions and reset/replay
-consumer databases explicitly. See [snapshots and lifecycle](docs/lifecycle.md) for operation IDs,
-crash recovery, compatibility, persistent Docker storage and the executable consumer example.
-Current acceptance status is recorded in the [snapshot plan](docs/snapshots-plan.md).
+API paths on port 8545:
 
-To share prepared state, export a saved snapshot and start a new owner from the file or an HTTPS
-download URL:
+| Path          | Interface                                       |
+| ------------- | ----------------------------------------------- |
+| `/`           | Ethereum JSON-RPC                               |
+| `/control`    | Panda commands                                  |
+| `/cl/eth/...` | Beacon API                                      |
+| `/vc/...`     | Validator/Keymanager API; bearer token required |
 
-```ts
-const fixture = await net.createSnapshot();
-const archive = await net.exportSnapshot(fixture, "./ready.panda-snapshot.gz");
-await using copy = await Devnet.fromSnapshot("./ready.panda-snapshot.gz", {
-  id: "fixture-copy",
-  sha256: archive.sha256,
-});
+```sh
+docker logs panda
+docker exec panda panda logs cl --tail 200
+docker exec panda panda validator-token
 ```
 
-The same call accepts a public GitHub Release asset URL. Clients, bake key and platform must match
-the archive; startup never compiles clients. Containers accept `PANDA_SNAPSHOT` on first startup.
-See [external snapshot usage](docs/lifecycle.md#external-snapshots-local-files-and-https).
+For direct client ports (5052/5062), see
+[client APIs and logs](docs/ci-containers.md#client-apis-and-logs). See
+[CI/container configuration](docs/ci-containers.md) for persistent storage and service examples. Use
+`docker stop panda` and `docker rm panda` when finished; use explicit persistent storage when state
+must survive container replacement.
 
-Automine is off by default. Enable it with `await net.setAutomine(true)` to produce blocks for
-eligible pending transactions, then wait for receipts as usual. See the
-[deployment example](bakes/shared/tests/deploy.ts) for sequential contract deployment with ethers.
+## HTTP API
+
+Panda exposes its own controls at `POST /control`, lifecycle state at `GET /lifecycle`, and snapshot
+archives at `GET /snapshots/{id}/archive`. The [HTTP guide](docs/http-api.md) explains requests and
+failure behavior; the generated [command reference](docs/api-reference.md) lists parameters and
+results. The [OpenAPI 3.1 specification](docs/openapi.json) is generated from the shared TypeScript
+contract and can be used with a compatible client generator in your project.
+
+Ethereum JSON-RPC, Beacon and Keymanager calls retain their upstream APIs. Use your existing
+Ethereum client for transactions and contract calls. Automine is off by default:
+
+```sh
+curl localhost:8545/control --json '{"method":"setAutomine","params":[true]}'
+```
+
+Checkpoint-capable images support stop/resume and reusable snapshots. Inspect `GET /lifecycle` and
+its `checkpointCapable` field first. Restore replaces the chain branch: reset external
+providers/indexers explicitly. Container startup from a local or HTTPS snapshot uses
+`PANDA_SNAPSHOT`; see [snapshots and lifecycle](docs/lifecycle.md) for compatibility and recovery.
 
 ## Protocol time
 
 Protocol time is explicit and can run ahead of the host clock. Use `advanceSlots(n)` or
-`advanceEpochs(n)` for continuous block production and validator participation. Use
-`advanceUntil(predicate, options)` to wait for a condition within a slot budget and a real-time
-deadline. Advancement only moves forward; restoring a snapshot explicitly replaces the current
-branch with the saved state. Advancing time still requires client computation.
+`advanceEpochs(n)` for continuous block production and validator participation. Poll status between
+advances when waiting for a condition in an external test. Advancement only moves forward; restoring
+a snapshot explicitly replaces the current branch with the saved state. Advancing time still
+requires client computation.
 
-`advanceTime(seconds, options)` advances by a duration; `advanceTo(timestampOrDate, options)`
-targets a specific time. Both offer two modes on the same bake:
+`advanceTime` takes seconds and optional warp options; `advanceTo` takes a Unix timestamp in seconds
+and the same options. Both offer two modes on the same bake:
 
 - **`honest` (default):** execute every intermediate phase, block and validator duty up to the exact
   target. The historical estimate for Gloas `direct-sync` is roughly 13 minutes for 8192 slots; the
@@ -151,9 +138,9 @@ targets a specific time. Both offer two modes on the same bake:
   destination slot. Real missed-duty penalties and delayed finality are expected. Slashing
   protection remains enabled; conflicting signatures are a bug in either mode.
 
-```ts
-await net.advanceTime(8192 * 12); // Honest, continuous participation.
-await net.advanceTime(8192 * 12, { mode: "fast" }); // Explicit downtime and its penalties.
+```sh
+# Fast advancement by 8192 slots (98304 seconds).
+curl localhost:8545/control --json '{"method":"advanceTime","params":[98304,{"mode":"fast"}]}'
 ```
 
 `skipSlots(n)` remains the lower-level downtime operation without producing the destination block.
@@ -176,9 +163,9 @@ HTTP JSON-RPC is supported. WebSocket, long-lived Beacon SSE, multiple beacon no
 external validators are outside the current verified scope. Cold resume requires a clean checkpoint
 and its exact compatible bake. After unclean loss, explicitly restore a retained snapshot through
 the recovery service. Snapshot compatibility is limited to the same owner, bake, configuration and
-native platform; cross-host archive transfer is outside the current scope. Dynamic hardfork
-transitions remain planned. Geth's real-time transaction-pool expiry continues during a protocol
-pause.
+native platform. Exported archives can start a new owner with compatible clients and configuration.
+Dynamic hardfork transitions remain planned. Geth's real-time transaction-pool expiry continues
+during a protocol pause.
 
 ## Bake profiles
 
@@ -212,7 +199,8 @@ reports. Keep resource measurements separate from other devnet tests.
 
 ## Documentation
 
-- [Usage guide](docs/usage.md) — configuration, API details, ethers settings and troubleshooting.
+- [HTTP guide](docs/http-api.md) and [OpenAPI](docs/openapi.json) — commands, schemas and examples.
+- [Local usage guide](docs/usage.md) — controller configuration and development helpers.
 - [Snapshots and lifecycle](docs/lifecycle.md) — save/restore, stop/resume, crash recovery and
   external consumer reset.
 - [CI images](docs/ci-containers.md) — versioned hardfork images and CI service integration.

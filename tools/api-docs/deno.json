@@ -1,0 +1,11 @@
+{
+  "nodeModulesDir": "none",
+  "lock": "deno.lock",
+  "imports": {
+    "ts-json-schema-generator": "npm:ts-json-schema-generator@2.9.0",
+    "ajv/2020": "npm:ajv@8.20.0/dist/2020.js"
+  },
+  "fmt": {
+    "lineWidth": 100
+  }
+}

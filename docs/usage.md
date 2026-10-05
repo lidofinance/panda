@@ -1,4 +1,4 @@
-# Using Panda
+# Local Panda development
 
 Panda is a local Ethereum development environment with Pectra/Gloas profiles: Geth, a Lighthouse
 beacon node and real validators, one Deno/TypeScript controller, and Docker managed through
@@ -6,10 +6,12 @@ dockerode. A one-shot ethereum-genesis-generator creates genesis. See
 [measurements](measurements.md) for validation results and benchmarks, and the
 [project plan](plan.md) for completed work and next steps.
 
+This guide uses the internal Deno client for Panda development and tests. For published Docker
+images and HTTP access, start with the [README](../README.md) and [HTTP guide](http-api.md).
+
 ## Setup and startup
 
-Install **Deno 2.9.7** and start a local Docker daemon; see
-[requirements](../README.md#requirements).
+Install **Deno 2.9.7** on `PATH` and start a local Docker daemon.
 
 ```sh
 deno task smoke:docker

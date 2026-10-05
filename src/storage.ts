@@ -3,16 +3,8 @@ import { createHash } from "node:crypto";
 import type { Config } from "./config.ts";
 
 export type StoredPhase = "starting" | "running" | "stopping" | "stopped" | "faulted";
-export interface Checkpoint {
-  abi: 1;
-  nowMs: number;
-  headSlot: number;
-  headBlockRoot: string;
-  headStateRoot: string;
-  forkChoiceSlot: number;
-  checkpointHash: string;
-  [key: string]: unknown;
-}
+import type { Checkpoint } from "./api_contract.ts";
+export type { Checkpoint } from "./api_contract.ts";
 export interface ActiveGeneration {
   schema: 1;
   id: string;

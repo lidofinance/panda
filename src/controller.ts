@@ -1,3 +1,9 @@
+import type {
+  LifecycleState,
+  NetworkStatus,
+  SnapshotRestoreResult,
+  TimeState,
+} from "./api_contract.ts";
 import { Automine } from "./automine.ts";
 import { Consensus } from "./consensus.ts";
 import { type Config, configuration } from "./config.ts";
@@ -40,12 +46,7 @@ interface LifecycleOperation {
   result?: unknown;
   error?: string;
 }
-export interface SnapshotRestoreResult {
-  snapshot: SnapshotRef;
-  generation: string;
-  sessionId: string;
-  nowMs: number;
-}
+export type { SnapshotRestoreResult } from "./api_contract.ts";
 
 function rejectForeignRequest(request: Request): Response | undefined {
   const url = new URL(request.url);
@@ -344,7 +345,7 @@ export class Controller {
     const network = new Network(active.config);
     return new Controller(network, await network.enterRecovery(signal));
   }
-  lifecycle() {
+  lifecycle(): LifecycleState {
     return {
       ...this.ingress.status,
       id: this.config.id,
@@ -783,7 +784,7 @@ export class Controller {
       }
     });
   }
-  async status(signal?: AbortSignal) {
+  async status(signal?: AbortSignal): Promise<NetworkStatus> {
     return {
       id: this.manifest.config.id,
       profile: this.manifest.config.profile,
@@ -793,13 +794,13 @@ export class Controller {
       slot: this.time.slot,
       automine: this.automine.enabled,
       automineError: this.automine.error,
-      el: await rpc(
+      el: await rpc<NetworkStatus["el"]>(
         this.manifest.el,
         "eth_getBlockByNumber",
         ["latest", false],
         withWatchdog(signal),
       ),
-      finality: await json(
+      finality: await json<NetworkStatus["finality"]>(
         `${this.manifest.beacon}/eth/v1/beacon/states/head/finality_checkpoints`,
         { signal: withWatchdog(signal) },
       ),
@@ -876,7 +877,7 @@ export class Controller {
         throw new Error(`Unknown control method: ${method}`);
     }
     this.automine.notify();
-    return { now: this.time.timestamp, slot: this.time.slot };
+    return { now: this.time.timestamp, slot: this.time.slot } satisfies TimeState;
   }
   private async proxy(
     request: Request,
