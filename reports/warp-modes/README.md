@@ -49,7 +49,8 @@ contract deployment. Gloas economics also covers PTC and missing-key failure.
 - `red/rewards.log`: reproduces pruned historical rewards with deferred observation.
 - `green/`: passing time/API, streaming rewards, full unit and check logs.
 - `red/api-permission-error.log`: sandbox prevented localhost binding; not behavioral RED.
-- `red/check-format-error.log`: formatting failure; not behavioral RED.
+- `red/check-format-error.log`: formatting failure with an English translation of the original
+  excerpt; not behavioral RED.
 - `baseline.json`: all eight native inputs match the selected immutable Gloas bake.
 - `previous-warp.ts`: full test before the two-mode change and streaming rewards observer.
 - `previous-*-economics.json`: previous reports preserved before replacement. The Gloas copy was

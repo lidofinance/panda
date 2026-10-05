@@ -38,6 +38,12 @@ async fn protocol_time_waits_for_completion_and_rejects_invalid_commands() {
         Duration::from_secs(12),
     );
     assert_eq!(clock.now(), Some(Slot::new(0)));
+    let genesis = Duration::from_secs(2_000_000_000);
+    assert_eq!(
+        controlled::instant_at(genesis),
+        Some(controlled::instant_now())
+    );
+    let absolute_deadline = controlled::instant_at(genesis + Duration::from_secs(12)).unwrap();
     // A restored clock must expose its exact time without allowing protocol progress.
     let response = tokio::task::spawn_blocking(move || request(port, "/advance/2000000012000"))
         .await
@@ -72,6 +78,17 @@ async fn protocol_time_waits_for_completion_and_rejects_invalid_commands() {
         .unwrap();
     assert!(response.contains("409 Conflict"));
     assert_eq!(clock.now(), Some(Slot::new(1)));
+    // Mapping uses the fixed origin, not the new protocol time at conversion or first poll.
+    assert_eq!(
+        controlled::instant_at(genesis + Duration::from_secs(12)),
+        Some(absolute_deadline)
+    );
+    tokio::time::timeout(
+        Duration::from_millis(100),
+        controlled::sleep_until(absolute_deadline),
+    )
+    .await
+    .unwrap();
     // Waiting for actual work uses a notification, not a polling delay or advancing time.
     let pending =
         tokio::task::spawn_blocking(move || request(port, "/wait/1/1000/proposal,execution"));
@@ -162,7 +179,9 @@ async fn protocol_time_waits_for_completion_and_rejects_invalid_commands() {
     assert!(
         tokio::time::timeout(
             Duration::from_millis(20),
-            controlled::sleep_until(controlled::instant_now())
+            controlled::sleep_until(
+                controlled::instant_at(genesis - Duration::from_secs(1)).unwrap()
+            )
         )
         .await
         .is_err()
@@ -182,6 +201,14 @@ async fn protocol_time_waits_for_completion_and_rejects_invalid_commands() {
             .unwrap(),
     );
     assert_eq!(clock.now(), Some(Slot::new(1)));
+
+    // An absolute deadline predating a restored clock is due, but still respects park above.
+    tokio::time::timeout(
+        Duration::from_millis(100),
+        controlled::sleep_until(controlled::instant_at(genesis - Duration::from_secs(1)).unwrap()),
+    )
+    .await
+    .unwrap();
 
     // A late subscriber sees the current time; a zero-delay retry waits rather than spinning.
     assert!(

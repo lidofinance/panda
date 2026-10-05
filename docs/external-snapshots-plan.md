@@ -48,9 +48,9 @@ generation; importing a fixture is never an implicit reset.
 - [x] E4: static/unit and relevant existing snapshot regression checks, final review and recorded
       evidence. No native client rebuild is required.
 
-Status: **E1–E4 complete locally on October 4, 2026**, Gloas/Linux ARM64. The runtime reliability
-observation below remains open; passing checks do not explain that incident. No native clients were
-rebuilt and no artifacts published.
+Status: **E1–E4 and the PTC reliability follow-up are complete locally on October 4, 2026**,
+Gloas/Linux ARM64. The initial extension used the existing clients; the follow-up below requires
+Lighthouse baker 4. No artifacts were published.
 
 ## Executed acceptance
 
@@ -75,7 +75,8 @@ Acceptance identity:
 
 - Bake `gloas/p3-checkpoint-r5`, key
   `24026a9da94b51171f1d67f810de97add9a15d4b06891ee6e2ceed5457248a53`, checkpoint ABI 1.
-- Current suite fingerprint: `9366b59b01606e5ab0748abff5a6abc560e86dd4d11999b41f016e2ab5ef5791`.
+- Initial extension suite fingerprint:
+  `9366b59b01606e5ab0748abff5a6abc560e86dd4d11999b41f016e2ab5ef5791`.
 - Three selected report run IDs: `external-snapshots-final`. See
   [external snapshot report](../reports/profiles/gloas/p3-checkpoint-r5/snapshot-external.json),
   [resume](../reports/profiles/gloas/p3-checkpoint-r5/resume.json) and
@@ -84,12 +85,76 @@ Acceptance identity:
   all 41 packaged runtime files match the working tree. EL/CL/genesis identities remain those of the
   selected bake. The container seed archive was 1,456,519 bytes.
 
-The full 20-scenario profile, Linux AMD64 and public publication were not rerun or performed for
-this extension. The previous full 19-scenario result is historical prerequisite evidence, not a
-current whole-profile verification. Private command logs and failed-run data remain under ignored
+Initial extension acceptance covered the selected scenarios above. The complete 20-scenario
+verification was subsequently performed for the PTC repair below. Linux AMD64 and public publication
+remain separate release work. Private command logs and failed-run data remain under ignored
 `.cache/external-snapshots/` and `.panda/`.
 
 ## Review findings and follow-up
+
+Completed repair: reproduce controlled VC startup with delayed validator-index and PTC HTTP
+responses, then require completed discovery and current/next-epoch PTC loading before starting duty
+services. Independent reviews found no existing Panda/client API that can initialize the VC's
+private cache. The client changes are limited to startup ordering/error propagation and two existing
+PTC timer adaptations backed by Panda's clock helper. Signing, publication, slot selection, retry
+policy, cache invalidation and BN validation remain unchanged. Controller-side delays cannot prove
+when a native timer has been registered; that conversion must retain the selected slot's absolute
+deadline. Native acceptance, the final bake, the separate real-network reproduction and the complete
+profile passed. The original incident's exact scheduling was not recorded.
+
+- [x] Deterministic startup regression: delayed index discovery, delayed PTC responses, HTTP
+      failures and a legitimately unregistered validator (404).
+- [x] Minimal startup fix and independent review of the actual source diff.
+- [x] Two deterministic clock-interleaving regressions and absolute PTC deadlines; nonzero clock
+      origin, elapsed deadline and parked-clock checks.
+- [x] Re-run source continuation and local/HTTPS import, checking all 512 PTC positions both in the
+      first block and in the next block containing freshly produced votes.
+- [x] Build immutable Gloas bake `ptc-reliability-r7` (Lighthouse baker 4, checkpoint ABI 1).
+- [x] Full selected profile and recorded results.
+
+Repair evidence: exact r5 failed all four native cases on their behavioral assertions (11.58 s). The
+same assertions passed after the bootstrap change (4/4, 10.19 s); only the test's call adapter
+changed for the new async entry point. `cargo check --release --locked -p validator_client` passed.
+Final Panda unit tests passed 320 cases/144 steps, with 24 opt-in checks ignored. Independent
+reviews confirmed the production scope: startup ordering in two VC files, two existing PTC waits in
+a third file, and a six-line Panda clock helper. Signing, PTC cache and BN source are unchanged.
+Maintainer generation matched the tested production source, and the patch applied to the exact
+pinned commit. Raw logs remain under ignored `.cache/ptc-bootstrap/`.
+
+The final bake passed every native target, including all 79 `panda_ptc` tests. Geth was reused from
+cache. The original real scenario then passed separately in 77.332 s (`ptc-r7-original`): source
+continuation was immediate after snapshot creation; both local and HTTPS copies resumed slot 3 and
+finalized epoch 2 at slot 128, with full PTC participation in their first two new blocks. Bake key:
+`6c4a05573eb71bf8a3c2298cc015ac71508c3f6451b235108c0b7517fe4f7908`, Linux ARM64.
+
+Full acceptance: `PANDA_TIMEOUT_MS=300000 deno task test:profile gloas --bake ptc-reliability-r7`
+passed **20/20 scenarios in 34 min 24 s**, in one uninterrupted run. This includes ordinary clients,
+both warp modes, economics, deposits/consolidation/withdrawal, cold restart, checkpoint/resume, blob
+data, snapshot crash recovery and external fixtures. Final readback matched all 20 report run IDs,
+the current suite fingerprint and all 24 native input hashes. The separate reproduction and full run
+left zero containers, networks or volumes for their 31 recorded owners.
+
+- [Verification and scenario reports](../reports/profiles/gloas/ptc-reliability-r7/verification.json).
+- Run ID: `1c2a6833-b068-4a07-bf11-db1f26078a7e`.
+- Suite fingerprint: `5b27b56ec62d4c8890dd4058f6aef5019e8dc683cb6db2e55031d122ad8ac5ef`.
+- CL image: `sha256:dceee0d97ef9b5a3da164310804e471a166a8b07167b92b96b7b24d356b353f4`.
+
+Both independent reviews found no outstanding issue in these two fixes. This does not claim a
+general rewrite or repair of upstream PTC behavior, such as discovering newly imported keys after
+startup. Existing published images and the default bake are unchanged; release baker 4 to deliver
+the fixes to image consumers.
+
+Why the earlier checks missed this: persistence tests began with verified PTC messages already in
+the BN pool. Real restart tests compared blocks at several cuts, but did not hold index discovery
+open while VC startup ran. Neither checked that initial PTC loading finished before readiness. The
+new regression controls those HTTP responses and checks that exact prerequisite.
+
+A separate clock-adapter race was confirmed during review: converting a previously calculated
+relative duration using a later clock reading can move a PTC deadline past the controller's current
+phase. It can also affect the existing retry after an early HTTP failure. This is not evidence of
+the original incident's scheduling. Both regression assertions failed with relative waits (11.44 s)
+and passed with the absolute-time adapter (1.32 s). The shared clock test with a nonzero origin,
+elapsed deadline and park passed, as did `cargo check`. The ordinary-clock branches are unchanged.
 
 - **Fixed:** old resume comparisons depended on JSON key ordering. Portable canonical JSON exposed
   false configuration and file-inventory mismatches. Canonical comparisons preserve every field and
@@ -101,11 +166,10 @@ current whole-profile verification. Private command logs and failed-run data rem
   exact bake/image/platform matching; local numeric ownership; immutable content-addressed imports;
   no-clobber export; bounded streaming; duplicate JSON/path/link/length/corruption rejection;
   canceled-download cleanup; SDK access through HTTP; container seed precedence on restart.
-- [ ] **Open runtime observation:** one exploratory source-continuation run produced slot 4 but
+- [x] **PTC reliability follow-up:** one exploratory source-continuation run produced slot 4 but
       waited at phase 9,000 ms for the VC `payload_attestations` completion mark. This happened
       after source snapshot creation and before import. The run was stopped once, its logs retained,
-      and only its exact owner's Docker resources removed. The same exported file then passed import
-      and finality. The final three-scenario run and packaged tests did not reproduce the stall.
-      Root cause is unconfirmed; this extension does not claim to fix it or establish that it was
-      caused by the transport. Failure before import does not rule out a problem in snapshot
-      capture or source stop/resume; later passing runs do not close this reliability issue.
+      and only its exact owner's Docker resources removed. Subsequent passing runs alone did not
+      close the issue. The repair above instead adds failing regressions for two confirmed races,
+      fixes those races, and repeats immediate source continuation and import with full PTC checks.
+      Their exact interleaving in the original incident cannot be reconstructed from its logs.

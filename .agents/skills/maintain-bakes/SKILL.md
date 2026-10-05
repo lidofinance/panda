@@ -36,6 +36,9 @@ fork-specific behavior and files needed for the requested change.
 
 ## Pins and patches
 
+Before editing client patches or native helpers, apply the minimal-change rule in
+[develop-feature](../develop-feature/SKILL.md), including independent subagent review.
+
 Resolve the selected upstream refs and image versions; check the actual pinned sources when porting.
 Pair EL, CL, genesis, baseline client and toolchain for the fork and native platform. When
 consulting upstream, use the relevant commit's code/specification rather than assuming the latest

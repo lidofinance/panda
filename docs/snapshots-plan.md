@@ -33,12 +33,18 @@ are owned by P9 in the hardfork plan and require both features.
 
 ## Completion and release handoff
 
-No snapshot implementation or local acceptance item remains open. All 19 scenarios completed in one
-run on `p3-checkpoint-r5` without rebuilding its clients. Final readback matched the suite hash,
-bake and every report; no containers, networks or volumes remained for the run's 25 recorded owners.
+The original snapshot acceptance and the subsequent PTC reliability repair are complete locally. The
+[external snapshot follow-up](external-snapshots-plan.md#review-findings-and-follow-up) records the
+two narrow client fixes, native red/green evidence and the full 20-scenario verification on
+`ptc-reliability-r7` (Lighthouse baker 4, checkpoint ABI 1). The result below is historical evidence
+for the original snapshot implementation.
+
+All 19 original scenarios completed in one run on `p3-checkpoint-r5` without rebuilding its clients.
+Final readback matched the suite hash, bake and every report; no containers, networks or volumes
+remained for the run's 25 recorded owners.
 
 Publishing is a separate action: the existing published client lock is older than checkpoint ABI 1.
-Use the normal Lighthouse baker 3 release PR, then the AMD64 Panda verification/publication flow.
+Use the normal Lighthouse baker 4 release PR, then the AMD64 Panda verification/publication flow.
 The local ARM bake and package are verification artifacts, not replacements for a published lock.
 
 Update the stage table, execution checklist, evidence and next step after each completed work block.

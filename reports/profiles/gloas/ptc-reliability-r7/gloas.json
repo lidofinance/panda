@@ -1,0 +1,264 @@
+{
+  "event": "gloas-passed",
+  "elapsedMs": 8845.507709000001,
+  "clocks": {
+    "bn": {
+      "nowMs": 2000000047500,
+      "marks": {
+        "fork_choice": 3,
+        "skip_ready": 3,
+        "slot": 3,
+        "state_advance": 3,
+        "sync_contributions_0x869abc7ee5a85598259e0c8475c9b5f225c6572108f57cfaf629124da7419ea5": 3
+      },
+      "parked": false,
+      "activeWork": 0
+    },
+    "vc": {
+      "nowMs": 2000000047500,
+      "marks": {
+        "aggregates_0": 3,
+        "attestations": 3,
+        "indices": 3,
+        "payload_attestations": 3,
+        "ready": 0,
+        "sync_messages": 3
+      },
+      "parked": false,
+      "activeWork": 0
+    }
+  },
+  "block": {
+    "randao_reveal": "0xb89ad0094ac16363e498712de569602a09a214a0450e6ef1b0f62545305b6609961c39386a0669e16ace5565b9b09a3814078c002429f2bc3e3f4bd00e1f4c73954d5f6191dc78629eb6cdc35176a0431906d04adef7b704c25a7324c87c1cc3",
+    "eth1_data": {
+      "deposit_root": "0xd70a234731285c6804c2a4f56711ddb8c82c99740f207854891028af34e27e5e",
+      "deposit_count": "0",
+      "block_hash": "0x0ba7a8ae75439088094d035dfa9d54b49eb6e9c4de716f356d8dc0d97fdb9886"
+    },
+    "graffiti": "0x4745356438664c48326432380000000000000000000000000000000000000000",
+    "proposer_slashings": [],
+    "attester_slashings": [],
+    "attestations": [
+      {
+        "aggregation_bits": "0x07",
+        "data": {
+          "slot": "2",
+          "index": "0",
+          "beacon_block_root": "0x6353db814c9d26a27722357f63b724f9966d3cbf6f32334e7e9811aec48a89e4",
+          "source": {
+            "epoch": "0",
+            "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "target": {
+            "epoch": "0",
+            "root": "0x8fcb169555ae2aea5e63b3c636d5e97757bf288a03d1648fbfb39046e5404328"
+          }
+        },
+        "signature": "0x9679eca79f8a4ebd27014ffada48aaa5993917eeb6b08bee2ab4bf1f9236c62781a5638ec22bc2a9aaeb9a23504f3f14148bf440cc65a6e7c0c1c0974d658c0e7269a44d067e089d2381979edf265622afbf865266cb8474747c1539c0065c8c",
+        "committee_bits": "0x0100000000000000"
+      }
+    ],
+    "deposits": [],
+    "voluntary_exits": [],
+    "sync_aggregate": {
+      "sync_committee_bits": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "sync_committee_signature": "0x8e34217d415122da81b9e4b6377a02086778ac5fe7aaedcea8d5c80654b235254571dd82df807800031686b7862722200d4ab701619080487289fdd682cbbf7930a61bd9ad81744de76c0d8c4037606861836e162790d2ac304c0b91719859e7"
+    },
+    "bls_to_execution_changes": [],
+    "signed_execution_payload_bid": {
+      "message": {
+        "parent_block_hash": "0xb19c9f4bdec4202a110a0fa2a47382367b715ff773e304c57f0bfc49f5c65036",
+        "parent_block_root": "0x6353db814c9d26a27722357f63b724f9966d3cbf6f32334e7e9811aec48a89e4",
+        "block_hash": "0x25cb1339e6152c49b0952d2db5a78db165fd32f0a7a941f8cd144ed15c507ee6",
+        "prev_randao": "0x352f9d298bbe1f64764de08b3ca2743984c7a95065a7f47349972272f7ecee89",
+        "fee_recipient": "0x0000000000000000000000000000000000000000",
+        "gas_limit": "199414639",
+        "builder_index": "18446744073709551615",
+        "slot": "3",
+        "value": "0",
+        "execution_payment": "0",
+        "blob_kzg_commitments": [],
+        "execution_requests_root": "0x87b69a306c8e430d0857f7c4ac5e27cecffa1108d43c2e5df7388056fea7a423"
+      },
+      "signature": "0xc00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "payload_attestations": [
+      {
+        "aggregation_bits": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "data": {
+          "beacon_block_root": "0x6353db814c9d26a27722357f63b724f9966d3cbf6f32334e7e9811aec48a89e4",
+          "slot": "2",
+          "payload_present": true,
+          "blob_data_available": true
+        },
+        "signature": "0xab8ffbc067b45857adec7994734a6f5c781fbb49b26c0f99ebf68b25df4547d8164d89943ac56eff7f721dc0eef9886802c684c535886897dd72e61af210c82053f511b93447136437300e554f730e09969f6ef7ab599d227f694a448acbca62"
+      }
+    ],
+    "parent_execution_requests": {
+      "deposits": [],
+      "withdrawals": [],
+      "consolidations": [],
+      "builder_deposits": [],
+      "builder_exits": []
+    }
+  },
+  "status": {
+    "id": "gloas-430ba2b9",
+    "profile": "gloas",
+    "bake": "ptc-reliability-r7",
+    "bakeKey": "6c4a05573eb71bf8a3c2298cc015ac71508c3f6451b235108c0b7517fe4f7908",
+    "now": 2000000059.5,
+    "slot": 4,
+    "automine": false,
+    "el": {
+      "baseFeePerGas": "0x22f06c09",
+      "blobGasUsed": "0x0",
+      "blockAccessListHash": "0x117fdf101d2f36144bc9c88239ad41f51ee87c031b4ebe48b770849437dcbe1a",
+      "difficulty": "0x0",
+      "excessBlobGas": "0x0",
+      "extraData": "0xd983011107846765746889676f312e32352e3134856c696e7578",
+      "gasLimit": "0xbdfdabc",
+      "gasUsed": "0x0",
+      "hash": "0xa55f16939cb817f07ad2873b65dbbb4ccc1b9642d1a734054637d63a9960a424",
+      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "miner": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "mixHash": "0x409e344a828403b7e7373c30811a409946f7cffbb77fa287c92f95560674b444",
+      "nonce": "0x0000000000000000",
+      "number": "0x4",
+      "parentBeaconBlockRoot": "0x869abc7ee5a85598259e0c8475c9b5f225c6572108f57cfaf629124da7419ea5",
+      "parentHash": "0x25cb1339e6152c49b0952d2db5a78db165fd32f0a7a941f8cd144ed15c507ee6",
+      "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "requestsHash": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "size": "0x456",
+      "slotNumber": "0x4",
+      "stateRoot": "0x61ab874d8335106bc7ea3b9c608a037cf2d801ea3b1eb807bd4e87ba4778276a",
+      "timestamp": "0x77359430",
+      "transactions": [],
+      "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+      "uncles": [],
+      "withdrawals": [
+        {
+          "index": "0x1",
+          "validatorIndex": "0x0",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0x2",
+          "validatorIndex": "0x1",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0x3",
+          "validatorIndex": "0x2",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0x4",
+          "validatorIndex": "0x3",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0x5",
+          "validatorIndex": "0x4",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0x6",
+          "validatorIndex": "0x5",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0x7",
+          "validatorIndex": "0x6",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0x8",
+          "validatorIndex": "0x7",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0x9",
+          "validatorIndex": "0x8",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0xa",
+          "validatorIndex": "0x9",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0xb",
+          "validatorIndex": "0xa",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0xc",
+          "validatorIndex": "0xb",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0xd",
+          "validatorIndex": "0xc",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0xe",
+          "validatorIndex": "0xd",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0xf",
+          "validatorIndex": "0xe",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        },
+        {
+          "index": "0x10",
+          "validatorIndex": "0xf",
+          "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "amount": "0x570"
+        }
+      ],
+      "withdrawalsRoot": "0xb18eaab1e3cf067570456773f863534668009295f9d9e64d5cee9cc556699ee4"
+    },
+    "finality": {
+      "execution_optimistic": false,
+      "finalized": false,
+      "data": {
+        "previous_justified": {
+          "epoch": "0",
+          "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "current_justified": {
+          "epoch": "0",
+          "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "finalized": {
+          "epoch": "0",
+          "root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      }
+    }
+  },
+  "profile": "gloas",
+  "bake": "ptc-reliability-r7",
+  "bakeKey": "6c4a05573eb71bf8a3c2298cc015ac71508c3f6451b235108c0b7517fe4f7908",
+  "runId": "1c2a6833-b068-4a07-bf11-db1f26078a7e",
+  "recordedAt": "2026-10-04T17:59:20.005Z"
+}

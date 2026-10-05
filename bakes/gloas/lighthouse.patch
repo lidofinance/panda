@@ -409,6 +409,7 @@ index 9c70bca..56590d4 100644
                          Notification::ManualCompaction => manual_compaction_notif = Some(notif),
 diff --git a/beacon_node/beacon_chain/src/panda_checkpoint.rs b/beacon_node/beacon_chain/src/panda_checkpoint.rs
 new file mode 100644
+index 0000000..71ff846
 --- /dev/null
 +++ b/beacon_node/beacon_chain/src/panda_checkpoint.rs
 @@ -0,0 +1,391 @@
@@ -805,6 +806,7 @@ new file mode 100644
 +}
 diff --git a/beacon_node/beacon_chain/src/panda_controlled_skip.rs b/beacon_node/beacon_chain/src/panda_controlled_skip.rs
 new file mode 100644
+index 0000000..1c2219f
 --- /dev/null
 +++ b/beacon_node/beacon_chain/src/panda_controlled_skip.rs
 @@ -0,0 +1,43 @@
@@ -853,6 +855,7 @@ new file mode 100644
 +}
 diff --git a/beacon_node/beacon_chain/src/panda_migrator_admission.rs b/beacon_node/beacon_chain/src/panda_migrator_admission.rs
 new file mode 100644
+index 0000000..6f117dd
 --- /dev/null
 +++ b/beacon_node/beacon_chain/src/panda_migrator_admission.rs
 @@ -0,0 +1,42 @@
@@ -900,6 +903,7 @@ new file mode 100644
 +}
 diff --git a/beacon_node/beacon_chain/src/panda_sync_batch.rs b/beacon_node/beacon_chain/src/panda_sync_batch.rs
 new file mode 100644
+index 0000000..f16fa5e
 --- /dev/null
 +++ b/beacon_node/beacon_chain/src/panda_sync_batch.rs
 @@ -0,0 +1,42 @@
@@ -1125,6 +1129,7 @@ index 185f16c..eb9ba17 100644
                              && let Err(e) = tx.notify_fork_choice_complete(next_slot)
 diff --git a/beacon_node/beacon_chain/tests/fixtures/panda_blob_checkpoint.json b/beacon_node/beacon_chain/tests/fixtures/panda_blob_checkpoint.json
 new file mode 100644
+index 0000000..23848ee
 --- /dev/null
 +++ b/beacon_node/beacon_chain/tests/fixtures/panda_blob_checkpoint.json
 @@ -0,0 +1,17 @@
@@ -1147,6 +1152,7 @@ new file mode 100644
 +}
 diff --git a/beacon_node/beacon_chain/tests/panda_direct_sync.rs b/beacon_node/beacon_chain/tests/panda_direct_sync.rs
 new file mode 100644
+index 0000000..92a703e
 --- /dev/null
 +++ b/beacon_node/beacon_chain/tests/panda_direct_sync.rs
 @@ -0,0 +1,97 @@
@@ -1249,6 +1255,7 @@ new file mode 100644
 +}
 diff --git a/beacon_node/beacon_chain/tests/panda_migrator_admission.rs b/beacon_node/beacon_chain/tests/panda_migrator_admission.rs
 new file mode 100644
+index 0000000..486f724
 --- /dev/null
 +++ b/beacon_node/beacon_chain/tests/panda_migrator_admission.rs
 @@ -0,0 +1,89 @@
@@ -1343,6 +1350,7 @@ new file mode 100644
 +}
 diff --git a/beacon_node/beacon_chain/tests/panda_reconstruction.rs b/beacon_node/beacon_chain/tests/panda_reconstruction.rs
 new file mode 100644
+index 0000000..45e3244
 --- /dev/null
 +++ b/beacon_node/beacon_chain/tests/panda_reconstruction.rs
 @@ -0,0 +1,182 @@
@@ -1530,6 +1538,7 @@ new file mode 100644
 +}
 diff --git a/beacon_node/beacon_chain/tests/panda_restart.rs b/beacon_node/beacon_chain/tests/panda_restart.rs
 new file mode 100644
+index 0000000..19f187f
 --- /dev/null
 +++ b/beacon_node/beacon_chain/tests/panda_restart.rs
 @@ -0,0 +1,1212 @@
@@ -3022,6 +3031,7 @@ index 834cd29..864116e 100644
              // result to a channel held by this thread.
 diff --git a/beacon_node/http_api/tests/panda_checkpoint_admission.rs b/beacon_node/http_api/tests/panda_checkpoint_admission.rs
 new file mode 100644
+index 0000000..82d7aa0
 --- /dev/null
 +++ b/beacon_node/http_api/tests/panda_checkpoint_admission.rs
 @@ -0,0 +1,289 @@
@@ -3670,6 +3680,7 @@ index 715db4b..867d6d2 100644
  mod epoch_cache;
 diff --git a/consensus/types/src/state/panda_weighted_selection.rs b/consensus/types/src/state/panda_weighted_selection.rs
 new file mode 100644
+index 0000000..0f2c4ed
 --- /dev/null
 +++ b/consensus/types/src/state/panda_weighted_selection.rs
 @@ -0,0 +1,96 @@
@@ -3771,6 +3782,7 @@ new file mode 100644
 +}
 diff --git a/consensus/types/tests/panda_weighted_selection.rs b/consensus/types/tests/panda_weighted_selection.rs
 new file mode 100644
+index 0000000..68da697
 --- /dev/null
 +++ b/consensus/types/tests/panda_weighted_selection.rs
 @@ -0,0 +1,2 @@
@@ -3809,6 +3821,7 @@ index c1ed2c7..35b1547 100644
 +}
 diff --git a/crypto/bls/src/impls/panda_verified_signature.rs b/crypto/bls/src/impls/panda_verified_signature.rs
 new file mode 100644
+index 0000000..ca67624
 --- /dev/null
 +++ b/crypto/bls/src/impls/panda_verified_signature.rs
 @@ -0,0 +1,256 @@
@@ -4070,6 +4083,7 @@ new file mode 100644
 +}
 diff --git a/crypto/bls/tests/panda_verified_signature.rs b/crypto/bls/tests/panda_verified_signature.rs
 new file mode 100644
+index 0000000..4809ed0
 --- /dev/null
 +++ b/crypto/bls/tests/panda_verified_signature.rs
 @@ -0,0 +1,25 @@
@@ -4097,6 +4111,151 @@ new file mode 100644
 +    let wrong_root = [SignatureSet::single_pubkey(&signatures[0], Cow::Borrowed(&public[0]), Hash256::from([8; 32]))];
 +    assert!(!panda_preverify_single_key_sets(&wrong_root));
 +    assert!(!panda_preverify_single_key_sets(&[]));
++}
+diff --git a/testing/validator_test_rig/src/mock_beacon_node.rs b/testing/validator_test_rig/src/mock_beacon_node.rs
+index 81c7a7f..2e4608e 100644
+--- a/testing/validator_test_rig/src/mock_beacon_node.rs
++++ b/testing/validator_test_rig/src/mock_beacon_node.rs
+@@ -695,3 +695,5 @@ impl<E: EthSpec> MockBeaconNode<E> {
+             .create()
+     }
+ }
++
++include!("panda_ptc_bootstrap_mock.rs");
+diff --git a/testing/validator_test_rig/src/panda_ptc_bootstrap_mock.rs b/testing/validator_test_rig/src/panda_ptc_bootstrap_mock.rs
+new file mode 100644
+index 0000000..03cb23d
+--- /dev/null
++++ b/testing/validator_test_rig/src/panda_ptc_bootstrap_mock.rs
+@@ -0,0 +1,129 @@
++// Test-only HTTP fixtures appended to validator_test_rig::mock_beacon_node.
++// Responses are complete for the requested indices; no request/response truncation.
++pub struct PandaBootstrapGate {
++    seen: std::sync::atomic::AtomicBool,
++    seen_waker: futures::task::AtomicWaker,
++    released: Mutex<bool>,
++    release: std::sync::Condvar,
++}
++
++impl PandaBootstrapGate {
++    pub fn new(open: bool) -> Arc<Self> {
++        Arc::new(Self {
++            seen: std::sync::atomic::AtomicBool::new(false),
++            seen_waker: futures::task::AtomicWaker::new(),
++            released: Mutex::new(open),
++            release: std::sync::Condvar::new(),
++        })
++    }
++
++    pub async fn wait_seen(&self) {
++        futures::future::poll_fn(|cx| {
++            self.seen_waker.register(cx.waker());
++            if self.seen.load(std::sync::atomic::Ordering::Acquire) {
++                std::task::Poll::Ready(())
++            } else {
++                std::task::Poll::Pending
++            }
++        })
++        .await;
++    }
++
++    pub fn open(&self) {
++        *self.released.lock().unwrap() = true;
++        self.release.notify_all();
++    }
++
++    pub fn close(&self) {
++        *self.released.lock().unwrap() = false;
++    }
++
++    fn response(&self) {
++        self.seen.store(true, std::sync::atomic::Ordering::Release);
++        self.seen_waker.wake();
++        let mut released = self.released.lock().unwrap();
++        while !*released {
++            released = self.release.wait(released).unwrap();
++        }
++    }
++}
++
++impl<E: EthSpec> MockBeaconNode<E> {
++    pub fn panda_bootstrap_index(
++        &mut self,
++        pubkey: bls::PublicKeyBytes,
++        index: u64,
++        status: usize,
++        gate: Arc<PandaBootstrapGate>,
++    ) -> Mock {
++        let body = if status == 200 {
++            serde_json::json!({
++                "execution_optimistic": false, "finalized": false,
++                "data": {
++                    "index": index.to_string(), "balance": "32000000000",
++                    "status": "active_ongoing",
++                    "validator": {
++                        "pubkey": pubkey, "withdrawal_credentials": Hash256::ZERO,
++                        "effective_balance": "32000000000", "slashed": false,
++                        "activation_eligibility_epoch": "0", "activation_epoch": "0",
++                        "exit_epoch": u64::MAX.to_string(),
++                        "withdrawable_epoch": u64::MAX.to_string()
++                    }
++                }
++            })
++        } else {
++            serde_json::json!({ "code": status, "message": "bootstrap fixture" })
++        };
++        self.server
++            .mock(
++                "GET",
++                format!("/eth/v1/beacon/states/head/validators/{pubkey:?}").as_str(),
++            )
++            .with_status(status)
++            .with_header("content-type", "application/json")
++            .with_body_from_request(move |_| {
++                gate.response();
++                serde_json::to_vec(&body).unwrap()
++            })
++            .create()
++    }
++
++    pub fn panda_bootstrap_ptc(
++        &mut self,
++        epoch: Epoch,
++        duties: Vec<eth2::types::PtcDuty>,
++        status: usize,
++        gate: Arc<PandaBootstrapGate>,
++    ) -> Mock {
++        self.server
++            .mock(
++                "POST",
++                format!("/eth/v1/validator/duties/ptc/{epoch}").as_str(),
++            )
++            .with_status(status)
++            .with_header("content-type", "application/json")
++            .with_body_from_request(move |request| {
++                let indices: Vec<String> = serde_json::from_slice(request.body().unwrap()).unwrap();
++                gate.response();
++                if status != 200 {
++                    return br#"{"code":503,"message":"bootstrap fixture"}"#.to_vec();
++                }
++                let data = duties
++                    .iter()
++                    .filter(|duty| {
++                        indices
++                            .iter()
++                            .any(|index| index == &duty.validator_index.to_string())
++                    })
++                    .cloned()
++                    .collect::<Vec<_>>();
++                serde_json::to_vec(&eth2::types::DutiesResponse {
++                    dependent_root: Hash256::repeat_byte(17),
++                    execution_optimistic: Some(false),
++                    data,
++                })
++                .unwrap()
++            })
++            .create()
++    }
 +}
 diff --git a/validator_client/beacon_node_fallback/src/beacon_head_monitor.rs b/validator_client/beacon_node_fallback/src/beacon_head_monitor.rs
 index d093813..a63893c 100644
@@ -4365,6 +4524,7 @@ index c5ac79d..fb7da9a 100644
      // Subscribe to get VC logs via Server side events
 diff --git a/validator_client/http_api/src/panda_admission.rs b/validator_client/http_api/src/panda_admission.rs
 new file mode 100644
+index 0000000..cfbce8e
 --- /dev/null
 +++ b/validator_client/http_api/src/panda_admission.rs
 @@ -0,0 +1,28 @@
@@ -4438,6 +4598,7 @@ index f877afe..1714b99 100644
                      .await
 diff --git a/validator_client/signing_method/tests/panda_signing_admission.rs b/validator_client/signing_method/tests/panda_signing_admission.rs
 new file mode 100644
+index 0000000..3e93e57
 --- /dev/null
 +++ b/validator_client/signing_method/tests/panda_signing_admission.rs
 @@ -0,0 +1,131 @@
@@ -4573,10 +4734,10 @@ new file mode 100644
 +    assert_eq!(controlled::now(), original_time);
 +}
 diff --git a/validator_client/src/lib.rs b/validator_client/src/lib.rs
-index 6cf519b..19e1df0 100644
+index 6cf519b..7680d22 100644
 --- a/validator_client/src/lib.rs
 +++ b/validator_client/src/lib.rs
-@@ -679,6 +679,10 @@ impl<E: EthSpec> ProductionValidatorClient<E> {
+@@ -679,10 +679,15 @@ impl<E: EthSpec> ProductionValidatorClient<E> {
              None
          };
  
@@ -4587,7 +4748,13 @@ index 6cf519b..19e1df0 100644
          // Wait until genesis has occurred.
          wait_for_genesis(self.genesis_time).await?;
  
-@@ -750,6 +754,7 @@ impl<E: EthSpec> ProductionValidatorClient<E> {
+-        duties_service::start_update_service(self.duties_service.clone(), block_service_tx);
++        duties_service::start_update_service(self.duties_service.clone(), block_service_tx)
++            .await?;
+
+         self.block_service
+             .clone()
+@@ -750,6 +755,7 @@ impl<E: EthSpec> ProductionValidatorClient<E> {
              );
          }
  
@@ -4595,7 +4762,7 @@ index 6cf519b..19e1df0 100644
          Ok(())
      }
  }
-@@ -838,9 +843,7 @@ async fn init_from_beacon_node<E: EthSpec>(
+@@ -838,9 +844,7 @@ async fn init_from_beacon_node<E: EthSpec>(
  }
  
  async fn wait_for_genesis(genesis_time: u64) -> Result<(), String> {
@@ -4606,6 +4773,18 @@ index 6cf519b..19e1df0 100644
      let genesis_time = Duration::from_secs(genesis_time);
  
      // If the time now is less than (prior to) genesis, then delay until the
+diff --git a/validator_client/validator_services/Cargo.toml b/validator_client/validator_services/Cargo.toml
+index 5fb3137..e80437b 100644
+--- a/validator_client/validator_services/Cargo.toml
++++ b/validator_client/validator_services/Cargo.toml
+@@ -29,3 +29,7 @@ validator_store = { workspace = true }
+ [dev-dependencies]
+ tokio = { workspace = true, features = ["rt-multi-thread", "sync", "signal", "macros", "test-util"] }
+ validator_test_rig = { workspace = true }
++
++[[test]]
++name = "panda_ptc"
++path = "tests/panda_ptc.rs"
 diff --git a/validator_client/validator_services/src/attestation_service.rs b/validator_client/validator_services/src/attestation_service.rs
 index e18c940..b2a00c9 100644
 --- a/validator_client/validator_services/src/attestation_service.rs
@@ -4683,7 +4862,7 @@ index 0acae03..cc461c9 100644
  use types::{ChainSpec, EthSpec, ForkName, Slot};
  use validator_store::ValidatorStore;
 diff --git a/validator_client/validator_services/src/duties_service.rs b/validator_client/validator_services/src/duties_service.rs
-index 5fe413a..e2ee792 100644
+index 5fe413a..73bd24c 100644
 --- a/validator_client/validator_services/src/duties_service.rs
 +++ b/validator_client/validator_services/src/duties_service.rs
 @@ -28,7 +28,8 @@ use std::sync::Arc;
@@ -4696,7 +4875,47 @@ index 5fe413a..e2ee792 100644
  use tracing::{debug, error, info, warn};
  use types::{ChainSpec, Epoch, EthSpec, Hash256, SelectionProof, Slot};
  use validator_metrics::{ATTESTATION_DUTY, get_int_gauge, set_int_gauge};
-@@ -608,6 +609,7 @@ pub fn start_update_service<S: ValidatorStore + 'static, T: SlotClock + 'static>
+@@ -594,10 +595,37 @@ impl<S: ValidatorStore, T: SlotClock + 'static> DutiesService<S, T> {
+ /// process every slot, which has the chance of creating a theoretically unlimited backlog of tasks.
+ /// It was a conscious decision to choose to drop tasks on an overloaded/latent system rather than
+ /// overload it even more.
+-pub fn start_update_service<S: ValidatorStore + 'static, T: SlotClock + 'static>(
++pub async fn start_update_service<S: ValidatorStore + 'static, T: SlotClock + 'static>(
+     core_duties_service: Arc<DutiesService<S, T>>,
+     mut block_service_tx: Sender<BlockServiceNotification>,
+-) {
++) -> Result<(), String> {
++    if std::env::var_os("PANDA_CLOCK_START_MS").is_some() {
++        // A root-only PTC cache must not be populated from partially discovered indices.
++        // Keep controlled startup pending until both epochs are ready, before spawning duties.
++        if !poll_validator_indices(&core_duties_service).await {
++            return Err("Failed to resolve validator indices during controlled startup".into());
++        }
++        let epoch = core_duties_service.slot_clock.now()
++            .ok_or("Unable to read slot clock during controlled startup")?
++            .epoch(S::E::slots_per_epoch());
++        if !core_duties_service.disable_attesting
++            && core_duties_service.spec.gloas_fork_epoch.is_some_and(|fork| epoch >= fork)
++        {
++            let pubkeys: HashSet<_> = core_duties_service.validator_store
++                .voting_pubkeys(DoppelgangerStatus::ignored);
++            let indices = pubkeys.iter().filter_map(|pubkey|
++                core_duties_service.validator_store.validator_index(pubkey)
++            ).collect::<Vec<_>>();
++            for request_epoch in [epoch, epoch + 1] {
++                poll_beacon_ptc_attesters_for_epoch(
++                    &core_duties_service, request_epoch, &indices, &pubkeys,
++                ).await.map_err(|error|
++                    format!("Failed to initialize PTC duties for epoch {request_epoch}: {error:?}")
++                )?;
++            }
++        }
++    }
++
+     /*
+      * Spawn the task which updates the map of pubkey to validator index.
+      */
+@@ -608,6 +636,7 @@ pub fn start_update_service<S: ValidatorStore + 'static, T: SlotClock + 'static>
                  // Run this poll before the wait, this should hopefully download all the indices
                  // before the block/attestation tasks need them.
                  poll_validator_indices(&duties_service).await;
@@ -4704,8 +4923,501 @@ index 5fe413a..e2ee792 100644
  
                  if let Some(duration) = duties_service.slot_clock.duration_to_next_slot() {
                      sleep(duration).await;
+@@ -651,7 +680,7 @@ pub fn start_update_service<S: ValidatorStore + 'static, T: SlotClock + 'static>
+
+     // Skip starting attestation duties or sync committee services.
+     if core_duties_service.disable_attesting {
+-        return;
++        return Ok(());
+     }
+
+     /*
+@@ -764,13 +793,15 @@ pub fn start_update_service<S: ValidatorStore + 'static, T: SlotClock + 'static>
+             "duties_service_ptc",
+         );
+     }
++    Ok(())
+ }
+
+ /// Iterate through all the voting pubkeys in the `ValidatorStore` and attempt to learn any unknown
+ /// validator indices.
+ async fn poll_validator_indices<S: ValidatorStore, T: SlotClock + 'static>(
+     duties_service: &DutiesService<S, T>,
+-) {
++) -> bool {
++    let mut succeeded = true;
+     let _timer = validator_metrics::start_timer_vec(
+         &validator_metrics::DUTIES_SERVICE_TIMES,
+         &[validator_metrics::UPDATE_INDICES],
+@@ -868,6 +899,7 @@ async fn poll_validator_indices<S: ValidatorStore, T: SlotClock + 'static>(
+                 }
+                 // Don't exit early on an error, keep attempting to resolve other indices.
+                 Err(e) => {
++                    succeeded = false;
+                     error!(
+                         error = %e,
+                         ?pubkey,
+@@ -878,6 +910,7 @@ async fn poll_validator_indices<S: ValidatorStore, T: SlotClock + 'static>(
+             }
+         }
+     }
++    succeeded
+ }
+
+ /// Query the beacon node for attestation duties for any known validators.
+@@ -2097,3 +2130,7 @@ mod test {
+         assert!(subscription_slots.should_send_subscription_at(current_slot + 1),);
+     }
+ }
++
++#[cfg(test)]
++#[path = "panda_ptc_bootstrap_test.rs"]
++mod panda_bootstrap;
+diff --git a/validator_client/validator_services/src/lib.rs b/validator_client/validator_services/src/lib.rs
+index 3db106a..202af8a 100644
+--- a/validator_client/validator_services/src/lib.rs
++++ b/validator_client/validator_services/src/lib.rs
+@@ -10,3 +10,6 @@ pub mod proposer_preferences_service;
+ pub mod request_auth_cache;
+ pub mod sync;
+ pub mod sync_committee_service;
++
++#[cfg(test)]
++mod panda_ptc_deadline_context;
+diff --git a/validator_client/validator_services/src/panda_ptc_bootstrap_test.rs b/validator_client/validator_services/src/panda_ptc_bootstrap_test.rs
+new file mode 100644
+index 0000000..d81cdfe
+--- /dev/null
++++ b/validator_client/validator_services/src/panda_ptc_bootstrap_test.rs
+@@ -0,0 +1,236 @@
++//! Test the production startup entry point, not a copy of its preload algorithm.
++use super::*;
++use validator_test_rig::mock_beacon_node::PandaBootstrapGate;
++use validator_test_rig::validator_client_harness::ValidatorClientHarness;
++
++const FROZEN_TIME: Duration = Duration::from_millis(47_500);
++
++// The production clock is process-global. Each case owns one process and one clock endpoint.
++fn child(name: &str) -> bool {
++    if std::env::var("PANDA_BOOTSTRAP_CHILD").as_deref() == Ok(name) {
++        assert_eq!(slot_clock::controlled::now(), Some(FROZEN_TIME));
++        return false;
++    }
++    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
++    let port = listener.local_addr().unwrap().port();
++    drop(listener);
++    let output = std::process::Command::new(std::env::current_exe().unwrap())
++        .args(["--exact", name, "--nocapture"])
++        .env("PANDA_BOOTSTRAP_CHILD", name)
++        .env("PANDA_CLOCK_START_MS", "47500")
++        .env("PANDA_CLOCK_PORT", port.to_string())
++        .env_remove("PANDA_CLOCK_PARKED")
++        .output()
++        .unwrap();
++    assert!(
++        output.status.success(),
++        "{}\n{}",
++        String::from_utf8_lossy(&output.stdout),
++        String::from_utf8_lossy(&output.stderr)
++    );
++    assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"));
++    true
++}
++
++struct ReleaseGates(Vec<Arc<PandaBootstrapGate>>);
++impl Drop for ReleaseGates {
++    fn drop(&mut self) {
++        for gate in &self.0 {
++            gate.open();
++        }
++    }
++}
++
++async fn observed(gate: &PandaBootstrapGate) {
++    tokio::time::timeout(Duration::from_secs(5), gate.wait_seen())
++        .await
++        .expect("production startup did not make the expected real HTTP request");
++}
++
++async fn run(case: &str) {
++    let mut harness = ValidatorClientHarness::new(3).await;
++    harness.slot_clock.advance_time(FROZEN_TIME);
++    // Upstream's harness pre-resolves every index. Reinitialize its existing real keystores
++    // through the normal validator API so two indices really require Beacon HTTP discovery.
++    let validators = harness.validator_store.initialized_validators();
++    {
++        let mut validators = validators.write();
++        for definition in validators.as_mut_slice_testing_only() {
++            definition.enabled = false;
++        }
++        validators.update_validators().await.unwrap();
++        for definition in validators.as_mut_slice_testing_only() {
++            definition.enabled = true;
++        }
++        validators.update_validators().await.unwrap();
++    }
++    harness
++        .validator_store
++        .set_validator_index(&harness.pubkeys[0], 0);
++    assert_eq!(
++        harness.validator_store.validator_index(&harness.pubkeys[1]),
++        None
++    );
++    assert_eq!(
++        harness.validator_store.validator_index(&harness.pubkeys[2]),
++        None
++    );
++
++    let successful = case == "ready";
++    let indices = PandaBootstrapGate::new(!successful);
++    // Before index discovery is observed, allow r5's independently spawned PTC polls through.
++    // Otherwise a synchronous mock callback could block the server before the index request.
++    let current = PandaBootstrapGate::new(true);
++    let next = PandaBootstrapGate::new(true);
++    let absent = PandaBootstrapGate::new(true);
++    let mut mocks = Vec::new();
++    for node in [
++        &mut harness.mock_beacon_node_1,
++        &mut harness.mock_beacon_node_2,
++    ] {
++        mocks.push(node.panda_bootstrap_index(
++            harness.pubkeys[1],
++            1,
++            if case == "indices-error" { 503 } else { 200 },
++            indices.clone(),
++        ));
++        // A local validator not yet present on chain is a valid 404, not a startup error.
++        mocks.push(node.panda_bootstrap_index(harness.pubkeys[2], 2, 404, absent.clone()));
++        for (epoch, gate, failure) in [
++            (0, current.clone(), "current-error"),
++            (1, next.clone(), "next-error"),
++        ] {
++            let duties = harness.pubkeys[..2]
++                .iter()
++                .enumerate()
++                .map(|(index, &pubkey)| PtcDuty {
++                    pubkey,
++                    validator_index: index as u64,
++                    slot: Slot::new(if epoch == 0 { 4 } else { 32 }),
++                })
++                .collect();
++            mocks.push(node.panda_bootstrap_ptc(
++                Epoch::new(epoch),
++                duties,
++                if case == failure { 503 } else { 200 },
++                gate,
++            ));
++        }
++    }
++    // Release synchronous server callbacks on an assertion failure before dropping mock servers.
++    let _release = ReleaseGates(vec![
++        indices.clone(),
++        current.clone(),
++        next.clone(),
++        absent.clone(),
++    ]);
++    let service = Arc::new(
++        DutiesServiceBuilder::new()
++            .validator_store(harness.validator_store.clone())
++            .slot_clock(harness.slot_clock.clone())
++            .beacon_nodes(harness.beacon_nodes.clone())
++            .executor(harness.test_runtime.task_executor.clone())
++            .spec(harness.spec.clone())
++            .build()
++            .unwrap(),
++    );
++    let (tx, _rx) = tokio::sync::mpsc::channel(32);
++    let startup_service = service.clone();
++    let startup = tokio::spawn(async move { start_update_service(startup_service, tx).await });
++
++    if successful {
++        observed(&indices).await;
++        assert!(
++            !startup.is_finished(),
++            "startup returned before index discovery completed"
++        );
++        assert_eq!(service.ptc_count(Epoch::new(1)), 0);
++        current.close();
++        next.close();
++        indices.open();
++        observed(&current).await;
++        assert!(
++            !startup.is_finished(),
++            "startup returned before current-epoch PTC preload completed"
++        );
++        current.open();
++        observed(&next).await;
++        assert!(
++            !startup.is_finished(),
++            "startup returned before next-epoch PTC preload completed"
++        );
++        assert_eq!(service.ptc_count(Epoch::new(0)), 2);
++        next.open();
++        tokio::time::timeout(Duration::from_secs(5), startup)
++            .await
++            .unwrap()
++            .unwrap()
++            .unwrap();
++        assert_eq!(
++            harness.validator_store.validator_index(&harness.pubkeys[1]),
++            Some(1)
++        );
++        assert_eq!(
++            harness.validator_store.validator_index(&harness.pubkeys[2]),
++            None
++        );
++        observed(&absent).await;
++        assert_eq!(service.ptc_count(Epoch::new(0)), 2);
++        assert_eq!(service.ptc_count(Epoch::new(1)), 2);
++        assert_eq!(service.get_ptc_duties_for_slot(Slot::new(4)).len(), 2);
++        assert_eq!(service.get_ptc_duties_for_slot(Slot::new(32)).len(), 2);
++    } else {
++        observed(match case {
++            "indices-error" => &indices,
++            "current-error" => &current,
++            _ => &next,
++        })
++        .await;
++        let result = tokio::time::timeout(Duration::from_secs(5), startup)
++            .await
++            .unwrap()
++            .unwrap();
++        assert!(
++            result.is_err(),
++            "{case}: startup reported ready despite failed HTTP preload"
++        );
++    }
++    assert_eq!(slot_clock::controlled::now(), Some(FROZEN_TIME));
++    assert_eq!(harness.slot_clock.now(), Some(Slot::new(3)));
++    drop(mocks);
++}
++
++#[tokio::test]
++async fn panda_bootstrap_waits_for_indices_and_both_ptc_epochs() {
++    if child(
++        "duties_service::panda_bootstrap::panda_bootstrap_waits_for_indices_and_both_ptc_epochs",
++    ) {
++        return;
++    }
++    run("ready").await;
++}
++
++#[tokio::test]
++async fn panda_bootstrap_propagates_index_http_failure() {
++    if child("duties_service::panda_bootstrap::panda_bootstrap_propagates_index_http_failure") {
++        return;
++    }
++    run("indices-error").await;
++}
++
++#[tokio::test]
++async fn panda_bootstrap_propagates_current_ptc_http_failure() {
++    if child("duties_service::panda_bootstrap::panda_bootstrap_propagates_current_ptc_http_failure")
++    {
++        return;
++    }
++    run("current-error").await;
++}
++
++#[tokio::test]
++async fn panda_bootstrap_propagates_next_ptc_http_failure() {
++    if child("duties_service::panda_bootstrap::panda_bootstrap_propagates_next_ptc_http_failure") {
++        return;
++    }
++    run("next-error").await;
++}
+diff --git a/validator_client/validator_services/src/panda_ptc_deadline_context.rs b/validator_client/validator_services/src/panda_ptc_deadline_context.rs
+new file mode 100644
+index 0000000..d5c54f9
+--- /dev/null
++++ b/validator_client/validator_services/src/panda_ptc_deadline_context.rs
+@@ -0,0 +1,58 @@
++//! Isolate the process-global production protocol clock for each deadline regression.
++use slot_clock::ManualSlotClock;
++use std::io::{Read, Write};
++use std::net::{TcpListener, TcpStream};
++use std::time::Duration;
++
++pub fn child(name: &str) -> bool {
++    if std::env::var("PANDA_PTC_DEADLINE_CHILD").as_deref() == Ok(name) {
++        assert_eq!(slot_clock::controlled::now(), Some(Duration::ZERO));
++        return false;
++    }
++    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
++    let port = listener.local_addr().unwrap().port();
++    drop(listener);
++    let output = std::process::Command::new(std::env::current_exe().unwrap())
++        .args(["--exact", name, "--nocapture"])
++        .env("PANDA_PTC_DEADLINE_CHILD", name)
++        .env("PANDA_CLOCK_START_MS", "0")
++        .env("PANDA_CLOCK_PORT", port.to_string())
++        .env_remove("PANDA_CLOCK_PARKED")
++        .output()
++        .unwrap();
++    assert!(
++        output.status.success(),
++        "{}\n{}",
++        String::from_utf8_lossy(&output.stdout),
++        String::from_utf8_lossy(&output.stderr)
++    );
++    assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"));
++    true
++}
++
++pub fn request(method: &str, path: &str) -> String {
++    let port: u16 = std::env::var("PANDA_CLOCK_PORT").unwrap().parse().unwrap();
++    let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
++    stream
++        .set_read_timeout(Some(Duration::from_secs(5)))
++        .unwrap();
++    stream
++        .set_write_timeout(Some(Duration::from_secs(5)))
++        .unwrap();
++    write!(
++        stream,
++        "{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n"
++    )
++    .unwrap();
++    let mut response = String::new();
++    stream.read_to_string(&mut response).unwrap();
++    assert!(response.starts_with("HTTP/1.1 200"), "{response}");
++    response
++}
++
++pub async fn advance(clock: &ManualSlotClock, duration: Duration) {
++    clock.advance_time(duration);
++    let now = slot_clock::controlled::now().unwrap() + duration;
++    request("POST", &format!("/advance/{}", now.as_millis()));
++    tokio::task::yield_now().await;
++}
+diff --git a/validator_client/validator_services/src/panda_ptc_deadline_test.rs b/validator_client/validator_services/src/panda_ptc_deadline_test.rs
+new file mode 100644
+index 0000000..71baf36
+--- /dev/null
++++ b/validator_client/validator_services/src/panda_ptc_deadline_test.rs
+@@ -0,0 +1,120 @@
++// Included in the production payload_attestation_service's existing tests module.
++// Only clock interleaving is injected; duties, trigger selection, signing and HTTP are unchanged.
++async fn panda_deadline_clock_race(retry: bool) {
++    use crate::panda_ptc_deadline_context as clock;
++    use std::sync::atomic::{AtomicBool, Ordering};
++    let (tx, rx) = mpsc::channel(10);
++    let mut harness =
++        TestHarness::new_with_validators(1, if retry { Some(rx) } else { None }).await;
++    let slot = Slot::new(4);
++    harness.insert_ptc_duties(slot);
++    let _get = harness
++        .harness
++        .mock_beacon_node_1
++        .mock_get_validator_payload_attestation_data(
++            &attestation_data(slot),
++            ForkName::Gloas,
++            slot,
++        );
++    let post = harness
++        .harness
++        .mock_beacon_node_1
++        .mock_post_beacon_pool_payload_attestations_ssz(Duration::ZERO);
++    clock::advance(
++        &harness.service.slot_clock,
++        Duration::from_millis(if retry { 48_000 } else { 47_500 }),
++    )
++    .await;
++    let manual = harness.service.slot_clock.clone();
++    let fired = Arc::new(AtomicBool::new(false));
++    let observed = fired.clone();
++    let hook: Box<dyn FnOnce() + Send> = Box::new(move || {
++        // The remaining duration was computed before this hook. Time advances before sleep
++        // consumes it: rebasing that duration on a fresh clock read would shift the deadline.
++        manual.advance_time(Duration::from_millis(if retry { 3_000 } else { 500 }));
++        clock::request(
++            "POST",
++            if retry {
++                "/advance/51000"
++            } else {
++                "/advance/48000"
++            },
++        );
++        observed.store(true, Ordering::Release);
++    });
++    if retry {
++        *PANDA_PTC_DEADLINE_BEFORE_RETRY_SLEEP.lock().unwrap() = Some(hook);
++        // Exercise the real early-error fallback without replacing the data-producing method.
++        tx.send(PayloadAvailableEvent {
++            beacon_node_index: 99,
++            slot,
++            block_root: Hash256::ZERO,
++        })
++        .await
++        .unwrap();
++    } else {
++        *PANDA_PTC_DEADLINE_BEFORE_SLOT_SLEEP.lock().unwrap() = Some(hook);
++    }
++    harness.service.clone().start_update_service().unwrap();
++    tokio::time::timeout(Duration::from_secs(5), async {
++        while !fired.load(Ordering::Acquire) {
++            tokio::task::yield_now().await;
++        }
++    })
++    .await
++    .expect("production sleep interleaving was not reached");
++    assert!(
++        harness
++            .harness
++            .mock_beacon_node_1
++            .payload_attestation_message
++            .lock()
++            .unwrap()
++            .is_empty()
++    );
++    clock::advance(
++        &harness.service.slot_clock,
++        Duration::from_secs(if retry { 6 } else { 9 }),
++    )
++    .await;
++    assert_eq!(slot_clock::controlled::now(), Some(Duration::from_secs(57)));
++    tokio::time::timeout(Duration::from_secs(5), async {
++        while !clock::request("GET", "/").contains("\"payload_attestations\":4") {
++            tokio::task::yield_now().await;
++        }
++    })
++    .await
++    .expect("PTC deadline shifted past slot4+9000ms after concurrent protocol advance");
++    assert_eq!(
++        harness
++            .harness
++            .mock_beacon_node_1
++            .payload_attestation_message
++            .lock()
++            .unwrap()
++            .len(),
++        1
++    );
++    assert_eq!(slot_clock::controlled::now(), Some(Duration::from_secs(57)));
++    post.expect(1).assert();
++}
++
++#[tokio::test]
++async fn panda_ptc_slot_deadline_survives_concurrent_clock_advance() {
++    if crate::panda_ptc_deadline_context::child(
++        "payload_attestation_service::tests::panda_ptc_slot_deadline_survives_concurrent_clock_advance",
++    ) {
++        return;
++    }
++    panda_deadline_clock_race(false).await;
++}
++
++#[tokio::test]
++async fn panda_ptc_retry_deadline_survives_concurrent_clock_advance() {
++    if crate::panda_ptc_deadline_context::child(
++        "payload_attestation_service::tests::panda_ptc_retry_deadline_survives_concurrent_clock_advance",
++    ) {
++        return;
++    }
++    panda_deadline_clock_race(true).await;
++}
 diff --git a/validator_client/validator_services/src/payload_attestation_service.rs b/validator_client/validator_services/src/payload_attestation_service.rs
-index 56adafb..ccf6b77 100644
+index 56adafb..a70af03 100644
 --- a/validator_client/validator_services/src/payload_attestation_service.rs
 +++ b/validator_client/validator_services/src/payload_attestation_service.rs
 @@ -8,7 +8,7 @@ use std::ops::Deref;
@@ -4717,16 +5429,44 @@ index 56adafb..ccf6b77 100644
  use tracing::{debug, error, info, warn};
  use types::{ChainSpec, EthSpec, PayloadAttestationData, Slot};
  use validator_store::ValidatorStore;
-@@ -181,7 +181,7 @@ where
+@@ -181,7 +181,18 @@ where
                  .and_then(|d| d.checked_add(self.chain_spec.get_payload_attestation_due()))
                  .map(|d| d.saturating_sub(self.chain_spec.get_slot_duration()))
                  .unwrap_or_default();
 -            sleep(deadline).await;
-+            slot_clock::controlled::sleep_until(slot_clock::controlled::instant_now() + deadline).await;
++            #[cfg(test)]
++            panda_ptc_deadline_hook(&PANDA_PTC_DEADLINE_BEFORE_RETRY_SLEEP);
++            if std::env::var_os("PANDA_CLOCK_START_MS").is_some() {
++                let absolute = self.slot_clock.start_of(attestation_slot)
++                    .and_then(|start| start.checked_add(self.chain_spec.get_payload_attestation_due()))
++                    .ok_or("Unable to calculate payload attestation deadline")?;
++                let deadline = slot_clock::controlled::instant_at(absolute)
++                    .ok_or("Controlled clock is unavailable")?;
++                slot_clock::controlled::sleep_until(deadline).await;
++            } else {
++                slot_clock::controlled::sleep_until(slot_clock::controlled::instant_now() + deadline).await;
++            }
              data_result = self
                  .produce_payload_attestation_data(PayloadAttestationTrigger::Deadline(
                      attestation_slot,
-@@ -456,6 +456,7 @@ where
+@@ -249,7 +260,15 @@ where
+             return None;
+         }
+
+-        sleep(duration_to_next_slot + payload_attestation_due).await;
++        #[cfg(test)]
++        panda_ptc_deadline_hook(&PANDA_PTC_DEADLINE_BEFORE_SLOT_SLEEP);
++        if std::env::var_os("PANDA_CLOCK_START_MS").is_some() {
++            let absolute = self.slot_clock.start_of(attestation_slot)?
++                .checked_add(payload_attestation_due)?;
++            slot_clock::controlled::sleep_until(slot_clock::controlled::instant_at(absolute)?).await;
++        } else {
++            sleep(duration_to_next_slot + payload_attestation_due).await;
++        }
+
+         let Some(post_sleep_slot) = self.slot_clock.now() else {
+             error!("Failed to read slot clock after sleep");
+@@ -456,12 +475,14 @@ where
              "Successfully published payload attestations"
          );
  
@@ -4734,6 +5474,29 @@ index 56adafb..ccf6b77 100644
          Ok(())
      }
  }
+
+ #[cfg(test)]
+ mod tests {
++    include!("panda_ptc_deadline_test.rs");
+     use super::*;
+     use crate::duties_service::DutiesServiceBuilder;
+     use bls::{FixedBytesExtended, PublicKeyBytes, Signature};
+@@ -1484,3 +1505,15 @@ mod tests {
+         mock_ssz.expect(1).assert();
+     }
+ }
++
++#[cfg(test)]
++type PandaPtcDeadlineHook = std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>>;
++#[cfg(test)]
++static PANDA_PTC_DEADLINE_BEFORE_SLOT_SLEEP: PandaPtcDeadlineHook = std::sync::Mutex::new(None);
++#[cfg(test)]
++static PANDA_PTC_DEADLINE_BEFORE_RETRY_SLEEP: PandaPtcDeadlineHook = std::sync::Mutex::new(None);
++#[cfg(test)]
++fn panda_ptc_deadline_hook(hook: &PandaPtcDeadlineHook) {
++    let callback = hook.lock().unwrap().take();
++    if let Some(callback) = callback { callback(); }
++}
 diff --git a/validator_client/validator_services/src/preparation_service.rs b/validator_client/validator_services/src/preparation_service.rs
 index cacab6a..1d79826 100644
 --- a/validator_client/validator_services/src/preparation_service.rs
@@ -4843,3 +5606,10 @@ index e5d1d8f..ce2f94a 100644
              tokio::time::sleep(Duration::from_millis(10)).await;
          }
  
+diff --git a/validator_client/validator_services/tests/panda_ptc.rs b/validator_client/validator_services/tests/panda_ptc.rs
+new file mode 100644
+index 0000000..0541b9d
+--- /dev/null
++++ b/validator_client/validator_services/tests/panda_ptc.rs
+@@ -0,0 +1 @@
++include!("../src/lib.rs");

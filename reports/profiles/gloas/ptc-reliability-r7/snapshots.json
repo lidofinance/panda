@@ -1,0 +1,74 @@
+{
+  "passed": true,
+  "captureMs": 12764.897458,
+  "snapshotBytes": 11708506,
+  "disk": {
+    "basis": "du -sk filesystem-reported allocated bytes; whole owner includes data, archives, journals and logs",
+    "beforeCapture": 25411584,
+    "afterCapture": 26324992,
+    "additionalAfterCapture": 913408,
+    "archiveAllocatedBytes": 13901824,
+    "afterRemoval": 12734464,
+    "transientPeakMeasured": false,
+    "note": "Measurements are retained usage at each cut; shared filesystem extents may be counted per file"
+  },
+  "independentState": {
+    "storage": "0x0000000000000000000000000000000000000000000000000123456789abcdef",
+    "includedTransaction": "0x6a45cb8933d0e958c1d4415a0df7487b3da6defa02ab01ac7e04ce6e1c82d87b",
+    "beaconSszBytes": 3144225,
+    "beaconSszSha256": "957b47872227d9df5f6af08a4bf827e2bbd43b0d9f347048c4c99a57d17ff53e",
+    "checks": [
+      "source resume",
+      "live restore",
+      "repeated restore",
+      "crashed beacon",
+      "offline"
+    ]
+  },
+  "restores": [
+    {
+      "branch": "live",
+      "elapsedMs": 12451.97425,
+      "verificationMs": 188.4621249999982,
+      "ownerAllocatedBytes": 26312704
+    },
+    {
+      "branch": "repeated",
+      "elapsedMs": 13528.441041999999,
+      "verificationMs": 333.07929100000183,
+      "ownerAllocatedBytes": 26427392
+    },
+    {
+      "branch": "crashed beacon",
+      "elapsedMs": 12624.646709,
+      "verificationMs": 231.4601249999978,
+      "ownerAllocatedBytes": 26537984
+    }
+  ],
+  "removalMs": 121.30120800000441,
+  "firstTransactionMs": 132.52358399999503,
+  "finalSlot": 128,
+  "finalizedEpoch": "2",
+  "schema": 1,
+  "checkpointAbi": 1,
+  "images": {
+    "el": {
+      "id": "sha256:b882c20ed0c3f59aa6b253fe94f56e33266f4c43720c41d064e127355b4b2208",
+      "platform": "linux/arm64"
+    },
+    "cl": {
+      "id": "sha256:dceee0d97ef9b5a3da164310804e471a166a8b07167b92b96b7b24d356b353f4",
+      "platform": "linux/arm64"
+    },
+    "genesis": {
+      "id": "sha256:95d66723fab247e476861b7168e8b20150e85daeee734f2417a79c2db8e2b1a3",
+      "platform": "linux/arm64"
+    }
+  },
+  "elapsedMs": 85267.699458,
+  "profile": "gloas",
+  "bake": "ptc-reliability-r7",
+  "bakeKey": "6c4a05573eb71bf8a3c2298cc015ac71508c3f6451b235108c0b7517fe4f7908",
+  "runId": "1c2a6833-b068-4a07-bf11-db1f26078a7e",
+  "recordedAt": "2026-10-04T18:06:49.085Z"
+}

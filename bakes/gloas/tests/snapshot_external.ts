@@ -11,6 +11,41 @@ import { SnapshotStore } from "../../../src/snapshots.ts";
 import { StateStore } from "../../../src/storage.ts";
 import { profileReport } from "../../shared/tests/report.ts";
 import { exportSigningHistory } from "../../shared/tests/signing_history.ts";
+import { assertFullBitvector } from "../../shared/tests/warp_assertions.ts";
+
+async function assertPayloadVotes(net: Devnet, slot: number) {
+  const block = await net.beacon<{
+    data: {
+      message: {
+        slot: string;
+        parent_root: string;
+        body: {
+          payload_attestations: {
+            aggregation_bits: string;
+            data: {
+              slot: string;
+              beacon_block_root: string;
+              payload_present: boolean;
+              blob_data_available: boolean;
+            };
+          }[];
+        };
+      };
+    };
+  }>(`/eth/v2/beacon/blocks/${slot}`);
+  const { message } = block.data;
+  assert.equal(Number(message.slot), slot);
+  let positions = 0n;
+  for (const vote of message.body.payload_attestations) {
+    assert.equal(Number(vote.data.slot), slot - 1);
+    assert.equal(vote.data.beacon_block_root, message.parent_root);
+    assert.equal(vote.data.payload_present, true);
+    assert.equal(vote.data.blob_data_available, true);
+    assert.match(vote.aggregation_bits, /^0x[0-9a-f]{128}$/);
+    positions |= BigInt(vote.aggregation_bits);
+  }
+  assertFullBitvector(`0x${positions.toString(16)}`, 512, `PTC in block ${slot}`);
+}
 
 async function send(net: Devnet, transaction: TransactionRequest = {}) {
   const raw = await new Wallet(privateKey).signTransaction({
@@ -86,23 +121,10 @@ async function startFromFileOrHttps(source: string, directory: string, id: strin
       BigInt(await net.rpc<string>("eth_getStorageAt", [expected.contract, "0x0", "latest"])),
       99n,
     );
-    const head = await net.beacon<{
-      data: {
-        message: {
-          body: {
-            payload_attestations: {
-              aggregation_bits: string;
-              data: { payload_present: boolean };
-            }[];
-          };
-        };
-      };
-    }>("/eth/v2/beacon/blocks/head");
-    assert(
-      head.data.message.body.payload_attestations.some((vote) =>
-        vote.data.payload_present && BigInt(vote.aggregation_bits) > 0n
-      ),
-    );
+    await assertPayloadVotes(net, saved.slot + 1);
+    // The first block contains saved votes; the next contains votes made by the restarted VC.
+    await net.advanceSlots(1);
+    await assertPayloadVotes(net, saved.slot + 2);
     await net.advanceUntil(
       async () => BigInt((await net.status()).finality.data.finalized.epoch) >= 2n,
       { maxSlots: 160, timeoutMs: 240_000 },
@@ -283,6 +305,17 @@ if (import.meta.main) {
       const history = await exportSigningHistory(await Network.manifest(id));
       await Deno.writeFile(`${directory}/beacon.ssz`, await state(net));
       const snapshot = await net.createSnapshot();
+      // Continue immediately: archive IO must not give VC startup time to hide a race.
+      const resumed = await send(net, {
+        to: contract,
+        value: 0n,
+        data: toBeHex(77, 32),
+        gasLimit: 12_000_000,
+      });
+      assert.equal(Number(BigInt(resumed.receipt.blockNumber)), status.slot + 1);
+      await assertPayloadVotes(net, status.slot + 1);
+      await net.advanceSlots(1);
+      await assertPayloadVotes(net, status.slot + 2);
       const archive = `${directory}/fixture.panda-snapshot.gz`;
       const exported = await net.exportSnapshot(snapshot, archive);
       const original = await new SnapshotStore(new StateStore(id), new Infrastructure(id)).read(
@@ -298,7 +331,6 @@ if (import.meta.main) {
       };
       await Deno.writeTextFile(`${directory}/expected.json`, JSON.stringify(expected));
       await assert.rejects(Devnet.fromSnapshot(archive, { id }), /without active state/);
-      await send(net, { to: contract, value: 0n, data: toBeHex(77, 32), gasLimit: 12_000_000 });
       await net.close();
       net = undefined;
       const local = await startFromFileOrHttps(archive, directory, `${id}-file`);

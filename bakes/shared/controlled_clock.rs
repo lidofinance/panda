@@ -159,6 +159,12 @@ pub fn instant_now() -> Instant {
     }
 }
 
+/// Convert an absolute protocol timestamp without rereading the advancing clock.
+pub fn instant_at(unix: Duration) -> Option<Instant> {
+    let clock = clock()?;
+    Some(clock.origin + unix.saturating_sub(Duration::from_millis(clock.start)))
+}
+
 pub async fn sleep(duration: Duration) {
     // A zero-duration retry must yield until time changes, rather than spin while paused.
     let duration = if clock().is_some() {

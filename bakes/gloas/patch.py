@@ -157,3 +157,105 @@ from patch_migrator import apply as patch_migrator
 patch_migrator(root)
 from patch_reconstruction import apply as patch_reconstruction
 patch_reconstruction(root)
+
+# Controlled startup must finish index discovery before initially caching PTC duties.
+p = "validator_client/validator_services/src/duties_service.rs"
+edit(p, "pub fn start_update_service<", "pub async fn start_update_service<")
+edit(p, "    mut block_service_tx: Sender<BlockServiceNotification>,\n) {", """    mut block_service_tx: Sender<BlockServiceNotification>,
+) -> Result<(), String> {
+    if std::env::var_os("PANDA_CLOCK_START_MS").is_some() {
+        // A root-only PTC cache must not be populated from partially discovered indices.
+        // Keep controlled startup pending until both epochs are ready, before spawning duties.
+        if !poll_validator_indices(&core_duties_service).await {
+            return Err("Failed to resolve validator indices during controlled startup".into());
+        }
+        let epoch = core_duties_service.slot_clock.now()
+            .ok_or("Unable to read slot clock during controlled startup")?
+            .epoch(S::E::slots_per_epoch());
+        if !core_duties_service.disable_attesting
+            && core_duties_service.spec.gloas_fork_epoch.is_some_and(|fork| epoch >= fork)
+        {
+            let pubkeys: HashSet<_> = core_duties_service.validator_store
+                .voting_pubkeys(DoppelgangerStatus::ignored);
+            let indices = pubkeys.iter().filter_map(|pubkey|
+                core_duties_service.validator_store.validator_index(pubkey)
+            ).collect::<Vec<_>>();
+            for request_epoch in [epoch, epoch + 1] {
+                poll_beacon_ptc_attesters_for_epoch(
+                    &core_duties_service, request_epoch, &indices, &pubkeys,
+                ).await.map_err(|error|
+                    format!("Failed to initialize PTC duties for epoch {request_epoch}: {error:?}")
+                )?;
+            }
+        }
+    }
+""")
+edit(p, "    if core_duties_service.disable_attesting {\n        return;\n    }", "    if core_duties_service.disable_attesting {\n        return Ok(());\n    }")
+edit(p, "\n}\n\n/// Iterate through all the voting pubkeys", "\n    Ok(())\n}\n\n/// Iterate through all the voting pubkeys")
+edit(p, "    duties_service: &DutiesService<S, T>,\n) {\n    let _timer", "    duties_service: &DutiesService<S, T>,\n) -> bool {\n    let mut succeeded = true;\n    let _timer")
+edit(p, "                // Don't exit early on an error, keep attempting to resolve other indices.\n                Err(e) => {", "                // Don't exit early on an error, keep attempting to resolve other indices.\n                Err(e) => {\n                    succeeded = false;")
+edit(p, "\n}\n\n/// Query the beacon node for attestation duties for any known validators.", "\n    succeeded\n}\n\n/// Query the beacon node for attestation duties for any known validators.")
+edit("validator_client/src/lib.rs", "        duties_service::start_update_service(self.duties_service.clone(), block_service_tx);", "        duties_service::start_update_service(self.duties_service.clone(), block_service_tx)\n            .await?;")
+
+# Test-only fixtures exercise the production startup with delayed real HTTP responses.
+services = root / 'validator_client/validator_services'
+mock = root / 'testing/validator_test_rig/src'
+shutil.copyfile('bakes/gloas/native/ptc_bootstrap_test.rs', services / 'src/panda_ptc_bootstrap_test.rs')
+shutil.copyfile('bakes/gloas/native/ptc_bootstrap_mock.rs', mock / 'panda_ptc_bootstrap_mock.rs')
+with (mock / 'mock_beacon_node.rs').open('a') as file:
+    file.write('\ninclude!("panda_ptc_bootstrap_mock.rs");\n')
+with (services / 'src/duties_service.rs').open('a') as file:
+    file.write('\n#[cfg(test)]\n#[path = "panda_ptc_bootstrap_test.rs"]\nmod panda_bootstrap;\n')
+(services / 'tests').mkdir(exist_ok=True)
+(services / 'tests/panda_ptc.rs').write_text('include!("../src/lib.rs");\n')
+with (services / 'Cargo.toml').open('a') as file:
+    file.write('\n[[test]]\nname = "panda_ptc"\npath = "tests/panda_ptc.rs"\n')
+
+# Preserve the upstream slot selection/retry policy; test only the protocol sleep boundary.
+shutil.copyfile('bakes/gloas/native/ptc_deadline_context.rs', services / 'src/panda_ptc_deadline_context.rs')
+shutil.copyfile('bakes/gloas/native/ptc_deadline_test.rs', services / 'src/panda_ptc_deadline_test.rs')
+with (services / 'src/lib.rs').open('a') as file:
+    file.write('\n#[cfg(test)]\nmod panda_ptc_deadline_context;\n')
+p = 'validator_client/validator_services/src/payload_attestation_service.rs'
+edit(p, 'mod tests {\n', 'mod tests {\n    include!("panda_ptc_deadline_test.rs");\n')
+for statement, name in [
+    ('        sleep(duration_to_next_slot + payload_attestation_due).await;', 'SLOT'),
+    ('            slot_clock::controlled::sleep_until(slot_clock::controlled::instant_now() + deadline).await;', 'RETRY'),
+]:
+    indent = statement[:len(statement) - len(statement.lstrip())]
+    edit(p, statement, indent + '#[cfg(test)]\n' + indent
+         + f'panda_ptc_deadline_hook(&PANDA_PTC_DEADLINE_BEFORE_{name}_SLEEP);\n' + statement)
+with (root / p).open('a') as file:
+    file.write("""
+#[cfg(test)]
+type PandaPtcDeadlineHook = std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>>;
+#[cfg(test)]
+static PANDA_PTC_DEADLINE_BEFORE_SLOT_SLEEP: PandaPtcDeadlineHook = std::sync::Mutex::new(None);
+#[cfg(test)]
+static PANDA_PTC_DEADLINE_BEFORE_RETRY_SLEEP: PandaPtcDeadlineHook = std::sync::Mutex::new(None);
+#[cfg(test)]
+fn panda_ptc_deadline_hook(hook: &PandaPtcDeadlineHook) {
+    let callback = hook.lock().unwrap().take();
+    if let Some(callback) = callback { callback(); }
+}
+""")
+
+# Absolute protocol deadlines cannot shift when the controller advances between reads.
+p='validator_client/validator_services/src/payload_attestation_service.rs'
+edit(p, '            slot_clock::controlled::sleep_until(slot_clock::controlled::instant_now() + deadline).await;', """            if std::env::var_os("PANDA_CLOCK_START_MS").is_some() {
+                let absolute = self.slot_clock.start_of(attestation_slot)
+                    .and_then(|start| start.checked_add(self.chain_spec.get_payload_attestation_due()))
+                    .ok_or("Unable to calculate payload attestation deadline")?;
+                let deadline = slot_clock::controlled::instant_at(absolute)
+                    .ok_or("Controlled clock is unavailable")?;
+                slot_clock::controlled::sleep_until(deadline).await;
+            } else {
+                slot_clock::controlled::sleep_until(slot_clock::controlled::instant_now() + deadline).await;
+            }""")
+edit(p, '        sleep(duration_to_next_slot + payload_attestation_due).await;', """        if std::env::var_os("PANDA_CLOCK_START_MS").is_some() {
+            let absolute = self.slot_clock.start_of(attestation_slot)?
+                .checked_add(payload_attestation_due)?;
+            slot_clock::controlled::sleep_until(slot_clock::controlled::instant_at(absolute)?).await;
+        } else {
+            sleep(duration_to_next_slot + payload_attestation_due).await;
+        }""")
