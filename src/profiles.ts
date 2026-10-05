@@ -19,6 +19,8 @@ export interface Recipe {
   clockWait?: boolean;
   /** Complete, verified sync contributions are delivered locally without gossip aggregators. */
   directSync?: boolean;
+  /** Absolute PTC deadline selection marks and Panda's validator bootstrap gates. */
+  ptcReadiness?: boolean;
   patch: string;
   sourceFiles?: string[];
   nativeTests?: { package: string; target: string }[];

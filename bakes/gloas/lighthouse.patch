@@ -1050,6 +1050,47 @@ index 0000000..4809ed0
 +    assert!(!panda_preverify_single_key_sets(&wrong_root));
 +    assert!(!panda_preverify_single_key_sets(&[]));
 +}
+diff --git a/testing/validator_test_rig/src/mock_beacon_node.rs b/testing/validator_test_rig/src/mock_beacon_node.rs
+index 81c7a7f..3d2121c 100644
+--- a/testing/validator_test_rig/src/mock_beacon_node.rs
++++ b/testing/validator_test_rig/src/mock_beacon_node.rs
+@@ -695,3 +695,5 @@ impl<E: EthSpec> MockBeaconNode<E> {
+             .create()
+     }
+ }
++
++include!("panda_ptc_duties_deadline_mock.rs");
+diff --git a/testing/validator_test_rig/src/panda_ptc_duties_deadline_mock.rs b/testing/validator_test_rig/src/panda_ptc_duties_deadline_mock.rs
+new file mode 100644
+index 0000000..2adb163
+--- /dev/null
++++ b/testing/validator_test_rig/src/panda_ptc_duties_deadline_mock.rs
+@@ -0,0 +1,25 @@
++// Test-only HTTP fixture. Production PTC polling parses and installs these duties.
++impl<E: EthSpec> MockBeaconNode<E> {
++    pub fn panda_ptc_duties(
++        &mut self,
++        epoch: Epoch,
++        duty: eth2::types::PtcDuty,
++        requests: Arc<std::sync::atomic::AtomicUsize>,
++    ) -> Mock {
++        self.server
++            .mock("POST", format!("/eth/v1/validator/duties/ptc/{epoch}").as_str())
++            .with_status(200)
++            .with_header("content-type", "application/json")
++            .with_body_from_request(move |request| {
++                let indices: Vec<String> = serde_json::from_slice(request.body().unwrap()).unwrap();
++                assert_eq!(indices, vec![duty.validator_index.to_string()]);
++                requests.fetch_add(1, std::sync::atomic::Ordering::Release);
++                serde_json::to_vec(&eth2::types::DutiesResponse {
++                    dependent_root: Hash256::repeat_byte(17),
++                    execution_optimistic: Some(false),
++                    data: vec![duty.clone()],
++                }).unwrap()
++            })
++            .create()
++    }
++}
 diff --git a/validator_client/beacon_node_fallback/src/beacon_head_monitor.rs b/validator_client/beacon_node_fallback/src/beacon_head_monitor.rs
 index d093813..a63893c 100644
 --- a/validator_client/beacon_node_fallback/src/beacon_head_monitor.rs
@@ -1203,7 +1244,7 @@ index 0acae03..cc461c9 100644
  use types::{ChainSpec, EthSpec, ForkName, Slot};
  use validator_store::ValidatorStore;
 diff --git a/validator_client/validator_services/src/duties_service.rs b/validator_client/validator_services/src/duties_service.rs
-index 5fe413a..e2ee792 100644
+index 5fe413a..bce80cb 100644
 --- a/validator_client/validator_services/src/duties_service.rs
 +++ b/validator_client/validator_services/src/duties_service.rs
 @@ -28,7 +28,8 @@ use std::sync::Arc;
@@ -1224,8 +1265,339 @@ index 5fe413a..e2ee792 100644
  
                  if let Some(duration) = duties_service.slot_clock.duration_to_next_slot() {
                      sleep(duration).await;
+@@ -751,7 +753,17 @@ pub fn start_update_service<S: ValidatorStore + 'static, T: SlotClock + 'static>
+                     // This doesn't mean that the beacon node will get polled every slot
+                     // as the PTC duties service will return early if it deems it already has
+                     // enough information.
+-                    if let Some(duration) = duties_service.slot_clock.duration_to_next_slot() {
++                    if std::env::var_os("PANDA_CLOCK_START_MS").is_some() {
++                        if let Some(deadline) = duties_service.slot_clock
++                            .start_of(current_slot + 1)
++                            .and_then(slot_clock::controlled::instant_at) {
++                            #[cfg(test)]
++                            panda_ptc_duties_before_sleep();
++                            slot_clock::controlled::sleep_until(deadline).await;
++                        } else {
++                            sleep(duties_service.slot_clock.slot_duration()).await;
++                        }
++                    } else if let Some(duration) = duties_service.slot_clock.duration_to_next_slot() {
+                         sleep(duration).await;
+                     } else {
+                         // Just sleep for one slot if we are unable to read the system clock, this gives
+@@ -2015,6 +2027,7 @@ async fn notify_block_production_service<S: ValidatorStore>(
+ 
+ #[cfg(test)]
+ mod test {
++    include!("panda_ptc_duties_deadline_test.rs");
+     use super::*;
+ 
+     #[test]
+@@ -2097,3 +2110,11 @@ mod test {
+         assert!(subscription_slots.should_send_subscription_at(current_slot + 1),);
+     }
+ }
++
++#[cfg(test)]
++static PANDA_PTC_DUTIES_BEFORE_SLEEP: std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>> = std::sync::Mutex::new(None);
++#[cfg(test)]
++fn panda_ptc_duties_before_sleep() {
++    let callback = PANDA_PTC_DUTIES_BEFORE_SLEEP.lock().unwrap().take();
++    if let Some(callback) = callback { callback(); }
++}
+diff --git a/validator_client/validator_services/src/panda_ptc_deadline_test.rs b/validator_client/validator_services/src/panda_ptc_deadline_test.rs
+new file mode 100644
+index 0000000..99bf957
+--- /dev/null
++++ b/validator_client/validator_services/src/panda_ptc_deadline_test.rs
+@@ -0,0 +1,143 @@
++// Included in the production payload-attestation test module. The hooks only select
++// scheduler interleavings; slot selection, signing, HTTP and the clock are unchanged.
++mod panda_clock {
++    use slot_clock::ManualSlotClock;
++    use std::io::{Read, Write};
++    use std::net::{TcpListener, TcpStream};
++    use std::time::Duration;
++
++    pub fn child(case: &str) -> bool {
++        let name = format!("payload_attestation_service::tests::{case}");
++        if std::env::var("PANDA_PTC_DEADLINE_CHILD").as_deref() == Ok(name.as_str()) {
++            assert_eq!(slot_clock::controlled::now(), Some(Duration::ZERO));
++            return false;
++        }
++        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
++        let port = listener.local_addr().unwrap().port();
++        drop(listener);
++        let output = std::process::Command::new(std::env::current_exe().unwrap())
++            .args(["--exact", &name, "--nocapture"])
++            .env("PANDA_PTC_DEADLINE_CHILD", &name)
++            .env("PANDA_CLOCK_START_MS", "0")
++            .env("PANDA_CLOCK_PORT", port.to_string())
++            .output()
++            .unwrap();
++        assert!(output.status.success(), "{}\n{}",
++            String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
++        assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"));
++        true
++    }
++
++    pub fn request(method: &str, path: &str) -> String {
++        let port: u16 = std::env::var("PANDA_CLOCK_PORT").unwrap().parse().unwrap();
++        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
++        stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
++        stream.set_write_timeout(Some(Duration::from_secs(5))).unwrap();
++        write!(stream,
++            "{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n").unwrap();
++        let mut response = String::new();
++        stream.read_to_string(&mut response).unwrap();
++        response
++    }
++
++    pub fn advance(clock: &ManualSlotClock, milliseconds: u64) {
++        let duration = Duration::from_millis(milliseconds);
++        clock.advance_time(duration);
++        let now = slot_clock::controlled::now().unwrap() + duration;
++        let response = request("POST", &format!("/advance/{}", now.as_millis()));
++        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
++    }
++
++    pub fn wait(slot: u64, expected: u16) {
++        let response = request("POST", &format!("/wait/{slot}/30/ptc_wait"));
++        assert!(response.starts_with(&format!("HTTP/1.1 {expected}")), "{response}");
++    }
++}
++
++#[tokio::test]
++async fn panda_ptc_deadline_survives_clock_advance() {
++    if panda_clock::child("panda_ptc_deadline_survives_clock_advance") { return; }
++    use std::sync::atomic::{AtomicBool, Ordering};
++    let mut harness = TestHarness::new_with_validators(1, None).await;
++    let slot = Slot::new(4);
++    harness.insert_ptc_duties(slot);
++    let _get = harness.harness.mock_beacon_node_1
++        .mock_get_validator_payload_attestation_data(&attestation_data(slot), ForkName::Gloas, slot);
++    let post = harness.harness.mock_beacon_node_1
++        .mock_post_beacon_pool_payload_attestations_ssz(Duration::ZERO);
++    panda_clock::advance(&harness.service.slot_clock, 47_500);
++    let manual = harness.service.slot_clock.clone();
++    let fired = Arc::new(AtomicBool::new(false));
++    let observed = fired.clone();
++    *PANDA_PTC_BEFORE_SLEEP.lock().unwrap() = Some(Box::new(move || {
++        // Compute the remaining delay at slot 3's tail, but register the sleep in slot 4.
++        panda_clock::advance(&manual, 500);
++        observed.store(true, Ordering::Release);
++    }));
++    harness.service.clone().start_update_service().unwrap();
++    tokio::time::timeout(Duration::from_secs(5), async {
++        while !fired.load(Ordering::Acquire) { tokio::task::yield_now().await; }
++    }).await.expect("production sleep interleaving was not reached");
++    assert!(harness.harness.mock_beacon_node_1.payload_attestation_message.lock().unwrap().is_empty());
++    panda_clock::advance(&harness.service.slot_clock, 9_000);
++    tokio::time::timeout(Duration::from_secs(5), async {
++        while !panda_clock::request("GET", "/").contains("\"payload_attestations\":4") {
++            tokio::task::yield_now().await;
++        }
++    }).await.expect("PTC deadline shifted past slot 4 + 9000ms");
++    assert_eq!(harness.harness.mock_beacon_node_1.payload_attestation_message.lock().unwrap().len(), 1);
++    assert_eq!(slot_clock::controlled::now(), Some(Duration::from_secs(57)));
++    post.expect(1).assert();
++}
++
++#[tokio::test]
++async fn panda_ptc_wait_covers_delayed_first_poll_and_loop_reentry() {
++    if panda_clock::child("panda_ptc_wait_covers_delayed_first_poll_and_loop_reentry") { return; }
++    let harness = TestHarness::new_with_validators(1, None).await;
++    panda_clock::advance(&harness.service.slot_clock, 47_500);
++
++    // Creating the production future does not select a target. Panda's existing wait API
++    // must keep the boundary closed until the task actually gets its first poll.
++    let first = harness.service.wait_for_attestation_slot();
++    tokio::pin!(first);
++    panda_clock::wait(4, 408);
++    assert_eq!(slot_clock::controlled::now(), Some(Duration::from_millis(47_500)));
++    assert!(first.as_mut().now_or_never().is_none());
++    panda_clock::wait(4, 200);
++    panda_clock::advance(&harness.service.slot_clock, 500);
++    assert!(first.as_mut().now_or_never().is_none());
++    panda_clock::advance(&harness.service.slot_clock, 9_000);
++    assert_eq!(first.await, Some(Slot::new(4)));
++
++    // The old mark cannot authorize the next boundary while the service has not yet
++    // re-entered its wait. Exercise that same production method a second time.
++    let next = harness.service.wait_for_attestation_slot();
++    tokio::pin!(next);
++    panda_clock::wait(5, 408);
++    assert_eq!(slot_clock::controlled::now(), Some(Duration::from_secs(57)));
++    assert!(next.as_mut().now_or_never().is_none());
++    panda_clock::wait(5, 200);
++    panda_clock::wait(4, 409);
++    panda_clock::advance(&harness.service.slot_clock, 3_000);
++    assert!(next.as_mut().now_or_never().is_none());
++    panda_clock::advance(&harness.service.slot_clock, 9_000);
++    assert_eq!(next.await, Some(Slot::new(5)));
++}
++
++#[tokio::test]
++async fn panda_ptc_wait_allows_advance_before_sleep_poll() {
++    if panda_clock::child("panda_ptc_wait_allows_advance_before_sleep_poll") { return; }
++    let harness = TestHarness::new_with_validators(1, None).await;
++    panda_clock::advance(&harness.service.slot_clock, 47_500);
++    let manual = harness.service.slot_clock.clone();
++    *PANDA_PTC_BEFORE_SLEEP.lock().unwrap() = Some(Box::new(move || {
++        // Panda observes the selected target before the sleep future is polled, then
++        // reaches its deadline. An absolute wait must see that advance immediately.
++        panda_clock::wait(4, 200);
++        panda_clock::advance(&manual, 9_500);
++    }));
++    let slot = tokio::time::timeout(Duration::from_secs(1), harness.service.wait_for_attestation_slot())
++        .await.expect("advance between target mark and first sleep poll was lost");
++    assert_eq!(slot, Some(Slot::new(4)));
++    assert_eq!(slot_clock::controlled::now(), Some(Duration::from_secs(57)));
++}
+diff --git a/validator_client/validator_services/src/panda_ptc_duties_deadline_test.rs b/validator_client/validator_services/src/panda_ptc_duties_deadline_test.rs
+new file mode 100644
+index 0000000..dfb035a
+--- /dev/null
++++ b/validator_client/validator_services/src/panda_ptc_duties_deadline_test.rs
+@@ -0,0 +1,137 @@
++// Exercise the actual duties-service task and HTTP cache population. The one-shot
++// hook selects an interleaving after the wait duration is read, before sleep polls.
++mod panda_duties_clock {
++    use slot_clock::ManualSlotClock;
++    use std::io::{Read, Write};
++    use std::net::{TcpListener, TcpStream};
++    use std::time::Duration;
++
++    pub fn child(case: &str) -> bool {
++        let name = format!("duties_service::test::{case}");
++        if std::env::var("PANDA_PTC_DUTIES_CHILD").as_deref() == Ok(name.as_str()) {
++            assert_eq!(slot_clock::controlled::now(), Some(Duration::ZERO));
++            return false;
++        }
++        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
++        let port = listener.local_addr().unwrap().port();
++        drop(listener);
++        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
++            .args(["--exact", &name, "--nocapture"])
++            .env("PANDA_PTC_DUTIES_CHILD", &name)
++            .env("PANDA_CLOCK_START_MS", "0")
++            .env("PANDA_CLOCK_PORT", port.to_string())
++            .stdout(std::process::Stdio::piped())
++            .stderr(std::process::Stdio::piped())
++            .spawn().unwrap();
++        let deadline = std::time::Instant::now() + Duration::from_secs(30);
++        while child.try_wait().unwrap().is_none() {
++            if std::time::Instant::now() >= deadline {
++                child.kill().unwrap();
++                let output = child.wait_with_output().unwrap();
++                panic!("native test child exceeded real 30s deadline: {}\n{}",
++                    String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
++            }
++            std::thread::sleep(Duration::from_millis(10));
++        }
++        let output = child.wait_with_output().unwrap();
++        assert!(output.status.success(), "{}\n{}",
++            String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
++        assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed; 0 failed"));
++        true
++    }
++
++    pub fn advance(clock: &ManualSlotClock, milliseconds: u64) {
++        let duration = Duration::from_millis(milliseconds);
++        clock.advance_time(duration);
++        let now = slot_clock::controlled::now().unwrap() + duration;
++        let port: u16 = std::env::var("PANDA_CLOCK_PORT").unwrap().parse().unwrap();
++        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
++        stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
++        stream.set_write_timeout(Some(Duration::from_secs(5))).unwrap();
++        write!(stream, "POST /advance/{} HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n", now.as_millis()).unwrap();
++        let mut response = String::new();
++        stream.read_to_string(&mut response).unwrap();
++        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
++    }
++}
++
++async fn panda_ptc_duties_after_delayed_sleep(empty_indices: bool) {
++    use std::sync::atomic::AtomicUsize;
++    use validator_test_rig::validator_client_harness::ValidatorClientHarness;
++    let mut harness = ValidatorClientHarness::new(1).await;
++    if empty_indices {
++        // Reinitialize the existing real keystore to reproduce production's unknown index.
++        let validators = harness.validator_store.initialized_validators();
++        let mut validators = validators.write();
++        for definition in validators.as_mut_slice_testing_only() { definition.enabled = false; }
++        validators.update_validators().await.unwrap();
++        for definition in validators.as_mut_slice_testing_only() { definition.enabled = true; }
++        validators.update_validators().await.unwrap();
++        drop(validators);
++        assert_eq!(harness.validator_store.validator_index(&harness.pubkeys[0]), None);
++    }
++    let requests = (0..3).map(|_| Arc::new(AtomicUsize::new(0))).collect::<Vec<_>>();
++    let mut mocks = Vec::new();
++    for node in [&mut harness.mock_beacon_node_1, &mut harness.mock_beacon_node_2] {
++        for epoch in 0..3 {
++            mocks.push(node.panda_ptc_duties(Epoch::new(epoch), PtcDuty {
++                pubkey: harness.pubkeys[0], validator_index: 0, slot: Slot::new(epoch * 32 + 4),
++            }, requests[epoch as usize].clone()));
++        }
++    }
++    let service = Arc::new(DutiesServiceBuilder::new()
++        .validator_store(harness.validator_store.clone())
++        .slot_clock(harness.slot_clock.clone())
++        .beacon_nodes(harness.beacon_nodes.clone())
++        .executor(harness.test_runtime.task_executor.clone())
++        .spec(harness.spec.clone()).build().unwrap());
++    let initial_ms = if empty_indices { 47_500 } else { 383_500 };
++    panda_duties_clock::advance(&harness.slot_clock, initial_ms);
++    let observed = Arc::new(AtomicBool::new(false));
++    let fired = observed.clone();
++    let hook_service = service.clone();
++    let hook_requests = requests.clone();
++    let pubkey = harness.pubkeys[0];
++    *PANDA_PTC_DUTIES_BEFORE_SLEEP.lock().unwrap() = Some(Box::new(move || {
++        let expected = if empty_indices { 0 } else { 1 };
++        assert_eq!(hook_service.ptc_count(Epoch::new(0)), expected);
++        assert_eq!(hook_service.ptc_count(Epoch::new(1)), expected);
++        assert_eq!(hook_requests[0].load(Ordering::Acquire), expected);
++        assert_eq!(hook_requests[1].load(Ordering::Acquire), expected);
++        assert_eq!(hook_requests[2].load(Ordering::Acquire), 0);
++        if empty_indices {
++            // Model the independent index-discovery worker finishing after the empty PTC poll.
++            assert_eq!(hook_service.validator_store.validator_index(&pubkey), None);
++            hook_service.validator_store.set_validator_index(&pubkey, 0);
++        }
++        // The old 500ms relative wait is first polled at the next slot's phase 6.
++        panda_duties_clock::advance(&hook_service.slot_clock, 6_500);
++        fired.store(true, Ordering::Release);
++    }));
++    let (tx, _rx) = tokio::sync::mpsc::channel(32);
++    start_update_service(service.clone(), tx);
++    tokio::time::timeout(Duration::from_secs(5), async {
++        while !observed.load(Ordering::Acquire) { tokio::task::yield_now().await; }
++    }).await.expect("production PTC duties wait was not reached");
++    let epoch = if empty_indices { 0 } else { 1 };
++    tokio::time::timeout(Duration::from_secs(5), async {
++        while service.ptc_count(Epoch::new(epoch)) != 1 || service.ptc_count(Epoch::new(epoch + 1)) != 1 {
++            tokio::task::yield_now().await;
++        }
++    }).await.expect("PTC duties did not refresh while protocol time was frozen at phase 6");
++    assert!(requests[epoch as usize].load(Ordering::Acquire) > 0);
++    assert!(requests[epoch as usize + 1].load(Ordering::Acquire) > 0);
++    assert_eq!(slot_clock::controlled::now(), Some(Duration::from_millis(initial_ms + 6_500)));
++}
++
++#[tokio::test]
++async fn panda_ptc_duties_empty_indices_delayed_sleep() {
++    if panda_duties_clock::child("panda_ptc_duties_empty_indices_delayed_sleep") { return; }
++    panda_ptc_duties_after_delayed_sleep(true).await;
++}
++
++#[tokio::test]
++async fn panda_ptc_duties_epoch_refresh_delayed_sleep() {
++    if panda_duties_clock::child("panda_ptc_duties_epoch_refresh_delayed_sleep") { return; }
++    panda_ptc_duties_after_delayed_sleep(false).await;
++}
 diff --git a/validator_client/validator_services/src/payload_attestation_service.rs b/validator_client/validator_services/src/payload_attestation_service.rs
-index 56adafb..ccf6b77 100644
+index 56adafb..436437b 100644
 --- a/validator_client/validator_services/src/payload_attestation_service.rs
 +++ b/validator_client/validator_services/src/payload_attestation_service.rs
 @@ -8,7 +8,7 @@ use std::ops::Deref;
@@ -1246,7 +1618,25 @@ index 56adafb..ccf6b77 100644
              data_result = self
                  .produce_payload_attestation_data(PayloadAttestationTrigger::Deadline(
                      attestation_slot,
-@@ -456,6 +456,7 @@ where
+@@ -249,7 +249,16 @@ where
+             return None;
+         }
+ 
+-        sleep(duration_to_next_slot + payload_attestation_due).await;
++        if std::env::var_os("PANDA_CLOCK_START_MS").is_some() {
++            let absolute = self.slot_clock.start_of(attestation_slot)?
++                .checked_add(payload_attestation_due)?;
++            slot_clock::controlled::mark("ptc_wait", attestation_slot.as_u64());
++            #[cfg(test)]
++            panda_ptc_before_sleep();
++            slot_clock::controlled::sleep_until(slot_clock::controlled::instant_at(absolute)?).await;
++        } else {
++            sleep(duration_to_next_slot + payload_attestation_due).await;
++        }
+ 
+         let Some(post_sleep_slot) = self.slot_clock.now() else {
+             error!("Failed to read slot clock after sleep");
+@@ -456,12 +465,14 @@ where
              "Successfully published payload attestations"
          );
  
@@ -1254,6 +1644,25 @@ index 56adafb..ccf6b77 100644
          Ok(())
      }
  }
+ 
+ #[cfg(test)]
+ mod tests {
++    include!("panda_ptc_deadline_test.rs");
+     use super::*;
+     use crate::duties_service::DutiesServiceBuilder;
+     use bls::{FixedBytesExtended, PublicKeyBytes, Signature};
+@@ -1484,3 +1495,11 @@ mod tests {
+         mock_ssz.expect(1).assert();
+     }
+ }
++
++#[cfg(test)]
++static PANDA_PTC_BEFORE_SLEEP: std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>> = std::sync::Mutex::new(None);
++#[cfg(test)]
++fn panda_ptc_before_sleep() {
++    let callback = PANDA_PTC_BEFORE_SLEEP.lock().unwrap().take();
++    if let Some(callback) = callback { callback(); }
++}
 diff --git a/validator_client/validator_services/src/preparation_service.rs b/validator_client/validator_services/src/preparation_service.rs
 index cacab6a..1d79826 100644
 --- a/validator_client/validator_services/src/preparation_service.rs
@@ -1363,3 +1772,10 @@ index e5d1d8f..ce2f94a 100644
              tokio::time::sleep(Duration::from_millis(10)).await;
          }
  
+diff --git a/validator_client/validator_services/tests/panda_ptc_deadline.rs b/validator_client/validator_services/tests/panda_ptc_deadline.rs
+new file mode 100644
+index 0000000..0541b9d
+--- /dev/null
++++ b/validator_client/validator_services/tests/panda_ptc_deadline.rs
+@@ -0,0 +1 @@
++include!("../src/lib.rs");

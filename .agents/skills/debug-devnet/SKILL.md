@@ -23,3 +23,6 @@ For a current payload stall, inspect `src/engine.ts` and Geth JSON `Updated payl
 gate must suppress future-slot attributes, wait for the current full payload and preserve real-time
 JWT validation. A missing event must time out visibly. After `skipSlots`, read updated VC endpoints
 from manifest.json; Docker Desktop may not immediately release old private ports.
+
+Prefer Panda-side fixes. Before changing client source, apply the minimal-change rule in
+[develop-feature](../develop-feature/SKILL.md), including independent subagent review.

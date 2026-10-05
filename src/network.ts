@@ -4,6 +4,9 @@ import { account, type Config, configuration, mnemonic } from "./config.ts";
 import { Infrastructure, LABEL, ROLE } from "./docker.ts";
 import { checkEngineCapabilities, EngineGate } from "./engine.ts";
 import { deadline, defaultTimeoutMs, json, rpc, waitFor } from "./http.ts";
+import { BeaconRelay } from "./beacon_relay.ts";
+import { ConsensusMessages } from "./consensus_messages.ts";
+import { needsPtcReadiness, PtcReadiness } from "./ptc_readiness.ts";
 
 export interface Manifest {
   bake: Bake;
@@ -13,16 +16,27 @@ export interface Manifest {
   bnClock: string;
   vcClock: string;
   vc: string;
+  vcMetrics?: string;
   directory: string;
 }
 export class Network {
   engine?: EngineGate;
+  beaconRelay?: BeaconRelay;
+  ptcReadiness?: PtcReadiness;
+  readonly consensusMessages?: ConsensusMessages;
   private lockOwned = false;
   readonly infra: Infrastructure;
   readonly directory: string;
   constructor(readonly config: Config) {
     this.infra = new Infrastructure(config.id);
     this.directory = `${Deno.cwd()}/.panda/${config.id}`;
+    if (config.profile === "gloas" && config.mode === "controlled") {
+      this.consensusMessages = new ConsensusMessages(() =>
+        Math.floor(
+          ((this.engine?.nowMs ?? config.genesisTime * 1000) / 1000 - config.genesisTime) / 12,
+        )
+      );
+    }
   }
   async start(): Promise<Manifest> {
     await Deno.mkdir(this.directory, { recursive: true });
@@ -63,6 +77,18 @@ export class Network {
       this.lockOwned = false;
     }
   }
+  /** Call after stopping the old VC and before starting its replacement. */
+  prepareValidator(): void {
+    this.ptcReadiness?.reset();
+  }
+  /** Bind newly discovered private endpoints before waiting for replacement readiness. */
+  bindValidator(manifest: Manifest): void {
+    if (this.beaconRelay) this.beaconRelay.upstream = manifest.beacon;
+    if (needsPtcReadiness(manifest)) {
+      if (!this.ptcReadiness) throw new Error("Missing validator PTC bootstrap runtime");
+      this.ptcReadiness.bind(manifest);
+    }
+  }
   private async startOwned(): Promise<Manifest> {
     const filters = { label: [`${LABEL}=${this.config.id}`] };
     const [existing, networks, volumes] = await Promise.all([
@@ -88,6 +114,9 @@ export class Network {
     }
     const bake = await readBake(config.profile, config.bake);
     const recipe = bake.recipe;
+    const ptcReadiness = config.profile === "gloas" && config.mode === "controlled" &&
+      recipe.ptcReadiness === true;
+    if (ptcReadiness) this.ptcReadiness = new PtcReadiness();
     const clockEnv = config.mode === "controlled"
       ? [
         `${clockEnvironment(recipe).startMs}=${config.genesisTime * 1000 + 11_500}`,
@@ -242,6 +271,9 @@ export class Network {
         NetworkingConfig: { EndpointsConfig: { [network]: { Aliases: ["bn"] } } },
       });
       await waitFor("Beacon API", () => json(`${bn(5052)}/eth/v1/beacon/genesis`));
+      if (this.consensusMessages) {
+        this.beaconRelay = new BeaconRelay(bn(5052), this.consensusMessages, this.ptcReadiness);
+      }
       const vc = await start("vc", {
         Image: clientImage,
         User: sharedUser,
@@ -252,7 +284,7 @@ export class Network {
           "validator_client",
           "--validators-dir=/shared/validator-keys/keys",
           "--secrets-dir=/shared/validator-keys/secrets",
-          "--beacon-nodes=http://bn:5052",
+          `--beacon-nodes=${this.beaconRelay?.url ?? "http://bn:5052"}`,
           ...(config.profile === "gloas" && config.mode === "controlled" && !recipe.preparedSkip
             ? ["--use-long-timeouts", "--long-timeouts-multiplier=60"]
             : []),
@@ -261,14 +293,26 @@ export class Network {
           "--http",
           "--http-address=0.0.0.0",
           "--unencrypted-http-transport",
+          ...(ptcReadiness
+            ? ["--disable-payload-available-monitor", "--metrics", "--metrics-address=0.0.0.0"]
+            : []),
         ],
-        ExposedPorts: { "5062/tcp": {}, "5059/tcp": {} },
+        ExposedPorts: {
+          "5062/tcp": {},
+          "5059/tcp": {},
+          ...(ptcReadiness ? { "5064/tcp": {} } : {}),
+        },
         HostConfig: {
           Binds: [`${directory}:/shared`],
           NetworkMode: network,
-          PortBindings: { ...port("5062/tcp"), ...port("5059/tcp") },
+          PortBindings: {
+            ...port("5062/tcp"),
+            ...port("5059/tcp"),
+            ...(ptcReadiness ? port("5064/tcp") : {}),
+          },
           MemoryReservation: 128 * 1024 ** 2,
           NanoCpus: 2e9,
+          ExtraHosts: Deno.build.os === "linux" ? ["host.docker.internal:host-gateway"] : undefined,
         },
       });
       const manifest: Manifest = {
@@ -280,13 +324,16 @@ export class Network {
         bnClock: bn(5059),
         vcClock: vc(5059),
         vc: vc(5062),
+        ...(ptcReadiness ? { vcMetrics: vc(5064) } : {}),
       };
+      this.bindValidator(manifest);
       if (config.mode === "controlled") {
         await waitFor("validator clock and services", async () => {
           const clock = await json<{ marks: Record<string, number> }>(vc(5059));
           return clock.marks.ready === 0 && clock.marks.indices === 0 ? clock : undefined;
         });
       }
+      await this.ptcReadiness?.beforeDuties();
       await Deno.writeTextFile(`${directory}/manifest.json`, JSON.stringify(manifest, null, 2));
       console.log(
         JSON.stringify({
@@ -299,7 +346,13 @@ export class Network {
       );
       return manifest;
     } catch (error) {
+      this.ptcReadiness?.close();
       const errors = [error];
+      try {
+        await this.beaconRelay?.close();
+      } catch (relay) {
+        errors.push(relay);
+      }
       try {
         await this.engine?.close();
       } catch (engine) {
@@ -341,6 +394,7 @@ export class Network {
     const old = this.infra.docker.getContainer(listed[0].Id);
     const info = await old.inspect();
     await old.stop({ t: 10 });
+    this.prepareValidator();
     const stopped = performance.now();
     await json(`${manifest.bnClock}/advance/${nowMs}`, { method: "POST" });
     if (manifest.bake.recipe.preparedSkip) {
@@ -374,6 +428,10 @@ export class Network {
     const ports = (await replacement.inspect()).NetworkSettings.Ports;
     manifest.vcClock = `http://127.0.0.1:${ports["5059/tcp"]![0].HostPort}`;
     manifest.vc = `http://127.0.0.1:${ports["5062/tcp"]![0].HostPort}`;
+    if (needsPtcReadiness(manifest)) {
+      manifest.vcMetrics = `http://127.0.0.1:${ports["5064/tcp"]![0].HostPort}`;
+    }
+    this.bindValidator(manifest);
     await Deno.writeTextFile(`${this.directory}/manifest.json`, JSON.stringify(manifest, null, 2));
     await waitFor("validator restarted after skipped slots", async () => {
       const clock = await json<{ nowMs: number; marks: Record<string, number> }>(manifest.vcClock);
@@ -381,6 +439,7 @@ export class Network {
         ? true
         : undefined;
     });
+    await this.ptcReadiness?.beforeDuties();
     console.log(JSON.stringify({
       event: "slots-skipped",
       id: this.config.id,
@@ -405,8 +464,13 @@ export class Network {
     try {
       await this.saveLogs();
     } finally {
+      this.ptcReadiness?.close();
       try {
-        await this.engine?.close();
+        try {
+          await this.beaconRelay?.close();
+        } finally {
+          await this.engine?.close();
+        }
       } finally {
         try {
           await this.infra.cleanup();

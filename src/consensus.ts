@@ -2,6 +2,7 @@ import { defaultTimeoutMs, HttpError, json, rpc, waitFor } from "./http.ts";
 import { type Manifest, Network } from "./network.ts";
 import { type TimeBackend, Timeline } from "./time.ts";
 import type { EngineGate } from "./engine.ts";
+import { needsPtcReadiness } from "./ptc_readiness.ts";
 
 export interface ClockState {
   nowMs: number;
@@ -19,7 +20,11 @@ export interface ExecutionBlock {
 export class Consensus implements TimeBackend {
   private recovering = false;
   private confirmedHead?: { slot: number; root: string };
-  constructor(readonly manifest: Manifest, readonly engine?: EngineGate) {}
+  constructor(
+    readonly manifest: Manifest,
+    readonly engine?: EngineGate,
+    readonly network?: Network,
+  ) {}
   async clock(endpoint: string, at?: number): Promise<ClockState> {
     return await json<ClockState>(
       at === undefined ? endpoint : `${endpoint}/advance/${at}`,
@@ -70,10 +75,17 @@ export class Consensus implements TimeBackend {
     }, timeoutMs);
   }
   async move(at: number, phase?: number): Promise<void> {
-    if (this.engine) this.engine.nowMs = at;
     const m = this.manifest;
     const profile = m.bake.recipe;
     const slot = Math.floor((at / 1000 - m.config.genesisTime) / 12);
+    if (needsPtcReadiness(m)) {
+      if (phase === 0) await this.mark(m.vcClock, ["ptc_wait"], slot);
+      if (phase === 9_000) {
+        if (!this.network?.ptcReadiness) throw new Error("Missing validator PTC bootstrap runtime");
+        await this.network.ptcReadiness.beforePtcDeadline(slot);
+      }
+    }
+    if (this.engine) this.engine.nowMs = at;
     await this.clock(m.bnClock, at);
     if (phase === 0) await this.mark(m.bnClock, ["slot"], slot);
     await this.clock(m.vcClock, at);
@@ -155,15 +167,25 @@ export class Consensus implements TimeBackend {
     });
   }
   async skip(at: number): Promise<void> {
+    if (needsPtcReadiness(this.manifest) && !this.network?.ptcReadiness) {
+      throw new Error("Missing validator PTC bootstrap runtime");
+    }
     this.recovering = !this.manifest.bake.recipe.preparedSkip;
     if (this.engine) this.engine.nowMs = at;
-    await new Network(this.manifest.config).skipValidator(this.manifest, at);
+    await (this.network ?? new Network(this.manifest.config)).skipValidator(this.manifest, at);
   }
-  static async connect(manifest: Manifest, engine?: EngineGate): Promise<Timeline> {
+  static async connect(
+    manifest: Manifest,
+    engine?: EngineGate,
+    network?: Network,
+  ): Promise<Timeline> {
     if (manifest.config.mode !== "controlled") {
       throw new Error("Time control requires the Lighthouse fork");
     }
-    const backend = new Consensus(manifest, engine);
+    if (needsPtcReadiness(manifest) && !network?.ptcReadiness) {
+      throw new Error("Missing validator PTC bootstrap runtime");
+    }
+    const backend = new Consensus(manifest, engine, network);
     const bn = await backend.clock(manifest.bnClock);
     const vc = await backend.clock(manifest.vcClock);
     if (bn.nowMs !== vc.nowMs) throw new Error("BN/VC clock mismatch; reset required");

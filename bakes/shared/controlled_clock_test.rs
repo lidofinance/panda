@@ -26,6 +26,8 @@ async fn protocol_time_waits_for_completion_and_rejects_invalid_commands() {
     }
     let clock = SystemTimeSlotClock::new(Slot::new(0), Duration::from_secs(2_000_000_000), Duration::from_secs(12));
     assert_eq!(clock.now(), Some(Slot::new(0)));
+    let unix_deadline = Duration::from_secs(2_000_000_012);
+    let absolute_deadline = controlled::instant_at(unix_deadline).unwrap();
     let wait = controlled::sleep(Duration::from_secs(12));
     tokio::pin!(wait);
     assert!(tokio::time::timeout(Duration::from_millis(20), &mut wait).await.is_err());
@@ -34,6 +36,9 @@ async fn protocol_time_waits_for_completion_and_rejects_invalid_commands() {
     assert!(response.contains("200 OK"));
     tokio::time::timeout(Duration::from_millis(100), &mut wait).await.unwrap();
     assert_eq!(clock.now(), Some(Slot::new(1)));
+    // The fixed nonzero origin must not rebase a deadline as protocol time advances.
+    assert_eq!(controlled::instant_at(unix_deadline), Some(absolute_deadline));
+    tokio::time::timeout(Duration::from_millis(100), controlled::sleep_until(absolute_deadline)).await.unwrap();
     let response = tokio::task::spawn_blocking(move || request(port, "/advance/2000000000000")).await.unwrap();
     assert!(response.contains("409 Conflict"));
     assert_eq!(clock.now(), Some(Slot::new(1)));

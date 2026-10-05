@@ -98,7 +98,10 @@ Deno.test("published locks reject mutable clients, wrong forks, architecture and
     (value: PublishedClients) => {
       value.lighthouse.build = {
         ...value.lighthouse.build,
-        baker: { ...value.lighthouse.build.baker, version: 2 },
+        baker: {
+          ...value.lighthouse.build.baker,
+          version: value.lighthouse.build.baker.version + 1,
+        },
       };
     },
     (value: PublishedClients) => {

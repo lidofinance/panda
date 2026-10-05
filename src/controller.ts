@@ -18,7 +18,11 @@ export class Controller {
     const network = new Network(configuration(input));
     const manifest = await network.start();
     try {
-      return new Controller(network, manifest, await Consensus.connect(manifest, network.engine));
+      return new Controller(
+        network,
+        manifest,
+        await Consensus.connect(manifest, network.engine, network),
+      );
     } catch (error) {
       await network.stop();
       throw error;
@@ -104,6 +108,9 @@ export class Controller {
           }
           if (path.startsWith("/eth/") || path.startsWith("/lighthouse/")) {
             const url = new URL(request.url);
+            if (this.network.consensusMessages) {
+              return await this.network.consensusMessages.forward(request, this.manifest.beacon);
+            }
             return await fetch(`${this.manifest.beacon}${url.pathname}${url.search}`, {
               method: request.method,
               headers: request.headers,

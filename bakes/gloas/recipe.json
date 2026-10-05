@@ -11,9 +11,13 @@
     "bakes/shared/native/sync_batch.rs",
     "bakes/gloas/native/weighted_selection.rs",
     "bakes/gloas/native/prepare_skip.rs",
-    "bakes/shared/native/direct_sync_test.rs"
+    "bakes/shared/native/direct_sync_test.rs",
+    "bakes/gloas/native/ptc_deadline_test.rs",
+    "bakes/gloas/native/ptc_duties_deadline_test.rs",
+    "bakes/gloas/native/ptc_duties_deadline_mock.rs"
   ],
   "preparedSkip": true,
+  "ptcReadiness": true,
   "nativeTests": [
     {
       "package": "bls",
@@ -26,6 +30,10 @@
     {
       "package": "beacon_chain",
       "target": "panda_direct_sync"
+    },
+    {
+      "package": "validator_services",
+      "target": "panda_ptc_deadline"
     }
   ],
   "runtime": "debian@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251",
@@ -42,7 +50,8 @@
     "protocol": "bakes/shared/tests/protocol_test.ts",
     "withdrawal": "bakes/shared/tests/withdrawal_test.ts",
     "deploy": "bakes/shared/tests/deploy.ts",
-    "gloas": "bakes/gloas/tests/gloas.ts"
+    "gloas": "bakes/gloas/tests/gloas.ts",
+    "snapshot-replay": "bakes/gloas/tests/snapshot_replay.ts"
   },
   "name": "gloas",
   "elFork": "amsterdam",
@@ -77,7 +86,7 @@
     "SLOT_DURATION_MS": "12000"
   },
   "clVersion": "8.2.2",
-  "bakerVersion": 1,
+  "bakerVersion": 2,
   "clockWait": true,
   "directSync": true
 }

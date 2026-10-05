@@ -1,0 +1,18 @@
+{
+  "event": "snapshot-replay-passed",
+  "elapsedMs": 165822.603125,
+  "restoredCut": 3,
+  "continuedThrough": 226,
+  "naiveAttestationCut": 32,
+  "sparseNaiveAttestationCut": 35,
+  "bootstrap": [
+    "fresh",
+    "skip-replacement",
+    "index-failure"
+  ],
+  "profile": "gloas",
+  "bake": "snapshot-minimal-r1",
+  "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
+  "runId": "b1e94599-eda5-4edc-9e93-ade75f5339ff",
+  "recordedAt": "2026-10-05T14:18:31.822Z"
+}

@@ -92,7 +92,11 @@ Deno.test("published native clients must match both versions and architecture be
   };
   assert.doesNotThrow(() => assertLighthouseImage(build, image));
   assert.throws(
-    () => assertLighthouseImage({ ...build, baker: { ...build.baker, version: 2 } }, image),
+    () =>
+      assertLighthouseImage(
+        { ...build, baker: { ...build.baker, version: build.baker.version + 1 } },
+        image,
+      ),
     /identity mismatch/,
   );
   assert.throws(

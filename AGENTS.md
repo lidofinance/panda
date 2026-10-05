@@ -7,6 +7,17 @@ profiles are named by hardfork: Pectra (Prague/Electra) and Gloas (Amsterdam/Glo
 12-second slots. Protocol time is explicit; sockets, RPC deadlines, watchdogs and profiling use real
 time. Never substitute a mock EL, signature bypass or a fabricated finalized checkpoint.
 
+## Working approach
+
+Start from the user's current goal; reuse established findings and keep plans current. Prefer the
+smallest maintainable solution across Panda and its clients. Solve problems through Panda,
+infrastructure, configuration and existing APIs first. Change Lighthouse only when those cannot
+reliably meet a concrete requirement, after independent subagent review, and keep the patch minimal.
+Have reviewers challenge alternatives and counterexamples together before implementing a design;
+justifying the current code does not establish that its architecture is necessary. Count injected
+helpers in the client diff. Explain the idea and tradeoffs plainly, preserve useful evidence, and
+distinguish source-reviewed proposals from executed verification.
+
 Requires Deno 2.9.7 on `PATH` and a running local Docker daemon.
 
 Commands: `deno task smoke:docker`; `deno task check`; `deno task test`; `deno task baseline`;
