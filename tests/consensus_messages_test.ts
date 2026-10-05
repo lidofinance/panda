@@ -519,3 +519,49 @@ Deno.test("replay refuses ambiguous epoch duplicates before posting and stops on
     assert.equal(calls, 1);
   });
 });
+
+Deno.test("restored consensus capture retains evidence for another snapshot and rejects overwrite", () => {
+  const saved = [{
+    path: ptc,
+    headers: [["content-type", "application/json"]] as [string, string][],
+    body: [...new TextEncoder().encode('[{"data":{"slot":"3"}}]')],
+  }];
+  const buffer = new ConsensusMessages(() => 3) as ConsensusMessages & {
+    restore(messages: typeof saved): void;
+  };
+  buffer.restore(saved);
+  assert.deepEqual(buffer.snapshot(), saved);
+  saved[0].body[0] = 0;
+  assert.equal(buffer.snapshot()[0].body[0], 91);
+  assert.throws(() => buffer.restore([]), /empty/);
+});
+
+Deno.test("restored consensus capture rejects malformed and over-capacity archive bytes atomically", () => {
+  const buffer = new ConsensusMessages(() => 3, 80) as ConsensusMessages & {
+    restore(messages: unknown): void;
+  };
+  for (
+    const input of [null, {}, [{ path: ptc, headers: [], body: [-1] }], [{
+      path: ptc,
+      headers: [["authorization", "secret"]],
+      body: [91, 93],
+    }]]
+  ) {
+    assert.throws(() => buffer.restore(input), /Invalid|Unsupported/);
+    assert.deepEqual(buffer.snapshot(), []);
+  }
+  assert.throws(
+    () =>
+      buffer.restore([{
+        path: ptc,
+        headers: [["content-type", "application/json"]],
+        body: [
+          ...new TextEncoder().encode(
+            '[{"data":{"slot":"3"},"signature":"' + "a".repeat(100) + '"}]',
+          ),
+        ],
+      }]),
+    /capacity/,
+  );
+  assert.deepEqual(buffer.snapshot(), []);
+});

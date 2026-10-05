@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "elapsedMs": 63684.428041,
+  "savedSlot": 4,
+  "transaction": "0x7a35f5b4f1c6551317fd8ca8356f4be6bc7633d584fd9f554fe4641dc764f191",
+  "blockRoot": "0x45f79c7cd55685eb63d47b15dbb5718bd31dd89785cbbe15d28505b8a4976870",
+  "savedStateSha256": "0x10f5376e227744aec98419b95b3436051529de14eedcccfaa71ea00cac654add",
+  "columns": {
+    "count": 128,
+    "bytes": 275968,
+    "sha256": "0x9120818e55c7504e4759b968036cd1fb3a72c58752707cfccd85c4d01ee421a4"
+  },
+  "envelope": {
+    "bytes": 1954,
+    "sha256": "0x2db60a912f240181854a01436e1a77d496f2554e5f82dbf6c54a81ac1dbef719"
+  },
+  "nextStateSha256": "0x3321db2daa6838bdfd7460a047b8801b51f9365957dfdb7d96461789367d4aa0",
+  "finalStateSha256": "0x40e4303119ad3423a1b6c71f6e3738810b787b2081bb6c994d897d086cce68e4",
+  "finalizedExecution": "0x27e5f842547987f148ec06f0188f9c73d77cb2611b386e8f33c3d31ec5b85f36",
+  "coverage": "Geth KZG, verified custody columns and raw blob, exact snapshot restore and branch replay",
+  "profile": "gloas",
+  "bake": "snapshot-minimal-r1",
+  "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
+  "recordedAt": "2026-10-05T15:32:03.992Z"
+}

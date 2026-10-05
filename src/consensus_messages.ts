@@ -77,6 +77,37 @@ export class ConsensusMessages {
   private queue = Promise.resolve();
   constructor(readonly slot: () => number, readonly maxBytes = 16 * 1024 ** 2) {}
 
+  /** Restore captured evidence only into an unused buffer, before any new validator can sign. */
+  restore(messages: ConsensusMessage[]): void {
+    if (this.pending || this.entries.length || this.failure) {
+      throw new Error("Consensus capture must be empty before restore");
+    }
+    validateConsensusMessages(messages, this.slot(), this.maxBytes);
+    const entries = messages.map((message) => {
+      const parsed = votes(message);
+      return {
+        message: structuredClone(message),
+        newest: parsed.reduce((last, vote) => Math.max(last, vote.slot), 0),
+        bytes: message.body.length + encoder.encode(JSON.stringify(message.headers)).length,
+      };
+    });
+    const bytes = entries.reduce((sum, entry) => sum + entry.bytes, 0);
+    if (entries.length > 4096 || bytes > this.maxBytes) {
+      throw new Error("Consensus capture capacity exceeded");
+    }
+    this.entries = entries;
+    this.bytes = bytes;
+  }
+
+  async idle(): Promise<void> {
+    await this.queue;
+  }
+
+  /** Keep normal forwarding available, but never claim an untracked mutation was saved. */
+  refuseSnapshot(reason: string): void {
+    this.failure ??= reason;
+  }
+
   private prune(): void {
     const epoch = Math.floor(this.slot() / 32);
     if (epoch === this.epoch) return;
@@ -187,6 +218,46 @@ export class ConsensusMessages {
     prepareReplay(messages, this.slot());
     return structuredClone(messages);
   }
+}
+
+/** Validate untrusted archive replay evidence before preparing a candidate or touching clients. */
+export function validateConsensusMessages(
+  value: unknown,
+  slot: number,
+  maxBytes = 16 * 1024 ** 2,
+): asserts value is ConsensusMessage[] {
+  if (!Array.isArray(value)) throw new Error("Invalid consensus capture array");
+  if (value.length > 4096) throw new Error("Consensus capture capacity exceeded");
+  let bytes = 0;
+  for (const entry of value) {
+    if (
+      !entry || typeof entry !== "object" || !paths.has(entry.path) ||
+      !Array.isArray(entry.headers) || !Array.isArray(entry.body)
+    ) {
+      throw new Error("Invalid consensus capture message");
+    }
+    for (const header of entry.headers) {
+      if (
+        !Array.isArray(header) || header.length !== 2 ||
+        typeof header[0] !== "string" || typeof header[1] !== "string" ||
+        !["content-type", "eth-consensus-version", "content-encoding"].includes(
+          header[0].toLowerCase(),
+        )
+      ) {
+        throw new Error("Invalid consensus capture header");
+      }
+    }
+    bytes += entry.body.length + encoder.encode(JSON.stringify(entry.headers)).length;
+    if (bytes > maxBytes) throw new Error("Consensus capture capacity exceeded");
+    if (
+      !entry.body.every((byte: unknown) =>
+        typeof byte === "number" && Number.isInteger(byte) && byte >= 0 && byte <= 255
+      )
+    ) {
+      throw new Error("Invalid consensus capture bytes");
+    }
+  }
+  prepareReplay(value, slot);
 }
 
 /** Replay only at a completed slot tail, before any replacement validator can sign. */

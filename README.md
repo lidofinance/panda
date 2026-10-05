@@ -66,9 +66,9 @@ HTTP JSON-RPC and Beacon API share `http://127.0.0.1:8545`: use `/` for JSON-RPC
 APIs on ports 5052 and 5062. See [client APIs and logs](docs/ci-containers.md#client-apis-and-logs)
 for port mappings, the VC token and `panda logs el|cl|vc`.
 
-Press Ctrl-C to stop and clean up, or run `deno task down` in another terminal.
-`deno task reset --profile pectra --bake local` starts again with fresh state. Use `PANDA_ID` and
-`PANDA_PORT` for separate instances.
+Press Ctrl-C to preserve a controlled Gloas network for the next startup, or run `deno task down` in
+another terminal to remove the active network. `deno task reset --profile pectra --bake local`
+starts again with fresh state. Use `PANDA_ID` and `PANDA_PORT` for separate instances.
 
 ## TypeScript API
 
@@ -136,9 +136,10 @@ untrusted changes; the privileged CI image is not a sandbox for hostile code. Ke
 on loopback and never use real wallet keys. See [security boundaries](SECURITY.md).
 
 HTTP JSON-RPC is supported. WebSocket, long-lived Beacon SSE, multiple beacon nodes and arbitrary
-external validators are outside the current verified scope. Resuming an existing chain after a
-controller restart is not implemented; use `down` followed by `up` to start fresh. Geth's real-time
-transaction-pool expiry continues during a protocol pause.
+external validators are outside the current verified scope. Controlled Gloas supports clean
+stop/resume and reusable [full-network snapshots](docs/snapshots.md), including startup from local
+files or HTTPS. Unclean process loss requires explicit recovery. Geth's real-time transaction-pool
+expiry continues during a protocol pause.
 
 ## Bake profiles
 
@@ -173,6 +174,8 @@ reports. Keep resource measurements separate from other devnet tests.
 ## Documentation
 
 - [Usage guide](docs/usage.md) — configuration, API details, ethers settings and troubleshooting.
+- [Snapshots](docs/snapshots.md) — save and restore the full network, export fixtures and seed
+  startup.
 - [CI images](docs/ci-containers.md) — versioned hardfork images and CI service integration.
 - [Time and warp algorithm](docs/warp-algorithm.md) — start here to understand honest/fast modes,
   execution phases, validator duties, recovery and the source files involved.

@@ -40,6 +40,9 @@ async function fixture(
     return Promise.resolve({
       start: async () => {
         if (role === "genesis") {
+          const binding = options.HostConfig?.Binds?.find((value) => value.endsWith(":/data"));
+          assert(binding, "genesis must mount its generation shared directory");
+          const directory = binding.slice(0, -":/data".length);
           for (const name of ["metadata", "jwt"]) {
             await Deno.mkdir(`${directory}/${name}`, { recursive: true, mode: 0o700 });
           }
@@ -79,9 +82,9 @@ async function fixture(
 }
 
 for (const profile of ["pectra", "gloas"] as const) {
-  Deno.test(`${profile}: genesis and VC write bind-mounted files as the controller user`, async () => {
+  Deno.test(`${profile}: clients write bind-mounted files as the controller user`, async () => {
     await fixture(profile, async (_network, manifest, created) => {
-      for (const role of ["genesis", "vc"]) {
+      for (const role of ["genesis", "init", "el", "bn", "vc"]) {
         assert.equal(created.get(role)?.User, user(), `${role} must use the controller UID:GID`);
       }
       assert.equal(

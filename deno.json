@@ -17,12 +17,13 @@
     "reports"
   ],
   "tasks": {
+    "docs:snapshots": "deno run -A scripts/snapshot_docs.js",
     "up": "deno run -A src/cli.ts up",
     "down": "deno run -A src/cli.ts down",
     "reset": "deno run -A src/cli.ts reset",
     "test": "deno test -A tests",
     "test:baker": "PANDA_DOCKER_TEST=1 deno test -A tests/baker_test.ts tests/docker_test.ts",
-    "check": "deno fmt --check && deno lint && deno check src/*.ts scripts/*.ts container/*.ts tests/*.ts bakes/*/tests/*.ts",
+    "check": "deno fmt --check && deno lint && deno check src/*.ts scripts/*.ts container/*.ts tests/*.ts bakes/*/tests/*.ts && deno task docs:snapshots --check",
     "smoke:docker": "deno run -A scripts/smoke_docker.ts",
     "baseline": "deno run -A scripts/baseline.ts",
     "profile": "deno run -A scripts/profile.ts",

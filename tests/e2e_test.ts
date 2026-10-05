@@ -13,6 +13,13 @@ const descriptions: Record<string, string> = {
   deploy: "sequential RPC and ethers contract deployments",
   gloas: "separate payload envelope, PTC votes and phase barriers",
   "snapshot-replay": "stopped database restore, signed vote replay and validator bootstrap",
+  snapshots: "public reusable network snapshots preserve state and stable URLs",
+  "snapshot-external": "local and HTTPS snapshot startup with retained-state precedence",
+  "snapshot-recovery":
+    "abrupt snapshot interruption preserves publication and generation authority",
+  "snapshot-deposits": "snapshot restores pending deposit and activation exactly once",
+  "snapshot-withdrawals": "snapshot restores exits, consolidations and withdrawals",
+  "snapshot-blobs": "snapshot preserves real blobs, custody columns and exact continuation",
   baseline: "ordinary unmodified clients produce an agreed execution payload",
   lifecycle: "CLI up/down/reset, ownership and profile mismatch rejection",
 };

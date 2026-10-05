@@ -51,7 +51,13 @@
     "withdrawal": "bakes/shared/tests/withdrawal_test.ts",
     "deploy": "bakes/shared/tests/deploy.ts",
     "gloas": "bakes/gloas/tests/gloas.ts",
-    "snapshot-replay": "bakes/gloas/tests/snapshot_replay.ts"
+    "snapshot-replay": "bakes/gloas/tests/snapshot_replay.ts",
+    "snapshots": "bakes/gloas/tests/snapshots.ts",
+    "snapshot-external": "bakes/gloas/tests/snapshot_external.ts",
+    "snapshot-recovery": "bakes/gloas/tests/snapshot_recovery.ts",
+    "snapshot-deposits": "bakes/gloas/tests/snapshot_deposits.ts",
+    "snapshot-withdrawals": "bakes/gloas/tests/snapshot_withdrawals.ts",
+    "snapshot-blobs": "bakes/gloas/tests/snapshot_blobs.ts"
   },
   "name": "gloas",
   "elFork": "amsterdam",

@@ -17,6 +17,7 @@ import { EngineGate } from "../../../src/engine.ts";
 import { deadline, json, rpc, waitFor } from "../../../src/http.ts";
 import type { Manifest } from "../../../src/network.ts";
 import { clockEnvironment, readBake, sha256 } from "../../../src/profiles.ts";
+import { fileInventory } from "../../../src/storage.ts";
 import type { Timeline } from "../../../src/time.ts";
 import {
   assertFullBitvector,
@@ -136,7 +137,7 @@ function retainedSigningHistory(history: SigningHistory, slot: number): SigningH
   return result;
 }
 
-/** Test-only topology replacement using retained Docker volumes and the real signing DB. */
+/** Test-only topology replacement using stopped client data and the real signing DB. */
 export async function restartClients(
   controller: Controller,
   nowMs: number,
@@ -194,10 +195,45 @@ export async function restartClients(
       });
     }
     const sharedDirectory = await Deno.realPath(shared);
-    const copies: { role: string; source: string; destination: string }[] = [];
+    const copies: { role: string; source: string; destination: string; type: "bind" | "volume" }[] =
+      [];
     for (const { role, info } of saved) {
       for (const mount of info.Mounts ?? []) {
-        if (mount.Type !== "volume") continue;
+        if (!["el", "bn"].includes(role) || mount.Destination !== `/${role}`) continue;
+        if (mount.Type === "bind") {
+          assert(m.generation, "bind-backed database requires an owned generation");
+          const source = await Deno.realPath(mount.Source);
+          assert.equal(
+            source,
+            await Deno.realPath(`${controller.network.store.generationPath(m.generation)}/${role}`),
+          );
+          const destination = `${await Deno.realPath(evidence)}/restored-${role}`;
+          assert.notEqual(destination, source);
+          const before = await fileInventory(source);
+          await cp(source, destination, {
+            recursive: true,
+            errorOnExist: true,
+            force: false,
+            preserveTimestamps: true,
+          });
+          assert.deepEqual(
+            await fileInventory(source),
+            before,
+            `${role} source changed while stopped`,
+          );
+          assert.deepEqual(
+            await fileInventory(destination),
+            before,
+            `${role} stopped database copy differs`,
+          );
+          await Deno.writeTextFile(
+            `${evidence}/${role}-copy.log`,
+            "Stopped bind directory inventory matches.\n",
+          );
+          copies.push({ role, source, destination, type: "bind" });
+          continue;
+        }
+        assert.equal(mount.Type, "volume", "unsupported database mount type");
         assert(mount.Name, "volume mount has no source name");
         const source = mount.Name;
         assert.equal((await infra.docker.getVolume(source).inspect()).Labels?.[LABEL], m.config.id);
@@ -225,7 +261,7 @@ export async function restartClients(
           assert.equal((await copier.inspect()).Config.Labels?.[LABEL], m.config.id);
           await copier.remove({ force: true });
         }
-        copies.push({ role, source, destination });
+        copies.push({ role, source, destination, type: "volume" });
       }
     }
     assert.deepEqual(copies.map((copy) => copy.role).sort(), ["bn", "el"]);
@@ -233,14 +269,19 @@ export async function restartClients(
   } else if (databaseMode === "restore") {
     const snapshot: {
       sharedDirectory: string;
-      copies: { source: string; destination: string }[];
+      copies: { source: string; destination: string; type: "bind" | "volume" }[];
     } = JSON.parse(await Deno.readTextFile(`${evidence}/database-copies.json`));
     const replacements = new Map([[m.directory, snapshot.sharedDirectory]]);
     for (const copy of snapshot.copies) {
-      assert.equal(
-        (await infra.docker.getVolume(copy.destination).inspect()).Labels?.[LABEL],
-        m.config.id,
-      );
+      if (copy.type === "bind") {
+        assert.equal(await Deno.realPath(copy.destination), copy.destination);
+        assert(copy.destination.startsWith(`${await Deno.realPath(evidence)}/restored-`));
+      } else {
+        assert.equal(
+          (await infra.docker.getVolume(copy.destination).inspect()).Labels?.[LABEL],
+          m.config.id,
+        );
+      }
       replacements.set(copy.source, copy.destination);
     }
     for (const { info } of saved) {
@@ -317,7 +358,7 @@ export async function restartClients(
       });
     }
   }
-  await record(`${m.directory}/manifest.json`, m);
+  await record(`${controller.network.store.root}/manifest.json`, m);
 }
 
 async function state(

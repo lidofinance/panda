@@ -1,15 +1,20 @@
 # Snapshot design with a minimal Lighthouse delta
 
-Proposal, October 5, 2026. Based on Panda `main` at `0acee414b7ab8921fe71e60055ad67faf87a15e8`,
-compared with `feat/state` at `0d993d903a111730df9911afa0257c569cc3b722`. Gloas Lighthouse is pinned
-to `2d281dfa1b407f7c81cd123954a9fd18ee8f02d2` in both revisions. The remote `main` commit was also
+Design and implementation, October 5, 2026. Based on Panda `main` at
+`0acee414b7ab8921fe71e60055ad67faf87a15e8`, compared with `feat/state` at
+`0d993d903a111730df9911afa0257c569cc3b722`. Gloas Lighthouse is pinned to
+`2d281dfa1b407f7c81cd123954a9fd18ee8f02d2` in both revisions. The remote `main` commit was also
 checked and matches this baseline.
 
-Status: **stage 1 is complete** on `gloas/snapshot-minimal-r1` (Linux ARM64). Direct cold
-save/restart/copied restore is verified using Panda's signed-message buffer and ordinary Beacon
-APIs. The Lighthouse runtime delta is exactly **3 existing files, +23/-2 versus main**, within the
-approved extension. No snapshot-specific native storage or API was added. Public snapshot lifecycle
-and archive integration remain stages 2 and 3 below.
+Status: **stages 1–3 are implemented and verified locally** on `gloas/snapshot-minimal-r1` (Linux
+ARM64). Direct cold save/restart/copied restore is verified using Panda's signed-message buffer and
+ordinary Beacon APIs. The Lighthouse runtime delta is exactly **3 existing files, +23/-2 versus
+main**, within the approved extension. No snapshot-specific native storage or API was added. Stages
+2 and 3 use this verified client unchanged. Public repeated restoration, local-file and HTTPS
+startup, three process-crash cuts, deposit/activation, consolidation/withdrawals, real blob/DA
+restoration, CLI lifecycle and the packaged service passed. Independent storage, lifecycle and
+public API reviews are complete. Publication and Linux AMD64 release verification remain a separate
+release gate.
 
 The immutable bake key is `89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61`; the
 unchanged pinned Geth image was reused. Final results and the distinction between the original
@@ -49,8 +54,8 @@ performs its normal signature and protocol validation again.
 **The implemented Lighthouse candidate changes three existing files from `main`: +23 / -2 lines.**
 Those lines fix controlled-time PTC timer races. The target is zero snapshot-specific client
 changes, without a new native module, database format, checkpoint endpoint or Cargo dependency.
-Stage 1 verifies copied restoration, supported replay windows and startup readiness. Atomic snapshot
-publication and recovery from storage failures remain stage 2 work.
+Stage 1 verifies copied restoration, supported replay windows and startup readiness. Stage 2 adds
+atomic snapshot publication and recovery from storage failures, with executed failure regressions.
 
 ## How a user-visible snapshot works
 
@@ -114,7 +119,8 @@ proposal does not claim that Panda becomes an unmodified upstream Lighthouse.
 
 The net growth is 21 physical lines. No snapshot-specific Rust remains in this candidate. Recipe
 identities and the relevant regression tests must change when implementing it; those are not
-included in runtime line counts. Panda-side implementation size has not yet been measured.
+included in runtime line counts. Panda's lifecycle, storage, archive handling and generated API
+documentation are outside these native-source counts.
 
 ### Why the remaining timer change is needed
 
@@ -307,20 +313,69 @@ removed.
        ordinary Beacon APIs. Add failing behavioral regressions first; preserve independent state
        and next-block comparisons before adapting the rest of the feature. Reuse the existing Geth
        image.
-2. [ ] Adapt existing storage, clean stop/resume and snapshot create/list/restore/remove to this
+2. [x] Adapt existing storage, clean stop/resume and snapshot create/list/restore/remove to this
        backend. Preserve reusable IDs, stable URLs, atomic publication and recorded request
        outcomes. Validate and prepare restoration before stopping a healthy source. A published
        snapshot must survive source restart failure and be returned in the error; partial copies
        stay unpublished.
-3. [ ] Adapt existing local-file/HTTPS export and startup to the same format. Retain safe
+3. [x] Adapt existing local-file/HTTPS export and startup to the same format. Retain safe
        extraction, integrity and exact bake/platform checks. A retained active volume takes
-       precedence over its initial seed. Update HTTP/OpenAPI/CLI docs and complete the
-       release-platform verification.
+       precedence over its initial seed. Update HTTP/OpenAPI/CLI docs and verify the packaged
+       service on the available Linux ARM64 bake.
+
+Release gate (not a publication performed by this task): run the registered full profile and
+packaged-service checks on Linux AMD64 with its matching bake before releasing that architecture. No
+AMD64 pass or published image is claimed by the local results.
+
+### Stages 2–3 verification
+
+All real-client checks below used the same existing `snapshot-minimal-r1` client images,
+sequentially. Neither Lighthouse nor Geth was rebuilt. Successful stage-1 scenarios were not
+repeated.
+
+| Check                                                                                         | Result |  Elapsed | Evidence                    |
+| --------------------------------------------------------------------------------------------- | ------ | -------: | --------------------------- |
+| Public reusable snapshots, complete SSZ state, stable EL/CL/VC access, PTC and finality       | Passed |  89.33 s | `snapshots.json`            |
+| Local archive, verified HTTPS redirect, checksum and retained-state precedence                | Passed |  73.73 s | `snapshot-external.json`    |
+| Process loss after capture, candidate verification and active-generation commit               | Passed | 116.18 s | `snapshot-recovery.json`    |
+| Pending deposit and activation, single credit and retained signing history                    | Passed | 155.01 s | `snapshot-deposits.json`    |
+| Pending consolidation and signed exit, exact actual payouts, no duplicate withdrawal          | Passed | 124.08 s | `snapshot-withdrawals.json` |
+| Real KZG blob, all 128 custody columns, envelope, exact restored state and continuation       | Passed |  63.68 s | `snapshot-blobs.json`       |
+| Local up/down/reset, parked/recovery ownership and clean reset                                | Passed |  27.15 s | `lifecycle.json`            |
+| Packaged CLI capture/export, HTTP restore, native client access and SIGTERM/restart retention | Passed |  61.99 s | `snapshot-image.json`       |
+
+The ordinary suite was run once: **222 passed, 12 failed, 13 opt-in checks ignored**. The twelve
+failures were stale test fixtures (seven generation-directory expectations, four missing network
+IDs, and one newly registered scenario file not yet written). All were resolved and passed in
+focused checks: permission fixtures 7/7, consensus fixtures 10/10, and the affected layout check
+1/1. This is not presented as a second full-suite run. Additional targeted RED/GREEN checks cover
+storage and archive corruption, replay preflight, operation idempotence, persistence failures,
+uncertain ingress, copy/start/commit failures, shutdown during creation, recovery cleanup and CLI
+selection. Generated OpenAPI freshness is checked by `deno task check`; no documentation
+dependencies enter the image. The final `deno task check` passed (formatting, lint, type checks and
+generated-document freshness).
+
+The first CLI crash fixture killed a `deno task` launcher instead of its controller child. Only that
+fixture was interrupted and corrected to spawn the CLI directly; its successful rerun is recorded
+above. No failing product scenario was omitted or replaced by a weaker assertion.
+
+These results include follow-up fixes checked separately as they were made; they are not a claim
+that one monolithic suite ran against every final source byte. The packaged check exercised the
+final runtime implementation. Subsequent changes were type-only bindings, documentation and the blob
+test registration. All new reports are in the same profile evidence directory. Private logs and
+RED/GREEN records remain under ignored `.cache/`. The earlier full-profile failure record is
+retained unchanged as described above.
+
+All test-owned Docker containers were removed; the verified local `panda-snapshots:local` image is
+retained for use. No files were staged or committed by this work.
+
+Usage: [Snapshots](snapshots.md). The [API reference](snapshots-api.md) and
+[OpenAPI specification](snapshots-openapi.json) are generated from Panda's wire types.
 
 ### Acceptance checks
 
-The first three checks establish stage 1. Existing profile scenarios below also passed; new storage
-failure and public archive/lifecycle checks belong to stages 2 and 3 and remain unverified.
+The first three checks establish stage 1. Stages 2 and 3 add the executed public lifecycle, archive,
+protocol and failure checks listed above. The Linux AMD64 release gate remains explicit.
 
 - Demonstrate the two original losses on the main-derived client: PTC after restart and naive
   attestations at the epoch boundary; repair them using only Panda replay.

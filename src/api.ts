@@ -4,6 +4,15 @@ import { defaultTimeoutMs, json, rpc, waitFor } from "./http.ts";
 import type { WarpOptions } from "./time.ts";
 export type { WarpMode, WarpOptions } from "./time.ts";
 
+import type {
+  SnapshotOperationRecord,
+  SnapshotRef,
+  SnapshotRestoreResult,
+} from "./snapshot_types.ts";
+import { SnapshotOperationError } from "./snapshot_types.ts";
+import { saveSnapshotStream, type SnapshotImportOptions } from "./snapshot_archive.ts";
+export type { SnapshotRef, SnapshotRestoreResult } from "./snapshot_types.ts";
+
 export class Devnet {
   private controller?: Controller;
   constructor(readonly url: string) {}
@@ -19,11 +28,78 @@ export class Devnet {
     }
   }
   private async call<T = unknown>(method: string, params: unknown[] = []): Promise<T> {
-    return (await json<{ result: T }>(`${this.url}/control`, {
+    const response = await fetch(`${this.url}/control`, {
       method: "POST",
       body: JSON.stringify({ method, params }),
       signal: AbortSignal.timeout(defaultTimeoutMs()),
-    })).result;
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      if (body.operation) throw new SnapshotOperationError(body.operation);
+      throw new Error(body.error ?? `Control HTTP ${response.status}`);
+    }
+    return body.result;
+  }
+  static async fromSnapshot(
+    source: string,
+    config: Partial<Config> = {},
+    options: SnapshotImportOptions = {},
+  ): Promise<Devnet> {
+    const controller = await Controller.fromSnapshot(source, config, options);
+    try {
+      const api = new Devnet(controller.serve(0));
+      api.controller = controller;
+      return api;
+    } catch (error) {
+      await controller.close();
+      throw error;
+    }
+  }
+  lifecycle(): Promise<ReturnType<Controller["lifecycle"]>> {
+    return this.call("lifecycle");
+  }
+  createSnapshot(operationId: string = crypto.randomUUID()): Promise<SnapshotRef> {
+    return this.call("snapshotCreate", [operationId]);
+  }
+  listSnapshots(): Promise<SnapshotRef[]> {
+    return this.call("snapshotList");
+  }
+  restoreSnapshot(
+    snapshot: SnapshotRef | string,
+    operationId: string = crypto.randomUUID(),
+  ): Promise<SnapshotRestoreResult> {
+    return this.call("snapshotRestore", [
+      typeof snapshot === "string" ? snapshot : snapshot.id,
+      operationId,
+    ]);
+  }
+  removeSnapshot(
+    snapshot: SnapshotRef | string,
+    operationId: string = crypto.randomUUID(),
+  ): Promise<SnapshotRef> {
+    return this.call("snapshotRemove", [
+      typeof snapshot === "string" ? snapshot : snapshot.id,
+      operationId,
+    ]);
+  }
+  snapshotOperation(id: string): Promise<SnapshotOperationRecord | undefined> {
+    return this.call("snapshotOperation", [id]);
+  }
+  async exportSnapshot(snapshot: SnapshotRef | string, path: string) {
+    const id = typeof snapshot === "string" ? snapshot : snapshot.id;
+    const response = await fetch(`${this.url}/snapshots/${id}/archive`, {
+      signal: AbortSignal.timeout(defaultTimeoutMs()),
+    });
+    if (!response.ok || !response.body) throw new Error(`Snapshot export HTTP ${response.status}`);
+    return await saveSnapshotStream(response.body, path, {
+      sha256: response.headers.get("x-panda-sha256") ?? undefined,
+    });
+  }
+  stop(): Promise<ReturnType<Controller["lifecycle"]>> {
+    return this.call("stop");
+  }
+  resume(): Promise<ReturnType<Controller["lifecycle"]>> {
+    return this.call("resume");
   }
   status(): Promise<
     {
@@ -31,6 +107,7 @@ export class Devnet {
       profile: import("./profiles.ts").ProfileName;
       bake: string;
       bakeKey: string;
+      sessionId: string;
       now: number;
       slot: number;
       automine: boolean;

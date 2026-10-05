@@ -1,12 +1,25 @@
-import { type Bake, clockEnvironment, readBake } from "./profiles.ts";
+import { type Bake, canonical, clockEnvironment, readBake } from "./profiles.ts";
 import { requireImage } from "./artifacts.ts";
 import { account, type Config, configuration, mnemonic } from "./config.ts";
-import { Infrastructure, LABEL, ROLE } from "./docker.ts";
+import { GENERATION, Infrastructure, LABEL, ROLE } from "./docker.ts";
 import { checkEngineCapabilities, EngineGate } from "./engine.ts";
 import { deadline, defaultTimeoutMs, json, rpc, waitFor } from "./http.ts";
 import { BeaconRelay } from "./beacon_relay.ts";
-import { ConsensusMessages } from "./consensus_messages.ts";
+import { ConsensusMessages, replayConsensusMessages } from "./consensus_messages.ts";
 import { needsPtcReadiness, PtcReadiness } from "./ptc_readiness.ts";
+
+import { SnapshotJournal, type SnapshotOperation } from "./snapshot_operations.ts";
+import { SnapshotStore } from "./snapshots.ts";
+import {
+  type ActiveGeneration,
+  durableJson,
+  fileInventory,
+  stateDirectory,
+  StateLock,
+  StateStore,
+} from "./storage.ts";
+import type { CapturedState, SavedState } from "./snapshot_types.ts";
+import { validateSavedState } from "./saved_state.ts";
 
 export interface Manifest {
   bake: Bake;
@@ -18,64 +31,127 @@ export interface Manifest {
   vc: string;
   vcMetrics?: string;
   directory: string;
+  generation?: string;
 }
 export class Network {
   engine?: EngineGate;
   beaconRelay?: BeaconRelay;
   ptcReadiness?: PtcReadiness;
   readonly consensusMessages?: ConsensusMessages;
-  private lockOwned = false;
+  private lock?: StateLock;
+  private candidate?: { sourceGeneration?: string; manifest?: Manifest };
+  private recovery = false;
+  private runtimeManifest?: Manifest;
+  private validatorStart?: () => Promise<void>;
+  private get lockOwned(): boolean {
+    return this.lock !== undefined;
+  }
   readonly infra: Infrastructure;
-  readonly directory: string;
+  readonly store: StateStore;
+  generation?: ActiveGeneration;
+  get directory(): string {
+    return this.generation
+      ? `${this.store.generationPath(this.generation.generation)}/shared`
+      : this.store.root;
+  }
   constructor(readonly config: Config) {
     this.infra = new Infrastructure(config.id);
-    this.directory = `${Deno.cwd()}/.panda/${config.id}`;
+    this.store = new StateStore(config.id);
     if (config.profile === "gloas" && config.mode === "controlled") {
       this.consensusMessages = new ConsensusMessages(() =>
         Math.floor(
-          ((this.engine?.nowMs ?? config.genesisTime * 1000) / 1000 - config.genesisTime) / 12,
+          ((this.engine?.nowMs ?? this.generation?.checkpoint?.nowMs ?? config.genesisTime * 1000) /
+              1000 - config.genesisTime) / 12,
         )
       );
     }
   }
-  async start(): Promise<Manifest> {
-    await Deno.mkdir(this.directory, { recursive: true });
-    const path = `${this.directory}/network.lock`;
+  async enterRecovery(): Promise<Bake> {
+    if (this.lockOwned) throw new Error("Network ownership is already held");
+    await this.store.initialize();
+    this.lock = await StateLock.acquire(`${this.store.root}/network.lock`);
     try {
-      const lock = await Deno.open(path, { createNew: true, write: true });
-      try {
-        await lock.write(new TextEncoder().encode(String(Deno.pid)));
-      } finally {
-        lock.close();
+      const active = await this.store.active();
+      if (active && canonical(active.config) !== canonical(this.config)) {
+        throw new Error("Recovery configuration mismatch");
       }
-      this.lockOwned = true;
+      const bake = await readBake(this.config.profile, this.config.bake);
+      if (
+        this.config.profile !== "gloas" || this.config.mode !== "controlled" ||
+        !bake.recipe.ptcReadiness || active && active.bakeKey !== bake.key
+      ) throw new Error("Recovery requires the exact snapshot-capable bake");
+      this.generation = active;
+      if (active) this.infra.useGeneration(active.generation);
+      this.recovery = true;
+      return bake;
     } catch (error) {
-      if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
-      const pid = Number(await Deno.readTextFile(path));
-      if (!Number.isSafeInteger(pid) || pid <= 0) {
-        throw new Error("Network lock is incomplete; retry");
-      }
-      try {
-        Deno.kill(pid, 0);
-      } catch (error) {
-        if (!(error instanceof Deno.errors.NotFound)) throw error;
-        await Deno.remove(path);
-        return await this.start();
-      }
-      throw new Error(`Devnet ${this.config.id} is owned by live process ${pid}`);
-    }
-    try {
-      return await this.startOwned();
-    } catch (error) {
-      await this.releaseLock();
+      this.releaseLock();
       throw error;
     }
   }
-  private async releaseLock(): Promise<void> {
-    if (this.lockOwned) {
-      await Deno.remove(`${this.directory}/network.lock`);
-      this.lockOwned = false;
+  releaseRecovery(): void {
+    if (!this.recovery && this.lockOwned) throw new Error("Network is not in recovery mode");
+    this.releaseLock();
+  }
+  async cleanupSnapshotData(records: SnapshotOperation[]): Promise<void> {
+    const owned = this.lockOwned;
+    if (!owned) this.lock = await StateLock.acquire(`${this.store.root}/network.lock`);
+    try {
+      await new SnapshotStore(this.store, this.infra).cleanup(records);
+    } finally {
+      if (!owned) this.releaseLock();
     }
+  }
+  async startCandidate(value: ActiveGeneration): Promise<Manifest> {
+    if (this.generation || this.lockOwned || this.candidate) {
+      throw new Error("Candidate requires an unused Network instance");
+    }
+    this.candidate = {};
+    this.generation = value;
+    this.infra.useGeneration(value.generation);
+    return await this.start("resume");
+  }
+  async commitCandidate(): Promise<void> {
+    if (!this.lockOwned || !this.candidate?.manifest || !this.generation) {
+      throw new Error("No started candidate to commit");
+    }
+    if ((await this.store.active())?.generation !== this.candidate.sourceGeneration) {
+      throw new Error("Active generation changed before candidate commit");
+    }
+    try {
+      await this.store.write(this.generation);
+    } finally {
+      // A rename can win even if its acknowledgement/fsync fails. Never roll authority back.
+      if ((await this.store.active())?.generation === this.generation.generation) {
+        this.candidate = undefined;
+      }
+    }
+    await durableJson(`${this.store.root}/manifest.json`, this.runtimeManifest);
+  }
+  async start(mode: "new" | "resume" | "auto" = "new"): Promise<Manifest> {
+    await this.store.initialize();
+    this.lock = await StateLock.acquire(`${this.store.root}/network.lock`);
+    try {
+      return await this.startOwned(mode);
+    } catch (error) {
+      this.releaseLock();
+      throw error;
+    }
+  }
+  private releaseLock(): void {
+    this.lock?.release();
+    this.lock = undefined;
+  }
+  async activateValidator(): Promise<void> {
+    if (this.candidate) throw new Error("Commit candidate before starting its validator");
+    if (!this.lockOwned || !this.validatorStart || !this.runtimeManifest) {
+      throw new Error("No prepared validator runtime");
+    }
+    const start = this.validatorStart;
+    this.validatorStart = undefined;
+    await start();
+    await this.setPhase("running");
+    await durableJson(`${this.store.root}/manifest.json`, this.runtimeManifest);
   }
   /** Call after stopping the old VC and before starting its replacement. */
   prepareValidator(): void {
@@ -89,7 +165,21 @@ export class Network {
       this.ptcReadiness.bind(manifest);
     }
   }
-  private async startOwned(): Promise<Manifest> {
+  private async startOwned(mode: "new" | "resume" | "auto"): Promise<Manifest> {
+    const active = await this.store.active();
+    const resume = mode === "resume" || mode === "auto" && active !== undefined;
+    if (resume) {
+      if (this.candidate) {
+        if (active?.generation === this.generation!.generation) {
+          throw new Error("Candidate must be inactive");
+        }
+        this.candidate.sourceGeneration = active?.generation;
+        this.generation = await this.store.validateCheckpoint(this.generation!);
+      } else this.generation = await this.store.resumable();
+      if (canonical(this.generation.config) !== canonical(this.config)) {
+        throw new Error("Preserved generation configuration mismatch");
+      }
+    } else if (active) throw new Error("Active generation exists; resume it or use down/reset");
     const filters = { label: [`${LABEL}=${this.config.id}`] };
     const [existing, networks, volumes] = await Promise.all([
       this.infra.docker.listContainers({ all: true, filters }),
@@ -101,25 +191,22 @@ export class Network {
         `Devnet ${this.config.id} already has resources; use down/reset or connect()`,
       );
     }
-    await Deno.mkdir(this.directory, { recursive: true });
-    const { config, infra, directory } = this;
-    // Bind-mounted metadata, keys and the private VC token must belong to the controller.
+    const { config, infra } = this;
     const sharedUser = `${Deno.uid()}:${Deno.gid()}`;
-    for (const name of ["metadata", "parsed", "jwt", "validator-keys", "manifest.json"]) {
-      try {
-        await Deno.remove(`${directory}/${name}`, { recursive: true });
-      } catch (error) {
-        if (!(error instanceof Deno.errors.NotFound)) throw error;
-      }
-    }
     const bake = await readBake(config.profile, config.bake);
+    if (resume && (bake.key !== this.generation!.bakeKey || !bake.recipe.ptcReadiness)) {
+      throw new Error("Preserved generation requires its exact snapshot-capable bake");
+    }
     const recipe = bake.recipe;
+    const startMs = resume
+      ? this.generation!.checkpoint!.nowMs
+      : config.genesisTime * 1000 + 11_500;
     const ptcReadiness = config.profile === "gloas" && config.mode === "controlled" &&
       recipe.ptcReadiness === true;
     if (ptcReadiness) this.ptcReadiness = new PtcReadiness();
     const clockEnv = config.mode === "controlled"
       ? [
-        `${clockEnvironment(recipe).startMs}=${config.genesisTime * 1000 + 11_500}`,
+        `${clockEnvironment(recipe).startMs}=${startMs}`,
         `${clockEnvironment(recipe).port}=5059`,
       ]
       : [];
@@ -133,9 +220,22 @@ export class Network {
     );
     const started = performance.now();
     try {
+      this.generation ??= await this.store.create(config, bake.key);
+      infra.useGeneration(this.generation.generation);
+      const generationPath = await this.store.validate(this.generation);
+      const directory = this.directory;
+      await this.setPhase("starting");
+      if (resume) {
+        const saved = this.generation.checkpoint!;
+        if (
+          canonical(await this.sharedInventory()) !== canonical(saved.sharedFiles) ||
+          canonical(await this.databaseInventory()) !== canonical(saved.databaseFiles)
+        ) throw new Error("Preserved database or signing files changed");
+        await this.validateValidatorData();
+      }
       const network = await infra.network();
-      const data = await infra.volume("el");
-      const beaconData = await infra.volume("bn");
+      const data = `${generationPath}/el`;
+      const beaconData = `${generationPath}/bn`;
       const env = [
         `CHAIN_ID=${config.chainId}`,
         `NUMBER_OF_VALIDATORS=${config.validators}`,
@@ -164,23 +264,26 @@ export class Network {
         if (result.StatusCode !== 0) throw new Error(`${role} failed: ${logs}`);
         await c.remove({ v: true });
       };
-      await oneShot("genesis", {
-        Image: images.genesis,
-        User: sharedUser,
-        Env: env,
-        Entrypoint: ["/bin/bash"],
-        Cmd: [
-          "-ec",
-          '/work/entrypoint.sh all; eth2-val-tools keystores --insecure --source-min 0 --source-max "$NUMBER_OF_VALIDATORS" --source-mnemonic "$EL_AND_CL_MNEMONIC" --out-loc /data/validator-keys',
-        ],
-        HostConfig: { Binds: [`${directory}:/data`], NetworkMode: network },
-      });
-      await Deno.writeTextFile(`${directory}/metadata/bootstrap_nodes.txt`, "");
-      await oneShot("init", {
-        Image: images.geth,
-        Cmd: ["--datadir=/el", "init", "/shared/metadata/genesis.json"],
-        HostConfig: { Binds: [`${directory}:/shared:ro`, `${data}:/el`], NetworkMode: network },
-      });
+      if (!resume) {
+        await oneShot("genesis", {
+          Image: images.genesis,
+          User: sharedUser,
+          Env: env,
+          Entrypoint: ["/bin/bash"],
+          Cmd: [
+            "-ec",
+            '/work/entrypoint.sh all; eth2-val-tools keystores --insecure --source-min 0 --source-max "$NUMBER_OF_VALIDATORS" --source-mnemonic "$EL_AND_CL_MNEMONIC" --out-loc /data/validator-keys',
+          ],
+          HostConfig: { Binds: [`${directory}:/data`], NetworkMode: network },
+        });
+        await Deno.writeTextFile(`${directory}/metadata/bootstrap_nodes.txt`, "");
+        await oneShot("init", {
+          Image: images.geth,
+          User: sharedUser,
+          Cmd: ["--datadir=/el", "init", "/shared/metadata/genesis.json"],
+          HostConfig: { Binds: [`${directory}:/shared:ro`, `${data}:/el`], NetworkMode: network },
+        });
+      }
       const port = (value: string) => ({ [value]: [{ HostIp: "127.0.0.1", HostPort: "" }] });
       const start = async (role: string, options: Parameters<Infrastructure["container"]>[1]) => {
         const container = await infra.container(role, options);
@@ -191,8 +294,10 @@ export class Network {
       };
       const el = await start("el", {
         Image: images.geth,
+        User: sharedUser,
         Cmd: [
           "--datadir=/el",
+          "--ipcdisable",
           `--networkid=${config.chainId}`,
           "--http",
           "--http.addr=0.0.0.0",
@@ -229,12 +334,13 @@ export class Network {
           infra,
           infra.docker.getContainer(`panda-${config.id}-el`),
           el(8551),
-          config.genesisTime * 1000 + 11_500,
+          startMs,
           await Deno.readTextFile(`${directory}/jwt/jwtsecret`),
         );
       }
       const bn = await start("bn", {
         Image: clientImage,
+        User: sharedUser,
         Entrypoint: ["lighthouse"],
         Env: clockEnv,
         Cmd: [
@@ -274,67 +380,95 @@ export class Network {
       if (this.consensusMessages) {
         this.beaconRelay = new BeaconRelay(bn(5052), this.consensusMessages, this.ptcReadiness);
       }
-      const vc = await start("vc", {
-        Image: clientImage,
-        User: sharedUser,
-        Entrypoint: ["lighthouse"],
-        Env: clockEnv,
-        Cmd: [
-          "--testnet-dir=/shared/metadata",
-          "validator_client",
-          "--validators-dir=/shared/validator-keys/keys",
-          "--secrets-dir=/shared/validator-keys/secrets",
-          `--beacon-nodes=${this.beaconRelay?.url ?? "http://bn:5052"}`,
-          ...(config.profile === "gloas" && config.mode === "controlled" && !recipe.preparedSkip
-            ? ["--use-long-timeouts", "--long-timeouts-multiplier=60"]
-            : []),
-          "--init-slashing-protection",
-          `--suggested-fee-recipient=${account}`,
-          "--http",
-          "--http-address=0.0.0.0",
-          "--unencrypted-http-transport",
-          ...(ptcReadiness
-            ? ["--disable-payload-available-monitor", "--metrics", "--metrics-address=0.0.0.0"]
-            : []),
-        ],
-        ExposedPorts: {
-          "5062/tcp": {},
-          "5059/tcp": {},
-          ...(ptcReadiness ? { "5064/tcp": {} } : {}),
-        },
-        HostConfig: {
-          Binds: [`${directory}:/shared`],
-          NetworkMode: network,
-          PortBindings: {
-            ...port("5062/tcp"),
-            ...port("5059/tcp"),
-            ...(ptcReadiness ? port("5064/tcp") : {}),
-          },
-          MemoryReservation: 128 * 1024 ** 2,
-          NanoCpus: 2e9,
-          ExtraHosts: Deno.build.os === "linux" ? ["host.docker.internal:host-gateway"] : undefined,
-        },
-      });
       const manifest: Manifest = {
         bake,
         config,
         directory,
+        generation: this.generation.generation,
         el: el(8545),
         beacon: bn(5052),
         bnClock: bn(5059),
-        vcClock: vc(5059),
-        vc: vc(5062),
-        ...(ptcReadiness ? { vcMetrics: vc(5064) } : {}),
+        vcClock: "",
+        vc: "",
       };
-      this.bindValidator(manifest);
-      if (config.mode === "controlled") {
-        await waitFor("validator clock and services", async () => {
-          const clock = await json<{ marks: Record<string, number> }>(vc(5059));
-          return clock.marks.ready === 0 && clock.marks.indices === 0 ? clock : undefined;
+      this.runtimeManifest = manifest;
+      if (resume) {
+        const saved = this.generation.checkpoint!;
+        await waitFor("restored execution connection", async () => {
+          const { data } = await json<
+            { data: { is_syncing: boolean; is_optimistic: boolean; el_offline: boolean } }
+          >(`${manifest.beacon}/eth/v1/node/syncing`);
+          return data.is_syncing === false && data.is_optimistic === false &&
+              data.el_offline === false
+            ? true
+            : undefined;
         });
+        this.consensusMessages!.restore(saved.replayMessages);
+        await replayConsensusMessages(saved.replayMessages, manifest.beacon, saved.slot);
+        await validateSavedState(manifest, saved);
       }
-      await this.ptcReadiness?.beforeDuties();
-      await Deno.writeTextFile(`${directory}/manifest.json`, JSON.stringify(manifest, null, 2));
+      this.validatorStart = async () => {
+        this.prepareValidator();
+        const vc = await start("vc", {
+          Image: clientImage,
+          User: sharedUser,
+          Entrypoint: ["lighthouse"],
+          Env: clockEnv,
+          Cmd: [
+            "--testnet-dir=/shared/metadata",
+            "validator_client",
+            "--validators-dir=/shared/validator-keys/keys",
+            "--secrets-dir=/shared/validator-keys/secrets",
+            `--beacon-nodes=${this.beaconRelay?.url ?? "http://bn:5052"}`,
+            ...(config.profile === "gloas" && config.mode === "controlled" && !recipe.preparedSkip
+              ? ["--use-long-timeouts", "--long-timeouts-multiplier=60"]
+              : []),
+            ...(!resume ? ["--init-slashing-protection"] : []),
+            `--suggested-fee-recipient=${account}`,
+            "--http",
+            "--http-address=0.0.0.0",
+            "--unencrypted-http-transport",
+            ...(ptcReadiness
+              ? ["--disable-payload-available-monitor", "--metrics", "--metrics-address=0.0.0.0"]
+              : []),
+          ],
+          ExposedPorts: {
+            "5062/tcp": {},
+            "5059/tcp": {},
+            ...(ptcReadiness ? { "5064/tcp": {} } : {}),
+          },
+          HostConfig: {
+            Binds: [`${directory}:/shared`],
+            NetworkMode: network,
+            PortBindings: {
+              ...port("5062/tcp"),
+              ...port("5059/tcp"),
+              ...(ptcReadiness ? port("5064/tcp") : {}),
+            },
+            MemoryReservation: 128 * 1024 ** 2,
+            NanoCpus: 2e9,
+            ExtraHosts: Deno.build.os === "linux"
+              ? ["host.docker.internal:host-gateway"]
+              : undefined,
+          },
+        });
+        manifest.vcClock = vc(5059);
+        manifest.vc = vc(5062);
+        if (ptcReadiness) manifest.vcMetrics = vc(5064);
+        this.bindValidator(manifest);
+        if (config.mode === "controlled") {
+          await waitFor("validator clock and services", async () => {
+            const clock = await json<{ marks: Record<string, number> }>(vc(5059));
+            return clock.marks.ready === 0 &&
+                clock.marks.indices === Math.floor((startMs / 1000 - config.genesisTime) / 12)
+              ? clock
+              : undefined;
+          });
+        }
+        await this.ptcReadiness?.beforeDuties();
+      };
+      if (this.candidate) this.candidate.manifest = manifest;
+      else await this.activateValidator();
       console.log(
         JSON.stringify({
           event: "network-started",
@@ -346,42 +480,192 @@ export class Network {
       );
       return manifest;
     } catch (error) {
-      this.ptcReadiness?.close();
-      const errors = [error];
-      try {
-        await this.beaconRelay?.close();
-      } catch (relay) {
-        errors.push(relay);
-      }
-      try {
-        await this.engine?.close();
-      } catch (engine) {
-        errors.push(engine);
-      }
-      try {
-        await this.saveLogs();
-      } catch (logs) {
-        errors.push(logs);
-      }
-      try {
-        await infra.cleanup();
-      } catch (cleanup) {
-        errors.push(cleanup);
-      }
-      throw errors.length === 1 ? error : new AggregateError(errors, "Startup failed");
+      await this.fail(error);
+      throw error;
+    }
+  }
+  private async closeRuntime(): Promise<void> {
+    this.ptcReadiness?.close();
+    try {
+      await this.beaconRelay?.close();
+    } finally {
+      await this.engine?.close();
     }
   }
   async saveLogs(): Promise<void> {
-    await Deno.mkdir(this.directory, { recursive: true });
+    await this.store.initialize();
     const containers = await this.infra.docker.listContainers({
       all: true,
       filters: { label: [`${LABEL}=${this.config.id}`] },
     });
     for (const c of containers) {
-      await Deno.writeTextFile(
-        `${this.directory}/${c.Labels[ROLE]}.log`,
+      if (c.Labels[LABEL] !== this.config.id) throw new Error("Client log ownership mismatch");
+      await this.saveLog(
+        c.Labels[ROLE],
         await this.infra.logs(this.infra.docker.getContainer(c.Id)),
+        c.Labels[GENERATION],
       );
+    }
+  }
+  /** Diagnostics outlive destructive down/reset and are never part of checkpoint databases. */
+  private async saveLog(role: string, text: string, generation?: string): Promise<void> {
+    if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(role)) throw new Error("Invalid client log role");
+    if (generation !== undefined) this.store.generationPath(generation);
+    const directory = `${this.store.root}/logs/${generation ?? "runtime"}`;
+    for (const path of [`${this.store.root}/logs`, directory]) {
+      await Deno.mkdir(path, { mode: 0o700 }).catch((error) => {
+        if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
+      });
+      const info = await Deno.lstat(path);
+      if (!info.isDirectory || info.isSymlink) throw new Error("Unsafe diagnostic log directory");
+    }
+    const path = `${directory}/${role}.log`;
+    try {
+      const info = await Deno.lstat(path);
+      if (!info.isFile || info.isSymlink) throw new Error("Unsafe diagnostic log file");
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    await Deno.writeTextFile(path, text, { mode: 0o600 });
+  }
+  async setPhase(
+    phase: ActiveGeneration["phase"],
+    checkpoint?: SavedState,
+    error?: string,
+  ): Promise<void> {
+    if (!this.generation) throw new Error("No active generation");
+    const next = {
+      ...this.generation,
+      phase,
+      checkpoint: checkpoint ?? this.generation.checkpoint,
+      error,
+    };
+    if (this.candidate) {
+      if (phase === "running") throw new Error("Candidate must be committed before running");
+    } else await this.store.write(next);
+    this.generation = next;
+  }
+  private async validateValidatorData(): Promise<void> {
+    const keys = `${this.directory}/validator-keys/keys`;
+    const path = `${keys}/slashing_protection.sqlite`;
+    const info = await Deno.lstat(path);
+    if (!info.isFile || info.isSymlink) throw new Error("Missing or unsafe slashing protection DB");
+    using db = await Deno.open(path, { read: true });
+    const header = new Uint8Array(16);
+    if (await db.read(header) !== 16 || new TextDecoder().decode(header) !== "SQLite format 3\0") {
+      throw new Error("Invalid slashing protection DB");
+    }
+    const definitions = await Deno.readTextFile(`${keys}/validator_definitions.yml`);
+    if (/web3signer|remote_signer|http:|https:/i.test(definitions)) {
+      throw new Error("Checkpoint requires disposable local validator keys");
+    }
+    const paths = [
+      ...definitions.matchAll(/(?:keystore_path|keystore_password_path):\s*["']?([^\s"']+)/g),
+    ];
+    if (!paths.length) throw new Error("Missing local validator definitions");
+    for (const match of paths) {
+      const clientPath = match[1];
+      if (
+        !clientPath.startsWith("/shared/validator-keys/") || clientPath.split("/").includes("..")
+      ) {
+        throw new Error("Validator path escapes generation");
+      }
+      const local = `${this.directory}/${clientPath.slice("/shared/".length)}`;
+      const stat = await Deno.lstat(local);
+      if (!stat.isFile || stat.isSymlink) throw new Error("Missing or unsafe validator key/secret");
+    }
+  }
+  private async sharedInventory(): Promise<SavedState["sharedFiles"]> {
+    const result = {} as SavedState["sharedFiles"];
+    for (const name of ["metadata", "jwt", "validator-keys"] as const) {
+      result[name] = await fileInventory(`${this.directory}/${name}`);
+    }
+    return result;
+  }
+  private async databaseInventory(): Promise<SavedState["databaseFiles"]> {
+    const path = this.store.generationPath(this.generation!.generation);
+    return {
+      el: await fileInventory(`${path}/el`),
+      bn: await fileInventory(`${path}/bn`),
+    };
+  }
+  async preserve(checkpoint: CapturedState, timeoutMs = defaultTimeoutMs()): Promise<void> {
+    if (this.candidate) throw new Error("Candidate must be committed before preserve");
+    if (!this.lockOwned || !this.generation) {
+      throw new Error("Network is not owned by this controller");
+    }
+    await this.validateValidatorData();
+    await this.setPhase("stopping");
+    try {
+      let replayMessages = checkpoint.replayMessages;
+      await this.infra.stopClients(timeoutMs, async () => {
+        await this.consensusMessages?.idle();
+        const messages = this.consensusMessages?.snapshot();
+        if (!messages) throw new Error("Missing consensus capture");
+        replayMessages = messages;
+      });
+      await this.validateValidatorData();
+      await this.saveLogs();
+      await this.closeRuntime();
+      await this.infra.cleanup();
+      await this.setPhase("stopped", {
+        ...checkpoint,
+        replayMessages,
+        sharedFiles: await this.sharedInventory(),
+        databaseFiles: await this.databaseInventory(),
+      });
+      await this.releaseLock();
+    } catch (error) {
+      await this.setPhase("faulted", undefined, String(error));
+      throw error;
+    }
+  }
+  /** Failed resume retains evidence and data; it must never silently become a fresh network. */
+  async fail(error: unknown, scope: "generation" | "network" = "generation"): Promise<void> {
+    const errors: unknown[] = [];
+    try {
+      for (
+        const cleanup of [
+          () =>
+            this.generation
+              ? this.setPhase("faulted", undefined, String(error))
+              : Promise.resolve(),
+          () => this.saveLogs(),
+          () => this.closeRuntime(),
+          () => this.infra.cleanup(scope),
+        ]
+      ) {
+        try {
+          await cleanup();
+        } catch (failure) {
+          errors.push(failure);
+        }
+      }
+    } finally {
+      await this.releaseLock();
+    }
+    if (errors.length) {
+      throw new AggregateError(
+        [error, ...errors],
+        `Failed resume cleanup: ${errors.map(String).join("; ")}`,
+      );
+    }
+  }
+  /** Explicit restore abandons the authoritative runtime but retains its files as evidence. */
+  async discard(): Promise<void> {
+    if (!this.lockOwned) {
+      await this.store.initialize();
+      this.lock = await StateLock.acquire(`${this.store.root}/network.lock`);
+    }
+    try {
+      const active = await this.store.active();
+      this.generation = active;
+      if (active) this.infra.useGeneration(active.generation);
+      // A killed pre-commit controller can leave clients for an inactive candidate. The owner
+      // lock excludes another live controller; explicit restore abandons every runtime of this id.
+      await this.fail(new Error("Branch discarded by explicit snapshot restore"), "network");
+    } finally {
+      this.releaseLock();
     }
   }
   async skipValidator(manifest: Manifest, nowMs: number): Promise<void> {
@@ -432,7 +716,7 @@ export class Network {
       manifest.vcMetrics = `http://127.0.0.1:${ports["5064/tcp"]![0].HostPort}`;
     }
     this.bindValidator(manifest);
-    await Deno.writeTextFile(`${this.directory}/manifest.json`, JSON.stringify(manifest, null, 2));
+    await durableJson(`${this.store.root}/manifest.json`, manifest);
     await waitFor("validator restarted after skipped slots", async () => {
       const clock = await json<{ nowMs: number; marks: Record<string, number> }>(manifest.vcClock);
       return clock.nowMs === nowMs && clock.marks.ready === 0 && clock.marks.indices !== undefined
@@ -451,37 +735,46 @@ export class Network {
     }));
   }
   async stop(): Promise<void> {
-    if (!this.lockOwned) {
-      try {
-        const pid = Number(await Deno.readTextFile(`${this.directory}/network.lock`));
-        if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error("Network is starting; retry");
-        Deno.kill(pid, 0);
-        throw new Error(`Devnet is owned by live process ${pid}; use its controller to shut down`);
-      } catch (error) {
-        if (!(error instanceof Deno.errors.NotFound)) throw error;
-      }
+    if (this.candidate) {
+      // Candidate cleanup owns only its own clients and keeps both database generations.
+      if (this.lockOwned) await this.fail(new Error("Restore candidate abandoned"));
+      return;
     }
+    if (!this.lockOwned) {
+      await this.store.initialize();
+      this.lock = await StateLock.acquire(`${this.store.root}/network.lock`);
+    }
+    let journalLock: StateLock | undefined;
     try {
-      await this.saveLogs();
-    } finally {
-      this.ptcReadiness?.close();
+      // A capture temporarily releases the network lock after clean stop. Its journal still owns
+      // the source until copying/resume finishes; refuse down before touching any of that data.
+      journalLock = await StateLock.acquire(`${this.store.root}/snapshot-operation.lock`);
+      const active = await this.store.active();
+      if (active) {
+        this.generation = active;
+        this.infra.useGeneration(active.generation);
+      }
       try {
-        try {
-          await this.beaconRelay?.close();
-        } finally {
-          await this.engine?.close();
-        }
+        await this.saveLogs();
       } finally {
         try {
-          await this.infra.cleanup();
+          await this.closeRuntime();
         } finally {
-          await this.releaseLock();
+          await this.infra.cleanup("network");
+          if (active) {
+            await this.store.destroy(active);
+            this.generation = undefined;
+          }
+          await this.cleanupSnapshotData(await new SnapshotJournal(this.store).list());
         }
       }
+    } finally {
+      journalLock?.release();
+      await this.releaseLock();
     }
   }
   static async manifest(id = "local"): Promise<Manifest> {
     configuration({ id });
-    return JSON.parse(await Deno.readTextFile(`.panda/${id}/manifest.json`));
+    return JSON.parse(await Deno.readTextFile(`${stateDirectory(id)}/manifest.json`));
   }
 }

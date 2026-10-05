@@ -73,3 +73,13 @@ export async function rpc<T = unknown>(
   }
   return response.result;
 }
+
+/** Preserve decoded fetch bodies without advertising their former compressed size. */
+export function forwardedHeaders(response: Response): Headers {
+  const headers = new Headers(response.headers);
+  if (response.url && /^(gzip|deflate|br)$/i.test(headers.get("content-encoding") ?? "")) {
+    headers.delete("content-encoding");
+    headers.delete("content-length");
+  }
+  return headers;
+}
