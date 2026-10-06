@@ -111,7 +111,7 @@ docker run -d --name panda --privileged --stop-timeout 120 \
 ```
 
 After a release containing this feature, `PANDA_IMAGE` can be the corresponding published tag or
-`ghcr.io/eddort/panda-gloas:latest`. Pin a digest when the fixture must stay reproducible.
+`ghcr.io/lidofinance/panda-gloas:latest`. Pin a digest when the fixture must stay reproducible.
 
 To seed a fresh volume, add `-e PANDA_SNAPSHOT=https://example.org/fixture.panda.gz` and optionally
 `-e PANDA_SNAPSHOT_SHA256="$SHA256"`. For a local file, mount it read-only and set

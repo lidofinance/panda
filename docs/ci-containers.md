@@ -13,16 +13,17 @@ Prereleases keep the existing `latest` tag unchanged.
 | ------------------------- | ------------------------------------------------------- | ---------------- |
 | Patched Pectra Lighthouse | `panda-lighthouse-pectra:v7.1.0-cfb1f7331064-b1-<hash>` | Upstream + baker |
 | Patched Gloas Lighthouse  | `panda-lighthouse-gloas:v8.2.2-2d281dfa1b40-b1-<hash>`  | Upstream + baker |
-| Panda with Pectra clients | `ghcr.io/eddort/panda-pectra:v1.2.3`                    | Git tag `v1.2.3` |
-| Panda with Gloas clients  | `ghcr.io/eddort/panda-gloas:v1.2.3`                     | Git tag `v1.2.3` |
+| Panda with Pectra clients | `ghcr.io/lidofinance/panda-pectra:v1.2.3`               | Git tag `v1.2.3` |
+| Panda with Gloas clients  | `ghcr.io/lidofinance/panda-gloas:v1.2.3`                | Git tag `v1.2.3` |
 
-Lighthouse repositories also live under `ghcr.io/eddort/`. Their tags are derived automatically:
-`v<upstream-version>-<commit-12>-b<baker-version>-<baker-hash-12>`. There is no manually assigned
-client release number. `clVersion`, the pinned `clRef`, and `bakerVersion` are declared in each
-profile recipe. The builder reads the actual upstream Cargo package version and rejects a mismatch.
-Only Gloas images are built and published now; the Pectra rows document historical releases. The
-existing pins declare 7.1.0 for Pectra and 8.2.2 for Gloas; the Gloas commit identifies the
-experimental branch even though its Cargo version is shared with other revisions.
+Lighthouse repositories also live under `ghcr.io/lidofinance/`. Their tags are derived
+automatically: `v<upstream-version>-<commit-12>-b<baker-version>-<baker-hash-12>`. There is no
+manually assigned client release number. `clVersion`, the pinned `clRef`, and `bakerVersion` are
+declared in each profile recipe. The builder reads the actual upstream Cargo package version and
+rejects a mismatch. Only Gloas images are built and published now; the Pectra rows document
+historical releases. The existing pins declare 7.1.0 for Pectra and 8.2.2 for Gloas; the Gloas
+commit identifies the experimental branch even though its Cargo version is shared with other
+revisions.
 
 The two inputs that invalidate a Lighthouse image are:
 
@@ -165,7 +166,7 @@ env:
   PANDA_BEACON_URL: http://127.0.0.1:5052
 services:
   panda:
-    image: ghcr.io/eddort/panda-gloas@sha256:<published-digest>
+    image: ghcr.io/lidofinance/panda-gloas@sha256:<published-digest>
     ports:
       - 127.0.0.1:18547:8545
       - 127.0.0.1:5052:5052
@@ -199,7 +200,7 @@ docker run -d --name panda --privileged --stop-timeout 120 \
   -p 127.0.0.1:18547:8545 \
   -p 127.0.0.1:5052:5052 \
   -p 127.0.0.1:5062:5062 \
-  ghcr.io/eddort/panda-gloas@sha256:<published-digest>
+  ghcr.io/lidofinance/panda-gloas@sha256:<published-digest>
 
 curl --fail http://127.0.0.1:5052/eth/v1/beacon/headers/head
 curl --no-buffer 'http://127.0.0.1:5052/eth/v1/events?topics=head'
@@ -292,7 +293,7 @@ versions, and dependency caching uses `deno.lock` with `--frozen-lockfile`. Runt
 For local packaging of an existing bake (no registry publication):
 
 ```sh
-deno task package:image gloas panda v0.0.0-local.1 eddort "$(git rev-parse HEAD)"
+deno task package:image gloas panda v0.0.0-local.1 lidofinance "$(git rev-parse HEAD)"
 docker build -t panda-ci-gloas:local \
   -f .cache/containers/gloas/v0.0.0-local.1/container/Dockerfile \
   .cache/containers/gloas/v0.0.0-local.1
