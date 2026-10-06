@@ -1,6 +1,6 @@
 ---
 name: test-change
-description: Select and run meaningful unit, Docker, and real EL/CL regression tests for Panda changes.
+description: Select and run meaningful unit, Docker, and real EL/CL regression tests for Panda changes. Use when deciding which checks a change needs, writing a failing regression first, verifying a fix, or running e2e, lifecycle, protocol, withdrawal, warp or clock suites. Reports actual commands and results; mocks do not establish client compatibility.
 ---
 
 Choose checks by the observable behavior changed. Start with deno task check and deno task test. Use

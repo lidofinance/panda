@@ -1,6 +1,6 @@
 ---
 name: profile-resources
-description: Measure Panda startup, component CPU/memory/disk and slot advancement speed against an ordinary-network baseline.
+description: Measure Panda startup, component CPU/memory/disk and slot advancement speed against an ordinary-network baseline. Use when the user asks how fast or heavy the stand is, wants startup, readiness, throughput or resource numbers, compares controlled and ordinary networks, or runs deno task measure, profile or baseline. Not for functional regression testing; use test-change.
 ---
 
 Run deno task baseline for ordinary clients and deno task profile for the controlled stand. Record

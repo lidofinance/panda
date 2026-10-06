@@ -9,9 +9,9 @@ Work from the Panda root with `deno`. Read `AGENTS.md`, the selected `bakes/<har
 and the relevant `tags/<tag>.json` before changing anything. Inspect the current diff so existing
 work and staging remain intact.
 
-Use the [layout guide](../../../bakes/README.md) for file ownership and adding profiles; use the
-[version guide](../../../docs/bakes.md) for CLI overrides, caches and legacy manifests. These links
-resolve from the installed `.agents/skills/maintain-bakes/` directory.
+Use the [layout guide](/bakes/README.md) for file ownership and adding profiles; use the
+[version guide](/docs/bakes.md) for CLI overrides, caches and legacy manifests. Root-relative links
+resolve from the repository root through every skill discovery path.
 
 ## Select the change
 
@@ -47,8 +47,7 @@ branch matches a previously baked client.
 Check `git apply --check` on the intended clean CL revision under ignored `.cache/`. The patch must
 retain real signature/state validation and distinguish protocol clocks from real socket, watchdog
 and RPC deadlines. For implementation use [develop-feature](../develop-feature/SKILL.md); for
-changed time semantics also read the
-[warp acceptance criteria](../../../docs/warp-tdd-acceptance.md).
+changed time semantics also read the [warp acceptance criteria](/docs/warp-tdd-acceptance.md).
 
 `sourceFiles` hashes and archives extra native inputs; it does not install them into upstream.
 Ensure the patch actually includes the helpers. `patch.py` is a maintainer tool, not an automatic

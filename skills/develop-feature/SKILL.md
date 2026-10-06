@@ -1,6 +1,6 @@
 ---
 name: develop-feature
-description: Implement features in Panda, including Deno APIs, Docker lifecycle, and the Lighthouse clock patch.
+description: Implement features in Panda, including Deno APIs, Docker lifecycle, and the Lighthouse clock patch. Use when adding or changing controller behavior, CLI tasks, Docker orchestration, configuration, protocol time or warp logic, or when a fix may require a client patch. Applies the minimal-change rule for Lighthouse; for bake/version work use maintain-bakes and for validation use test-change.
 ---
 
 Read AGENTS.md and the affected source before editing. Protocol time belongs to the Lighthouse

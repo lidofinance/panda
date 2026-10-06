@@ -26,12 +26,18 @@ Tasks use the installed `deno` command. Client builds are separate from `up`: us
 `deno task bake <hardfork> --tag <tag>`, then `deno task test:profile <hardfork> --bake <tag>` and
 `deno task up --profile <hardfork> --bake <tag>`.
 
-Use `.agents/skills/maintain-bakes/SKILL.md` for hardfork profiles, client versions, patches, tags
-and bake verification. Use `.agents/skills/develop-feature/SKILL.md` for implementation,
-`test-change/SKILL.md` for validation, `review-changes/SKILL.md` for review, `debug-devnet/SKILL.md`
-for stalled chains, and `profile-resources/SKILL.md` for measurements. Read the selected skill,
-execute its relevant commands, and record actual results. Never report an unexecuted integration
-scenario as passing.
+Use `skills/maintain-bakes/SKILL.md` for hardfork profiles, client versions, patches, tags and bake
+verification. Use `skills/develop-feature/SKILL.md` for implementation,
+`skills/test-change/SKILL.md` for validation, `skills/review-changes/SKILL.md` for review,
+`skills/debug-devnet/SKILL.md` for stalled chains, and `skills/profile-resources/SKILL.md` for
+measurements. Read the selected skill, execute its relevant commands, and record actual results.
+Never report an unexecuted integration scenario as passing.
+
+Skills live once in `skills/` as portable SKILL.md: frontmatter is only `name` and `description`, no
+runner-specific fields. `.agents/skills`, `.claude/skills` and `.codex/skills` are symlinks to it,
+and `CLAUDE.md` is a symlink to this file, so Claude Code and Codex read the same instructions. Link
+repository files from a skill with root-relative paths such as `/docs/bakes.md`; sibling skills use
+`../<name>/SKILL.md`.
 
 TDD is mandatory: define observable acceptance criteria and add a failing regression before
 implementing or optimizing the affected behavior, then make it pass and refactor with the same

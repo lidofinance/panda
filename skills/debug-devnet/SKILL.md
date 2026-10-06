@@ -1,6 +1,6 @@
 ---
 name: debug-devnet
-description: Diagnose stopped Panda chains, missing finality, txpool gaps, and EL/CL or external-service failures.
+description: Diagnose stopped Panda chains, missing finality, txpool gaps, and EL/CL or external-service failures. Use when a devnet stops producing blocks, stops finalizing, does not include transactions, a payload or Engine API call stalls, a container exits, or the user asks why the chain is stuck. Prefer Panda-side fixes; for code changes use develop-feature.
 ---
 
 Run deno task diagnose and inspect .panda/<id>/*.log plus manifest.json. Compare Beacon head

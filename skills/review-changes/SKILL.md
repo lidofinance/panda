@@ -1,6 +1,6 @@
 ---
 name: review-changes
-description: Review Panda correctness, protocol time, EL/CL consistency, Docker ownership, and regression risk.
+description: Review Panda correctness, protocol time, EL/CL consistency, Docker ownership, and regression risk. Use when the user asks to review a diff, branch, PR or fix in this repository, or to check a change for lifecycle, cleanup, clock, automine or Lighthouse patch problems. Returns concrete findings only and verifies fixes in a separate pass.
 ---
 
 Read git diff and untracked source, preserving the user's existing staging. Trace startup, partial
