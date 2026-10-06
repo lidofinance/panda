@@ -231,6 +231,17 @@ export class StateStore {
   constructor(readonly id: string) {
     this.root = stateDirectory(id);
   }
+  /** Probe the controller owner lock without holding it; a live owner keeps it locked. */
+  async ownerReleased(): Promise<boolean> {
+    try {
+      (await StateLock.acquire(join(this.root, "controller.owner"))).release();
+      return true;
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) return true;
+      if (error instanceof Error && /owned by live process/.test(error.message)) return false;
+      throw error;
+    }
+  }
   async initialize(): Promise<void> {
     await createDirectory(this.root, true);
     const owner = join(this.root, "owner.json");

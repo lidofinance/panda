@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       profile:
-        description: Registered hardfork name, or all. Run this workflow on a vX.Y.Z Git tag.
+        description: Maintained profile (gloas), or all. Pectra is kept for history and is not built. Run this workflow on a vX.Y.Z Git tag.
         required: true
         default: all
         type: string

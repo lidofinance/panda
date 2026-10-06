@@ -2,7 +2,7 @@ import { Automine } from "./automine.ts";
 import { Consensus } from "./consensus.ts";
 import { type Config, configuration } from "./config.ts";
 import { defaultTimeoutMs, json, rpc } from "./http.ts";
-import { type Manifest, Network } from "./network.ts";
+import { type Manifest, Network, snapshotCapable } from "./network.ts";
 import { type Timeline, warpMode } from "./time.ts";
 import { cpuUsage } from "node:process";
 import { exitValidator, importValidator } from "./validators.ts";
@@ -17,10 +17,50 @@ import type {
   SnapshotRequest,
   SnapshotRestoreResult,
 } from "./snapshot_types.ts";
-import { captureSavedState, snapshotRequestSupported } from "./saved_state.ts";
-import { type Bake, canonical } from "./profiles.ts";
+import { captureSavedState, readOnlyBeaconPost, snapshotRequestSupported } from "./saved_state.ts";
+import { ConsensusAdmissionError } from "./consensus_messages.ts";
+import { type Bake, canonical, readBake } from "./profiles.ts";
 import { StateLock, StateStore } from "./storage.ts";
 import type { SnapshotImportOptions } from "./snapshot_archive.ts";
+
+/** Mirrors main's automine wake rule; malformed JSON is rejected by Geth without effect. */
+function submitsTransaction(body: string): boolean {
+  try {
+    const parsed = JSON.parse(body);
+    return (Array.isArray(parsed) ? parsed : [parsed]).some((call) =>
+      ["eth_sendRawTransaction", "eth_sendRawTransactionSync", "eth_sendTransaction"]
+        .includes(call?.method)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Buffer a request body, but let drain cancellation release a stalled upload. */
+async function readText(request: Request, signal: AbortSignal): Promise<string> {
+  const reader = request.body?.getReader();
+  if (!reader) return "";
+  const cancel = () => void reader.cancel(signal.reason).catch(() => {});
+  signal.addEventListener("abort", cancel, { once: true });
+  const chunks: Uint8Array[] = [];
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      signal.throwIfAborted();
+      if (done) break;
+      chunks.push(value);
+    }
+  } finally {
+    signal.removeEventListener("abort", cancel);
+  }
+  const bytes = new Uint8Array(chunks.reduce((length, chunk) => length + chunk.length, 0));
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return new TextDecoder().decode(bytes);
+}
 
 interface Session {
   network: Network;
@@ -34,6 +74,8 @@ export class Controller {
   server?: Deno.HttpServer<Deno.NetAddr>;
   private readonly clientServers: Deno.HttpServer<Deno.NetAddr>[] = [];
   private closing?: Promise<void>;
+  private preservingClose = false;
+  private destroyRequested = false;
   private stopping = false;
   private owner?: StateLock;
   private lifecycleWork?: Promise<unknown>;
@@ -86,7 +128,19 @@ export class Controller {
       const time = await Consensus.connect(manifest, network.engine, network);
       return { network, manifest, time, automine: new Automine(manifest.el, time) };
     } catch (error) {
-      await network.fail(error);
+      await network.abandonStart(error);
+      throw error;
+    }
+  }
+  /** One live controller per id; its startup also collects transfers killed with an owner. */
+  private static async own(network: Network): Promise<StateLock> {
+    await network.store.initialize();
+    const owner = await StateLock.acquire(`${network.store.root}/controller.owner`);
+    try {
+      await new SnapshotStore(network.store, network.infra).sweepTransfers();
+      return owner;
+    } catch (error) {
+      owner.release();
       throw error;
     }
   }
@@ -95,8 +149,7 @@ export class Controller {
     mode: "new" | "resume" | "auto" = "new",
   ): Promise<Controller> {
     const network = new Network(configuration(input));
-    await network.store.initialize();
-    const owner = await StateLock.acquire(`${network.store.root}/controller.owner`);
+    const owner = await this.own(network);
     try {
       const session = await this.open(network, mode);
       const controller = new Controller(session.network, session.manifest, session.time);
@@ -109,8 +162,7 @@ export class Controller {
   }
   static async recover(input: Partial<Config> = {}): Promise<Controller> {
     const network = new Network(configuration(input));
-    await network.store.initialize();
-    const owner = await StateLock.acquire(`${network.store.root}/controller.owner`);
+    const owner = await this.own(network);
     try {
       const controller = new Controller(network, await network.enterRecovery());
       controller.owner = owner;
@@ -120,6 +172,40 @@ export class Controller {
       throw error;
     }
   }
+  /** Retained state always wins over defaults and seeds; unclean state needs explicit recovery. */
+  static async launch(
+    input: Partial<Config>,
+    seed?: { source: string; sha256?: string },
+  ): Promise<Controller> {
+    const retained = await new StateStore(configuration(input).id).active();
+    if (!retained) {
+      return seed
+        ? await this.fromSnapshot(seed.source, input, { sha256: seed.sha256 })
+        : await this.start(input, "auto");
+    }
+    for (const key of ["profile", "bake"] as const) {
+      if (input[key] !== undefined && input[key] !== retained.config[key]) {
+        throw new Error(
+          "Explicit profile/bake differs from retained network; use down/reset or another PANDA_ID",
+        );
+      }
+    }
+    if (retained.phase === "stopped") return await this.start(retained.config, "resume");
+    if (!await new StateStore(retained.config.id).ownerReleased()) {
+      throw new Error("Devnet is owned by live process; use its controller");
+    }
+    if (
+      !snapshotCapable(
+        retained.config,
+        await readBake(retained.config.profile, retained.config.bake),
+      )
+    ) {
+      throw new Error(
+        `Network ${retained.config.id} was not stopped cleanly; use down/reset or another PANDA_ID`,
+      );
+    }
+    return await this.recover(retained.config);
+  }
   static async fromSnapshot(
     source: string,
     input: Partial<Config> = {},
@@ -127,8 +213,7 @@ export class Controller {
   ): Promise<Controller> {
     const config = configuration(input);
     const store = new StateStore(config.id);
-    await store.initialize();
-    const owner = await StateLock.acquire(`${store.root}/controller.owner`);
+    const owner = await this.own(new Network(config));
     let controller: Controller | undefined;
     let recovery: Network | undefined;
     try {
@@ -321,13 +406,7 @@ export class Controller {
           await this.automine.set(wasAutomining);
           return result;
         } catch (error) {
-          if (!changed || resumed) {
-            try {
-              this.time.assertHealthy();
-              this.ingress.resume();
-              await this.automine.set(wasAutomining);
-            } catch { /* An uncertain drain must stay closed. */ }
-          }
+          if (!changed || resumed) await this.reopen(wasAutomining);
           throw error;
         } finally {
           await this.cleanupSnapshots(record);
@@ -351,6 +430,8 @@ export class Controller {
               "Restoration interrupted; use a new operation ID for explicit recovery",
             );
           }
+          const wasAutomining = this.session?.automine.enabled ?? false;
+          let changed = false;
           try {
             const source = this.network;
             // Integrity, compatibility and the full data copy precede any source mutation.
@@ -371,6 +452,7 @@ export class Controller {
             );
             const result = await this.maintenance("snapshotRestore", async () => {
               await this.journal.update(record, { stage: "source-stopping" });
+              changed = true;
               this.session?.time.stop();
               await source.discard();
               await this.journal.update(record, { stage: "source-stopped" });
@@ -404,12 +486,27 @@ export class Controller {
             this.ingress.resume();
             await this.journal.update(record, { stage: "published", result });
             return result;
+          } catch (error) {
+            if (!changed && this.session) await this.reopen(wasAutomining);
+            throw error;
           } finally {
             await this.cleanupSnapshots(record);
           }
         },
       );
     });
+  }
+  /** Reopen an untouched source; an uncertain drain or unhealthy timeline stays closed. */
+  private async reopen(automine: boolean): Promise<void> {
+    if (this.ingress.status.ready) return; // Maintenance never began.
+    try {
+      this.time.assertHealthy();
+      this.ingress.resume();
+      // During shutdown the source is preserved next; do not re-arm block production.
+      if (!this.stopping) await this.automine.set(automine);
+    } catch (error) {
+      console.error(JSON.stringify({ event: "ingress-reopen-refused", error: String(error) }));
+    }
   }
   private async cleanupSnapshots(
     record: import("./snapshot_types.ts").SnapshotOperationRecord,
@@ -444,6 +541,7 @@ export class Controller {
     if (!this.ingress.status.ready) {
       throw new Error("Cannot preserve faulted ingress; restore explicitly");
     }
+    const wasAutomining = this.automine.enabled;
     let changed = false;
     try {
       await this.maintenance("stop", async () => {
@@ -458,12 +556,7 @@ export class Controller {
         this.time.stop();
       });
     } catch (error) {
-      if (!changed) {
-        try {
-          this.time.assertHealthy();
-          this.ingress.resume();
-        } catch { /* uncertain drain remains closed */ }
-      }
+      if (!changed) await this.reopen(wasAutomining);
       throw error;
     }
   }
@@ -514,15 +607,9 @@ export class Controller {
     if (this.stopping) throw new Error("Controller is stopping");
     const lease = this.ingress.enter();
     try {
-      this.time.assertHealthy();
+      // A faulted timeline rejects every mutation itself; reads remain available for diagnosis.
+      if (method !== "status" && method !== "resources") this.time.assertHealthy();
       return await this.runCommand(method, args);
-    } catch (error) {
-      try {
-        this.time.assertHealthy();
-      } catch (fault) {
-        this.ingress.fault(fault);
-      }
-      throw error;
     } finally {
       lease.release();
     }
@@ -574,15 +661,25 @@ export class Controller {
     const url = new URL(request.url);
     const stream = (pathname ?? url.pathname) === "/eth/v1/events";
     const lease = stream ? this.ingress.stream() : this.ingress.enter();
-    const mutation = request.method !== "GET" && request.method !== "HEAD";
+    const path = pathname ?? url.pathname;
+    // JSON-RPC and some Beacon queries use POST too; nothing is a write before it is forwarded.
+    let write = target !== "el" && request.method !== "GET" && request.method !== "HEAD" &&
+      !readOnlyBeaconPost(path);
     try {
-      this.time.assertHealthy();
+      const body = target === "el"
+        ? await readText(
+          request,
+          AbortSignal.any([request.signal, lease.signal, AbortSignal.timeout(defaultTimeoutMs())]),
+        )
+        : undefined;
+      if (body !== undefined) write = submitsTransaction(body);
+      if (write) this.time.assertHealthy();
+      // A write is not abandoned with its client: its native outcome must be known before drain.
       const signal = AbortSignal.any([
-        request.signal,
+        ...(write ? [] : [request.signal]),
         lease.signal,
         AbortSignal.timeout(defaultTimeoutMs()),
       ]);
-      const path = pathname ?? url.pathname;
       if (!snapshotRequestSupported(target, request.method, path)) {
         this.network.consensusMessages?.refuseSnapshot(
           `Untracked ${
@@ -590,26 +687,28 @@ export class Controller {
           } mutation ${request.method} ${path}; restore a completed snapshot or start a fresh network before saving`,
         );
       }
-      const forwarded = new Request(this.manifest[target] + path + url.search, request);
+      const upstream = this.manifest[target] + path + url.search;
+      const forwarded = body === undefined
+        ? new Request(new Request(upstream, request), { signal })
+        : new Request(upstream, { method: request.method, headers: request.headers, body, signal });
       const response = target === "beacon" && this.network.consensusMessages
-        ? await this.network.consensusMessages.forward(
-          new Request(forwarded, { signal }),
-          this.manifest.beacon,
-        )
-        : await fetch(forwarded, { signal });
-      if (target === "el" && mutation) this.automine.notify();
-      return this.ingress.holdResponse(
-        response,
-        lease,
-        mutation
-          ? (error) => {
-            this.ingress.fault(new Error(`Submission response was lost: ${error}`));
-          }
-          : undefined,
-      );
+        ? await this.network.consensusMessages.forward(forwarded, this.manifest.beacon)
+        : await fetch(forwarded);
+      if (target === "el" && write) this.automine.notify();
+      // Response headers prove the native outcome; a lost body afterwards cannot change it.
+      return this.ingress.holdResponse(response, lease);
     } catch (error) {
       lease.release();
-      if (mutation) this.ingress.fault(new Error(`Submission outcome is uncertain: ${error}`));
+      if (error instanceof ConsensusAdmissionError) {
+        return Response.json({ code: error.status, message: error.message }, {
+          status: error.status,
+        });
+      }
+      if (write) {
+        this.network.consensusMessages?.refuseSnapshot(
+          `Submission outcome is uncertain: ${error}; restore a completed snapshot or start a fresh network before saving`,
+        );
+      }
       throw error;
     }
   }
@@ -717,13 +816,9 @@ export class Controller {
   }
   closePreserving(): Promise<void> {
     if (this.closing) return this.closing;
-    if (
-      this.config.profile !== "gloas" || this.config.mode !== "controlled" ||
-      !this.bake.recipe.ptcReadiness
-    ) {
-      return this.close();
-    }
+    if (!snapshotCapable(this.config, this.bake)) return this.close();
     this.stopping = true;
+    this.preservingClose = true;
     return this.closing = (async () => {
       await this.lifecycleWork?.catch(() => {});
       try {
@@ -736,13 +831,21 @@ export class Controller {
         try {
           await this.closeServers();
         } finally {
-          this.owner?.release();
+          try {
+            // A `down` that arrived during preservation still owns removal of the network.
+            if (this.destroyRequested) await this.destroyNetwork();
+          } finally {
+            this.owner?.release();
+          }
         }
       }
     })();
   }
   close(): Promise<void> {
-    if (this.closing) return this.closing;
+    if (this.closing) {
+      if (this.preservingClose) this.destroyRequested = true;
+      return this.closing;
+    }
     this.stopping = true;
     return this.closing = (async () => {
       await this.lifecycleWork?.catch(() => {});
@@ -751,10 +854,19 @@ export class Controller {
         await this.closeServers();
         await this.session?.automine.stop();
         await this.session?.time.queue.idle();
-        await this.network.stop();
       } finally {
-        this.owner?.release();
+        try {
+          await this.destroyNetwork();
+        } finally {
+          this.owner?.release();
+        }
       }
     })();
+  }
+  private async destroyNetwork(): Promise<void> {
+    const restoring = this.network.restoring;
+    await this.network.stop();
+    // An abandoned candidate stops only its own clients; the active generation remains.
+    if (restoring || this.network.restoring) await new Network(this.config).stop();
   }
 }

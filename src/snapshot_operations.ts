@@ -25,7 +25,8 @@ export class SnapshotJournal {
     }
     const result: SnapshotOperation[] = [];
     for await (const entry of Deno.readDir(path)) {
-      if (entry.name.endsWith(".tmp")) continue;
+      // Temporary writes and hidden platform files (such as .DS_Store) are not records.
+      if (entry.name.endsWith(".tmp") || entry.name.startsWith(".")) continue;
       if (!entry.name.endsWith(".json")) throw new Error("Unexpected snapshot operation entry");
       const record = await this.read(entry.name.slice(0, -5));
       if (record) result.push(record);

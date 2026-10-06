@@ -2,9 +2,9 @@
   "profile": "gloas",
   "tag": "snapshot-minimal-r1",
   "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
-  "runId": "b1e94599-eda5-4edc-9e93-ade75f5339ff",
-  "suiteHash": "2900edfe665bef89ad63027f667b1852dbafcbd633cff931b8a7931ea4ed1797",
-  "startedAt": "2026-10-05T14:08:04.028Z",
+  "runId": "e065f41f-06f7-48c3-a9ab-26729bf0f9cf",
+  "suiteHash": "2890db42856087068b38b9a3e380a5486f169ca35d029c8a54ac2811a8a1404f",
+  "startedAt": "2026-10-06T09:32:27.996Z",
   "scenarios": [
     "baseline",
     "lifecycle",
@@ -16,11 +16,16 @@
     "withdrawal",
     "deploy",
     "gloas",
-    "snapshot-replay"
+    "snapshot-replay",
+    "snapshots",
+    "snapshot-external",
+    "snapshot-recovery",
+    "snapshot-deposits",
+    "snapshot-withdrawals",
+    "snapshot-blobs"
   ],
-  "finishedAt": "2026-10-05T14:18:31.864Z",
-  "elapsedMs": 627840.7775,
-  "passed": false,
-  "status": "failed",
-  "error": "Error: Test process exited 1"
+  "finishedAt": "2026-10-06T09:55:27.804Z",
+  "elapsedMs": 1379780.579292,
+  "passed": true,
+  "status": "passed"
 }

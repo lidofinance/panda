@@ -33,6 +33,11 @@ export interface Manifest {
   directory: string;
   generation?: string;
 }
+/** Only controlled Gloas bakes with PTC readiness can preserve, resume and snapshot. */
+export function snapshotCapable(config: Config, bake: Bake): boolean {
+  return config.profile === "gloas" && config.mode === "controlled" &&
+    bake.recipe.ptcReadiness === true;
+}
 export class Network {
   engine?: EngineGate;
   beaconRelay?: BeaconRelay;
@@ -43,6 +48,10 @@ export class Network {
   private recovery = false;
   private runtimeManifest?: Manifest;
   private validatorStart?: () => Promise<void>;
+  /** An uncommitted restore candidate owns only its own clients, never the active network. */
+  get restoring(): boolean {
+    return this.candidate !== undefined;
+  }
   private get lockOwned(): boolean {
     return this.lock !== undefined;
   }
@@ -76,10 +85,9 @@ export class Network {
         throw new Error("Recovery configuration mismatch");
       }
       const bake = await readBake(this.config.profile, this.config.bake);
-      if (
-        this.config.profile !== "gloas" || this.config.mode !== "controlled" ||
-        !bake.recipe.ptcReadiness || active && active.bakeKey !== bake.key
-      ) throw new Error("Recovery requires the exact snapshot-capable bake");
+      if (!snapshotCapable(this.config, bake) || active && active.bakeKey !== bake.key) {
+        throw new Error("Recovery requires the exact snapshot-capable bake");
+      }
       this.generation = active;
       if (active) this.infra.useGeneration(active.generation);
       this.recovery = true;
@@ -480,8 +488,17 @@ export class Network {
       );
       return manifest;
     } catch (error) {
-      await this.fail(error);
+      await this.abandonStart(error);
       throw error;
+    }
+  }
+  /** A failed fresh genesis has no state worth recovery; resumed data stays as evidence. */
+  async abandonStart(error: unknown): Promise<void> {
+    const fresh = !this.candidate && this.generation !== undefined && !this.generation.checkpoint;
+    try {
+      await this.fail(error);
+    } finally {
+      if (fresh) await this.stop();
     }
   }
   private async closeRuntime(): Promise<void> {

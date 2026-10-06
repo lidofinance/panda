@@ -20,7 +20,8 @@ Deno.test({
     try {
       const network = new Network(configuration({ id }));
       await assert.rejects(network.start(), /already exists/);
-      await network.stop();
+      // A failed fresh start must not leave a generation that forces recovery.
+      assert.equal(await network.store.active(), undefined);
       await infra.cleanup();
       await infra.cleanup();
       assert.equal(

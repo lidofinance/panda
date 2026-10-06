@@ -482,3 +482,23 @@ Deno.test("saved state supports genesis and skipped slot tails without native re
     });
   }
 });
+
+Deno.test("controller ownership release is observable without taking a live owner's lock", async () => {
+  const base = await Deno.makeTempDir();
+  const prior = Deno.env.get("PANDA_DATA_DIR");
+  Deno.env.set("PANDA_DATA_DIR", base);
+  try {
+    const store = new StateStore("owner-release");
+    await store.initialize();
+    assert.equal(await store.ownerReleased(), true);
+    const owner = await StateLock.acquire(`${store.root}/controller.owner`);
+    assert.equal(await store.ownerReleased(), false);
+    assert.equal(await store.ownerReleased(), false, "the probe took or broke the live lock");
+    owner.release();
+    assert.equal(await store.ownerReleased(), true);
+  } finally {
+    if (prior === undefined) Deno.env.delete("PANDA_DATA_DIR");
+    else Deno.env.set("PANDA_DATA_DIR", prior);
+    await Deno.remove(base, { recursive: true });
+  }
+});

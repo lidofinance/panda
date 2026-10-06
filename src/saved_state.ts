@@ -18,9 +18,13 @@ export function snapshotRequestSupported(
     .test(path) ||
     path === "/eth/v2/beacon/pool/attestations" ||
     /^\/eth\/v[12]\/beacon\/pool\/attester_slashings$/.test(path) ||
-    /^\/eth\/v1\/beacon\/states\/[^/]+\/(validators|validator_identities|validator_balances)$/.test(
-      path,
-    ) ||
+    readOnlyBeaconPost(path);
+}
+
+/** Standard Beacon queries that use POST only to carry a request body. */
+export function readOnlyBeaconPost(path: string): boolean {
+  return /^\/eth\/v1\/beacon\/states\/[^/]+\/(validators|validator_identities|validator_balances)$/
+    .test(path) ||
     /^\/eth\/v1\/beacon\/rewards\/(attestations|sync_committee)\/[^/]+$/.test(path) ||
     /^\/eth\/v1\/validator\/duties\/(attester|sync|ptc)\/\d+$/.test(path) ||
     /^\/eth\/v1\/validator\/liveness\/\d+$/.test(path);

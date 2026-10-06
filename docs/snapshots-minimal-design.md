@@ -117,10 +117,13 @@ proposal does not claim that Panda becomes an unmodified upstream Lighthouse.
 | `common/slot_clock/src/controlled.rs`                                    |               +6 / -0 | Convert an absolute protocol timestamp using the clock's fixed origin and start. |
 | `validator_client/validator_services/src/duties_service.rs`              |               +9 / -1 | Wait for the absolute next slot when refreshing PTC duties.                      |
 
-The net growth is 21 physical lines. No snapshot-specific Rust remains in this candidate. Recipe
-identities and the relevant regression tests must change when implementing it; those are not
-included in runtime line counts. Panda's lifecycle, storage, archive handling and generated API
-documentation are outside these native-source counts.
+The net growth is 21 physical lines. No snapshot-specific Rust remains in this candidate. These
+counts exclude test-only lines injected into the same production files: two `#[cfg(test)]` hook
+calls inside the runtime functions, two appended `#[cfg(test)]` hook definitions and two test-module
+`include!` lines. Counting those, the three files change by **+45 / -2**; the test rig additionally
+includes one mock fixture. Recipe identities and the relevant regression tests must change when
+implementing it; those are not included in runtime line counts. Panda's lifecycle, storage, archive
+handling and generated API documentation are outside these native-source counts.
 
 ### Why the remaining timer change is needed
 

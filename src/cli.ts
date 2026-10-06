@@ -3,7 +3,7 @@ import { profileName } from "./profiles.ts";
 import { Devnet } from "./api.ts";
 import { configuration } from "./config.ts";
 import { Controller } from "./controller.ts";
-import { Infrastructure, LABEL, ROLE } from "./docker.ts";
+import { LABEL, ROLE } from "./docker.ts";
 import { defaultTimeoutMs, json, rpc } from "./http.ts";
 import { Network } from "./network.ts";
 import { stateDirectory, StateStore } from "./storage.ts";
@@ -22,11 +22,12 @@ const requested = {
   profile: flags.profile ?? Deno.env.get("PANDA_PROFILE"),
   bake: flags.bake ?? Deno.env.get("PANDA_BAKE"),
 };
-const config = configuration({
+const selection = {
   id,
   ...(requested.profile ? { profile: profileName(requested.profile) } : {}),
   ...(requested.bake ? { bake: requested.bake } : {}),
-});
+};
+const config = configuration(selection);
 const directory = stateDirectory(id);
 const endpointFile = `${directory}/controller.json`;
 async function removeIfExists(path: string): Promise<void> {
@@ -55,24 +56,11 @@ async function down(): Promise<void> {
         method: "POST",
         body: JSON.stringify({ method: "shutdown" }),
       });
-      // The original controller owns graceful shutdown. Wait for all its resources to disappear.
+      // The original controller owns graceful shutdown. Wait until it has released ownership,
+      // then finish removal here: its own close errors are visible only in that process.
       const { waitFor } = await import("./http.ts");
-      const infra = new Infrastructure(id);
-      await waitFor(
-        "controller shutdown",
-        async () => {
-          const filters = { label: [`${LABEL}=${id}`] };
-          const [containers, networks, volumes] = await Promise.all([
-            infra.docker.listContainers({ all: true, filters }),
-            infra.docker.listNetworks({ filters }),
-            infra.docker.listVolumes({ filters }),
-          ]);
-          return !containers.length && !networks.length && !volumes.Volumes?.length
-            ? true
-            : undefined;
-        },
-      );
-      return;
+      const store = new StateStore(id);
+      await waitFor("controller shutdown", async () => await store.ownerReleased() || undefined);
     } catch (error) {
       if (!(error instanceof TypeError) && !(error instanceof Deno.errors.ConnectionRefused)) {
         throw error;
@@ -110,24 +98,11 @@ async function up(): Promise<void> {
   Deno.addSignalListener("SIGINT", stop);
   Deno.addSignalListener("SIGTERM", stop);
   try {
-    const retained = await new StateStore(id).active();
-    if (
-      retained && ((requested.profile && requested.profile !== retained.config.profile) ||
-        (requested.bake && requested.bake !== retained.config.bake))
-    ) {
-      throw new Error(
-        "Explicit profile/bake differs from retained network; use down/reset or another PANDA_ID",
-      );
-    }
-    controller = retained && retained.phase !== "stopped"
-      ? await Controller.recover(retained.config)
-      : flags.snapshot
-      ? await Controller.fromSnapshot(flags.snapshot, {
-        id,
-        ...(requested.profile ? { profile: profileName(requested.profile) } : {}),
-        ...(requested.bake ? { bake: requested.bake } : {}),
-      }, { sha256: flags.sha256 })
-      : await Controller.start(retained?.config ?? config, "auto");
+    // Only explicit choices are compared with retained state or a seed's own configuration.
+    controller = await Controller.launch(
+      selection,
+      flags.snapshot ? { source: flags.snapshot, sha256: flags.sha256 } : undefined,
+    );
     const port = Number(Deno.env.get("PANDA_PORT") ?? 8545);
     const url = controller.serve(port);
     await Deno.writeTextFile(endpointFile, JSON.stringify({ url, id, pid: Deno.pid }));

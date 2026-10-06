@@ -9,12 +9,13 @@
   "samples": [
     {
       "method": "advanceTime",
-      "elapsedMs": 9775.440749999998,
+      "elapsedMs": 9301.935792,
       "start": {
-        "id": "economics-e74fcec2",
+        "id": "economics-00c64afd",
         "profile": "gloas",
         "bake": "snapshot-minimal-r1",
         "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
+        "sessionId": "5373d699-d60b-4a2c-a429-a5d2efe1cbfe",
         "now": 2000001547.5,
         "slot": 128,
         "automine": false,
@@ -165,10 +166,11 @@
         }
       },
       "end": {
-        "id": "economics-e74fcec2",
+        "id": "economics-00c64afd",
         "profile": "gloas",
         "bake": "snapshot-minimal-r1",
         "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
+        "sessionId": "5373d699-d60b-4a2c-a429-a5d2efe1cbfe",
         "now": 2000002699.5,
         "slot": 224,
         "automine": false,
@@ -1814,8 +1816,8 @@
           "stateRoot": "0x84907915f34c3cf86075d800ed8c46caa94064f1583526aee34ae1413be1cf14"
         }
       ],
-      "nextTransactionMs": 106.2308750000011,
-      "warpAndNextTransactionMs": 9881.671624999999,
+      "nextTransactionMs": 112.08087499999965,
+      "warpAndNextTransactionMs": 9414.016667,
       "receipt": {
         "blockHash": "0x91c7cd16376891708cb8ee7cdb07e31bd4df4029dc7fbbde89348cf039f6e354",
         "blockNumber": "0xe1",
@@ -1835,12 +1837,13 @@
     },
     {
       "method": "advanceTo",
-      "elapsedMs": 10005.089958999997,
+      "elapsedMs": 9638.214917000001,
       "start": {
-        "id": "economics-e74fcec2",
+        "id": "economics-00c64afd",
         "profile": "gloas",
         "bake": "snapshot-minimal-r1",
         "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
+        "sessionId": "5373d699-d60b-4a2c-a429-a5d2efe1cbfe",
         "now": 2000002711.5,
         "slot": 225,
         "automine": false,
@@ -1993,10 +1996,11 @@
         }
       },
       "end": {
-        "id": "economics-e74fcec2",
+        "id": "economics-00c64afd",
         "profile": "gloas",
         "bake": "snapshot-minimal-r1",
         "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
+        "sessionId": "5373d699-d60b-4a2c-a429-a5d2efe1cbfe",
         "now": 2000003863.5,
         "slot": 321,
         "automine": false,
@@ -3642,8 +3646,8 @@
           "stateRoot": "0x4832c02bc60c174ecf6f03cd0e2920eb8a2fe935c571131347b5932597490144"
         }
       ],
-      "nextTransactionMs": 105.17862500000047,
-      "warpAndNextTransactionMs": 10110.268583999998,
+      "nextTransactionMs": 110.16341700000339,
+      "warpAndNextTransactionMs": 9748.378334000005,
       "receipt": {
         "blockHash": "0x4ce841ce8ed41fc9ab32153681c7e9e3ce2ae7dcb027dc46cb8993d6db624f68",
         "blockNumber": "0x142",
@@ -3665,12 +3669,12 @@
   "failures": [],
   "failureSafety": {
     "removedIndex": "45",
-    "elapsedMs": 30093.780291999996,
+    "elapsedMs": 30088.054333,
     "stoppedSlot": 323
   },
   "profile": "gloas",
   "bake": "snapshot-minimal-r1",
   "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
-  "runId": "b1e94599-eda5-4edc-9e93-ade75f5339ff",
-  "recordedAt": "2026-10-05T14:13:30.958Z"
+  "runId": "e065f41f-06f7-48c3-a9ab-26729bf0f9cf",
+  "recordedAt": "2026-10-06T09:40:25.699Z"
 }

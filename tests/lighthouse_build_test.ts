@@ -7,7 +7,7 @@ import {
   lighthouseSourceVersion,
   lighthouseTag,
 } from "../src/lighthouse_build.ts";
-import { profiles, type Recipe } from "../src/profiles.ts";
+import { maintainedProfiles, profiles, type Recipe } from "../src/profiles.ts";
 import { registryDigest } from "../src/registry.ts";
 
 Deno.test("Lighthouse identity changes with either upstream or baker, independently of Panda and Geth", async () => {
@@ -142,7 +142,7 @@ Deno.test("Lighthouse workflow derives upstream/baker tags without a manual revi
     }).output();
     assert.equal(result.success, true, new TextDecoder().decode(result.stderr));
     const matrix = JSON.parse((await Deno.readTextFile(output)).trim().slice("matrix=".length));
-    assert.equal(matrix.include.length, Object.keys(profiles).length);
+    assert.equal(matrix.include.length, maintainedProfiles.length);
     for (const item of matrix.include) {
       assert.equal(item.tag, lighthouseTag(item.build));
       assert.equal(item.image, `ghcr.io/eddort/panda-lighthouse-${item.profile}:${item.tag}`);

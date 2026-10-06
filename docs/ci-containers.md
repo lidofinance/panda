@@ -20,7 +20,8 @@ Lighthouse repositories also live under `ghcr.io/eddort/`. Their tags are derive
 `v<upstream-version>-<commit-12>-b<baker-version>-<baker-hash-12>`. There is no manually assigned
 client release number. `clVersion`, the pinned `clRef`, and `bakerVersion` are declared in each
 profile recipe. The builder reads the actual upstream Cargo package version and rejects a mismatch.
-The existing pins declare 7.1.0 for Pectra and 8.2.2 for Gloas; the Gloas commit identifies the
+Only Gloas images are built and published now; the Pectra rows document historical releases. The
+existing pins declare 7.1.0 for Pectra and 8.2.2 for Gloas; the Gloas commit identifies the
 experimental branch even though its Cargo version is shared with other revisions.
 
 The two inputs that invalidate a Lighthouse image are:

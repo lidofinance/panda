@@ -1,10 +1,10 @@
 # Using Panda
 
-Panda is a local Ethereum development environment with Pectra/Gloas profiles: Geth, a Lighthouse
-beacon node and real validators, one Deno/TypeScript controller, and Docker managed through
-dockerode. A one-shot ethereum-genesis-generator creates genesis. See
-[measurements](measurements.md) for validation results and benchmarks, and the
-[project plan](plan.md) for completed work and next steps.
+Panda is a local Ethereum development environment for the Gloas profile (Pectra is kept only as
+history and is no longer maintained): Geth, a Lighthouse beacon node and real validators, one
+Deno/TypeScript controller, and Docker managed through dockerode. A one-shot
+ethereum-genesis-generator creates genesis. See [measurements](measurements.md) for validation
+results and benchmarks, and the [project plan](plan.md) for completed work and next steps.
 
 ## Setup and startup
 
@@ -13,9 +13,9 @@ Install **Deno 2.9.7** and start a local Docker daemon; see
 
 ```sh
 deno task smoke:docker
-deno task bake pectra --tag local # Build local artifacts from the pinned recipe on this machine.
-deno task test:profile pectra --bake local
-deno task up --profile pectra --bake local # Foreground; Ctrl-C cleans up this instance's resources.
+deno task bake gloas --tag local # Build local artifacts from the pinned recipe on this machine.
+deno task test:profile gloas --bake local
+deno task up --profile gloas --bake local # Foreground; Ctrl-C cleans up this instance's resources.
 ```
 
 Tasks use the installed `deno` command. `deno.json` contains tasks, dependencies and runtime
@@ -29,7 +29,7 @@ run `deno task up --profile gloas --bake trial` after building and verifying `gl
 
 ## Connections and configuration
 
-In another terminal, run `deno task down` or `deno task reset --profile pectra --bake local`.
+In another terminal, run `deno task down` or `deno task reset --profile gloas --bake local`.
 `PANDA_ID` selects the instance (default: `local`), and `PANDA_PORT` sets the controller port
 (8545). To select a Docker socket, use `PANDA_DOCKER_SOCKET=/path/to/docker.sock` or
 `DOCKER_HOST=unix:///path/to/docker.sock`. Docker Desktop on macOS is detected automatically. Remote
@@ -51,7 +51,7 @@ The examples below use paths relative to the repository root.
 ```ts
 import { Devnet } from "./src/api.ts";
 
-await using net = await Devnet.start({ id: "my-e2e", profile: "pectra", bake: "local" });
+await using net = await Devnet.start({ id: "my-e2e", profile: "gloas", bake: "local" });
 const initial = await net.status();
 await net.stepSlot();
 await net.advanceEpochs(2);

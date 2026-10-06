@@ -40,10 +40,11 @@ explicit time source. The controller advances protocol phases and waits for thei
 Engine API gate coordinates execution payload preparation with those phases. Signature checks,
 execution validation and finality remain part of the real client pipeline.
 
-Hardfork profiles cover **Pectra (Prague/Electra)** and the pinned experimental **Gloas
-(Amsterdam/Gloas)** implementations. The default is Pectra. Both use the mainnet preset: 12-second
-slots, 32-slot epochs and an explicitly reduced default of 64 genesis validators. Network deadlines,
-JWT timestamps and watchdogs continue to use real time, including while protocol time is paused.
+**Gloas (Amsterdam/Gloas)** is the only developed, verified and released profile, and the default.
+The **Pectra (Prague/Electra)** profile is kept in the repository as history; it is no longer
+maintained, built or published by CI. Gloas uses the mainnet preset: 12-second slots, 32-slot epochs
+and an explicitly reduced default of 64 genesis validators. Network deadlines, JWT timestamps and
+watchdogs continue to use real time, including while protocol time is paused.
 
 ## Requirements
 
@@ -56,9 +57,9 @@ The first Lighthouse build takes time; client compilation is separate from ordin
 
 ```sh
 deno task smoke:docker
-deno task bake pectra --tag local
-deno task test:profile pectra --bake local
-deno task up --profile pectra --bake local
+deno task bake gloas --tag local
+deno task test:profile gloas --bake local
+deno task up --profile gloas --bake local
 ```
 
 HTTP JSON-RPC and Beacon API share `http://127.0.0.1:8545`: use `/` for JSON-RPC and the standard
@@ -67,8 +68,8 @@ APIs on ports 5052 and 5062. See [client APIs and logs](docs/ci-containers.md#cl
 for port mappings, the VC token and `panda logs el|cl|vc`.
 
 Press Ctrl-C to preserve a controlled Gloas network for the next startup, or run `deno task down` in
-another terminal to remove the active network. `deno task reset --profile pectra --bake local`
-starts again with fresh state. Use `PANDA_ID` and `PANDA_PORT` for separate instances.
+another terminal to remove the active network. `deno task reset --profile gloas --bake local` starts
+again with fresh state. Use `PANDA_ID` and `PANDA_PORT` for separate instances.
 
 ## TypeScript API
 
@@ -77,7 +78,7 @@ From a TypeScript file in the repository root, using the bake built above:
 ```ts
 import { Devnet } from "./src/api.ts";
 
-await using net = await Devnet.start({ id: "my-test", profile: "pectra", bake: "local" });
+await using net = await Devnet.start({ id: "my-test", profile: "gloas", bake: "local" });
 
 const chainId = await net.rpc<string>("eth_chainId");
 const validators = await net.beacon("/eth/v1/beacon/states/head/validators");

@@ -1,7 +1,7 @@
 {
   "event": "protocol-passed",
   "passed": true,
-  "elapsedMs": 61570.228708,
+  "elapsedMs": 65617.992792,
   "activated": {
     "index": "64",
     "balance": "32000000000",
@@ -48,10 +48,11 @@
     }
   },
   "status": {
-    "id": "protocol-ffad9508",
+    "id": "protocol-632454b7",
     "profile": "gloas",
     "bake": "snapshot-minimal-r1",
     "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
+    "sessionId": "1918ea39-35da-4b9a-b090-3fb27004a6df",
     "now": 2000198539.5,
     "slot": 16544,
     "automine": false,
@@ -116,6 +117,6 @@
   "profile": "gloas",
   "bake": "snapshot-minimal-r1",
   "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
-  "runId": "b1e94599-eda5-4edc-9e93-ade75f5339ff",
-  "recordedAt": "2026-10-05T14:14:34.732Z"
+  "runId": "e065f41f-06f7-48c3-a9ab-26729bf0f9cf",
+  "recordedAt": "2026-10-06T09:41:34.337Z"
 }

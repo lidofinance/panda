@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       profile:
-        description: Registered hardfork name, or all. Upstream and baker versions come from its recipe.
+        description: Maintained profile (gloas), or all. Pectra is kept for history and is not built. Upstream and baker versions come from its recipe.
         required: true
         default: all
         type: string

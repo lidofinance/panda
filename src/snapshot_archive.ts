@@ -108,7 +108,12 @@ export async function snapshotSource(
   if (/^[a-z][a-z0-9+.-]*:/i.test(source)) {
     let url = httpsUrl(source);
     for (let redirects = 0; redirects <= 5; redirects++) {
-      const response = await fetch(url, { redirect: "manual", signal });
+      // Hosts may store `.gz` objects with Content-Encoding; fetch would then decode them.
+      const response = await fetch(url, {
+        redirect: "manual",
+        signal,
+        headers: { "accept-encoding": "identity" },
+      });
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         await response.body?.cancel();
         const location = response.headers.get("location");
@@ -124,6 +129,11 @@ export async function snapshotSource(
         throw new Error(
           `Snapshot download: HTTP ${response.status}; use a raw file or Release asset URL`,
         );
+      }
+      const encoding = response.headers.get("content-encoding");
+      if (encoding && encoding.toLowerCase() !== "identity") {
+        await response.body.cancel();
+        throw new Error(`Snapshot download uses Content-Encoding ${encoding}; serve raw bytes`);
       }
       return response.body;
     }
@@ -266,9 +276,14 @@ function validateHeader(value: PortableManifest, limit: number): void {
   }
   profileName(config.profile);
   bakeTag(config.bake);
+  const refKeys = ["id", "createdAt", "profile", "bakeKey", "nowMs", "headSlot", "headBlockRoot"];
+  if (canonical(Object.keys(value.snapshot).sort()) !== canonical(refKeys.sort())) {
+    throw new Error("Unknown or missing snapshot reference fields");
+  }
   if (
     value.snapshot.profile !== config.profile ||
     !/^[a-f0-9]{64}$/.test(value.snapshot.bakeKey) ||
+    typeof value.snapshot.createdAt !== "string" ||
     !Number.isFinite(Date.parse(value.snapshot.createdAt)) ||
     value.snapshot.nowMs !== value.checkpoint.nowMs ||
     value.snapshot.headSlot !== value.checkpoint.headSlot ||

@@ -242,6 +242,25 @@ Deno.test("failed restore preparation cleans its allocated copy and leaves sourc
   });
 });
 
+Deno.test("restore failing before the source is stopped reopens the healthy source", async () => {
+  await fixture(async ({ controller, snapshot, events }) => {
+    await controller.automine.set(true);
+    const update = SnapshotJournal.prototype.update;
+    SnapshotJournal.prototype.update = function (record, change) {
+      if (change.stage === "source-stopping") return Promise.reject(new Error("journal disk full"));
+      return update.call(this, record, change);
+    };
+    try {
+      await assert.rejects(controller.restoreSnapshot(snapshot.id), /journal disk full/);
+    } finally {
+      SnapshotJournal.prototype.update = update;
+    }
+    assert.deepEqual(events, [], "the source was touched");
+    assert.equal(controller.lifecycle().ready, true, "an untouched source stayed closed");
+    assert.equal(controller.automine.enabled, true, "automine was not restored");
+  });
+});
+
 Deno.test("failed snapshot copy resumes the clean source and restores readiness", async () => {
   await fixture(async ({ controller, events, snapshots }) => {
     const copy = Deno.copyFile;
@@ -438,6 +457,35 @@ Deno.test("graceful shutdown waits for snapshot creation and rejects new lifecyc
     } finally {
       release.resolve();
       await Promise.allSettled([creation, closing, observed]);
+    }
+  });
+});
+
+Deno.test("Ctrl-C during a snapshot that fails before touching the source still preserves it", async () => {
+  await fixture(async ({ controller, events }) => {
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const update = SnapshotJournal.prototype.update;
+    SnapshotJournal.prototype.update = async function (record, change) {
+      if (change.stage === "stopping") {
+        entered.resolve();
+        await release.promise;
+        throw new Error("journal disk full");
+      }
+      return await update.call(this, record, change);
+    };
+    try {
+      const creation = controller.createSnapshot();
+      const rejected = assert.rejects(creation, /journal disk full/);
+      await entered.promise;
+      const closing = controller.closePreserving();
+      release.resolve();
+      await rejected;
+      await closing;
+      assert.deepEqual(events, ["preserve"], "an untouched source was not preserved cleanly");
+    } finally {
+      release.resolve();
+      SnapshotJournal.prototype.update = update;
     }
   });
 });

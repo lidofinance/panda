@@ -2,10 +2,12 @@
 
 Branding and mascot notes: [docs/branding.md](docs/branding.md).
 
-One Deno controller drives dockerode, Geth, Lighthouse BN/VC and a one-shot genesis container. The
-profiles are named by hardfork: Pectra (Prague/Electra) and Gloas (Amsterdam/Gloas), mainnet preset,
-12-second slots. Protocol time is explicit; sockets, RPC deadlines, watchdogs and profiling use real
-time. Never substitute a mock EL, signature bypass or a fabricated finalized checkpoint.
+One Deno controller drives dockerode, Geth, Lighthouse BN/VC and a one-shot genesis container.
+Profiles are named by hardfork. **Gloas (Amsterdam/Gloas) is the only developed, verified and
+released profile** (mainnet preset, 12-second slots) and the default. Pectra (Prague/Electra) stays
+in the repository only as history: do not maintain, verify, build or release it, and do not delete
+it. CI rejects it. Protocol time is explicit; sockets, RPC deadlines, watchdogs and profiling use
+real time. Never substitute a mock EL, signature bypass or a fabricated finalized checkpoint.
 
 ## Working approach
 

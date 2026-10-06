@@ -83,6 +83,8 @@ try {
     );
   }
   await run("down");
+  // `down` must not return before removal finished, or a following `reset` races it.
+  assert.equal(await new StateStore(id).active(), undefined, "down returned before removal");
   assert((await output!).success);
   await empty();
   await run("down");
@@ -104,6 +106,19 @@ try {
     assert.equal((await fresh.status()).el.hash, genesis);
     assert.equal((await fresh.status()).slot, 0);
     await fresh.stepSlot();
+    // Ctrl-C preserves the network, but a `down` arriving meanwhile still removes it.
+    const interrupted = output!;
+    child!.kill("SIGINT");
+    await run("down");
+    assert.equal(
+      await new StateStore(id).active(),
+      undefined,
+      "down during Ctrl-C preserved state",
+    );
+    await interrupted;
+    await empty();
+    const afterInterrupt = await start("up");
+    assert.equal((await afterInterrupt.status()).slot, 0, "down during Ctrl-C left a network");
   }
   await run("down");
   assert((await output!).success);
@@ -118,6 +133,8 @@ try {
     differentProfileRejected: true,
     parkedControllerUpAndDown: snapshots,
     recoveryControllerUpAndReset: snapshots,
+    downReturnsAfterRemoval: true,
+    downDuringInterruptRemoves: snapshots,
   };
   await profileReport({ ...config, bakeKey: bake.key }, "lifecycle", report);
 } finally {

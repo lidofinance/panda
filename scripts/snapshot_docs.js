@@ -108,8 +108,8 @@ export function snapshotDocs(doc) {
     content: { [type]: { schema } },
   });
   const failure = reference("SnapshotControlError");
-  const responses = (schema, type) => ({
-    "200": response("Requested result. Unknown snapshotOperation returns {}.", schema, type),
+  const responses = (schema, type, success = "Requested result.") => ({
+    "200": response(success, schema, type),
     "403": response("Foreign Host/Origin.", { type: "string" }, "text/plain"),
     "500": response(
       "Request failed; inspect lifecycle and any recorded operation for current state.",
@@ -130,7 +130,11 @@ export function snapshotDocs(doc) {
         post: {
           operationId: "snapshotControl",
           requestBody: { required: true, content: json({ oneOf: requests }) },
-          responses: responses({ anyOf: results }),
+          responses: responses(
+            { anyOf: results },
+            undefined,
+            "Requested result. Unknown snapshotOperation returns {}.",
+          ),
         },
       },
       "/lifecycle": {
@@ -148,7 +152,11 @@ export function snapshotDocs(doc) {
             required: true,
             schema: { type: "string", format: "uuid" },
           }],
-          responses: responses({ type: "string", format: "binary" }, "application/gzip"),
+          responses: responses(
+            { type: "string", format: "binary" },
+            "application/gzip",
+            "Compressed snapshot archive.",
+          ),
         },
       },
     },

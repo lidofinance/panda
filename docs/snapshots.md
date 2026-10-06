@@ -55,16 +55,16 @@ curl --fail-with-body http://127.0.0.1:8545/control \
   --json '{"method":"snapshotCreate","params":["c767e2b1-c056-4c58-bd22-3231c5613287"]}'
 ```
 
-Choose a fresh UUID for each new mutation. Keep it to query or retry the same operation after a lost
-response.
+Operation IDs are optional; Panda generates one when omitted. Choose a fresh UUID for each new
+mutation and keep it to query or retry the same operation after a lost response.
 
-| Method              | Parameters                  | Result                                                               |
-| ------------------- | --------------------------- | -------------------------------------------------------------------- |
-| `snapshotCreate`    | `[operationId]`             | Snapshot ID, creation time, profile, bake key, saved time and head   |
-| `snapshotList`      | `[]`                        | Saved snapshots                                                      |
-| `snapshotRestore`   | `[snapshotId, operationId]` | Snapshot, generation, new session ID and saved time                  |
-| `snapshotRemove`    | `[snapshotId, operationId]` | Removed snapshot                                                     |
-| `snapshotOperation` | `[operationId]`             | Durable result, failure and cleanup status; absent for an unknown ID |
+| Method              | Parameters                   | Result                                                               |
+| ------------------- | ---------------------------- | -------------------------------------------------------------------- |
+| `snapshotCreate`    | `[operationId?]`             | Snapshot ID, creation time, profile, bake key, saved time and head   |
+| `snapshotList`      | `[]`                         | Saved snapshots                                                      |
+| `snapshotRestore`   | `[snapshotId, operationId?]` | Snapshot, generation, new session ID and saved time                  |
+| `snapshotRemove`    | `[snapshotId, operationId?]` | Removed snapshot                                                     |
+| `snapshotOperation` | `[operationId]`              | Durable result, failure and cleanup status; absent for an unknown ID |
 
 Download an archive with `GET /snapshots/<snapshotId>/archive`. Its `X-Panda-SHA256` response header
 is the SHA-256 of the compressed file. For example:
@@ -161,6 +161,14 @@ back automatically after validators may have signed. Inspect `GET /lifecycle`, t
 restore a completed snapshot using a **new operation ID**. An interrupted operation is not silently
 repeated on restart.
 
-Local Ctrl-C and container SIGTERM preserve clean active state. `deno task down` removes the active
-network; completed snapshots remain. `reset` starts a fresh active network. Removing the `/data`
-volume or the local Panda data directory removes those retained snapshots too.
+Local Ctrl-C and container SIGTERM preserve clean active state. They cannot preserve an unsafe cut
+(pending transactions, mid-slot time or an earlier unsupported write): the network is then retained
+unready, and the next start requires restoring a snapshot or `reset`. `deno task down` removes the
+active network, also during a Ctrl-C shutdown, and returns only after removal; completed snapshots
+remain. `reset` starts a fresh active network. Removing the `/data` volume or the local Panda data
+directory removes those retained snapshots too.
+
+Read-only JSON-RPC and Beacon requests never affect readiness. A submission that Panda refuses
+before forwarding (unsupported encoding or full capture buffer) returns an HTTP error and changes
+nothing. A submission whose native outcome is unknown, such as an upstream transport failure, keeps
+the network usable but refuses later snapshots for that branch.

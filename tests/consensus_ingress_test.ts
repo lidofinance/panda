@@ -36,6 +36,66 @@ Deno.test("managed public Beacon submissions participate in snapshot capture", a
   }
 });
 
+Deno.test("submissions refused before forwarding answer the client without faulting ingress", async (t) => {
+  let calls = 0;
+  const native = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, async (request) => {
+    await request.arrayBuffer();
+    calls++;
+    return new Response(null);
+  });
+  const endpoint = `http://127.0.0.1:${native.addr.port}`;
+  const messages = new ConsensusMessages(() => 3, 180);
+  const controller = new Controller({ consensusMessages: messages } as unknown as Network, {
+    config: configuration(),
+    el: endpoint,
+    beacon: endpoint,
+  } as Manifest, new Timeline(0, 47_500, { move: async () => {} }));
+  const url = controller.serve(0);
+  try {
+    for (
+      const [name, path, type, body, status] of [
+        [
+          "unparsed integer",
+          "/eth/v1/beacon/pool/payload_attestations",
+          "application/json",
+          '[{"data":{"slot":3}}]',
+          400,
+        ],
+        [
+          "unsupported SSZ",
+          "/eth/v2/beacon/pool/attestations",
+          "application/octet-stream",
+          "\x01",
+          415,
+        ],
+        [
+          "capacity",
+          "/eth/v1/beacon/pool/payload_attestations",
+          "application/json",
+          `[{"data":{"slot":"3"}}]${" ".repeat(200)}`,
+          503,
+        ],
+      ] as const
+    ) {
+      await t.step(name, async () => {
+        const response = await fetch(url + path, {
+          method: "POST",
+          headers: { "content-type": type },
+          body,
+        });
+        assert.equal(response.status, status, await response.text());
+        assert.equal(calls, 0, "a refused submission reached the Beacon node");
+        assert.equal(controller.ingress.status.ready, true, "a refusal faulted the session");
+        assert.deepEqual(messages.snapshot(), [], "a refusal disabled snapshots");
+      });
+    }
+  } finally {
+    await controller.server!.shutdown();
+    await controller.automine.stop();
+    await native.shutdown();
+  }
+});
+
 Deno.test("private relay shutdown closes an idle validator connection", async () => {
   const stop = new AbortController();
   const native = Deno.serve(

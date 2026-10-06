@@ -4,8 +4,8 @@ description: Implement features in Panda, including Deno APIs, Docker lifecycle,
 ---
 
 Read AGENTS.md and the affected source before editing. Protocol time belongs to the Lighthouse
-clock; real deadlines belong to src/http.ts. Preserve Pectra mainnet constants and real
-signature/state validation.
+clock; real deadlines belong to src/http.ts. Preserve mainnet constants and real signature/state
+validation.
 
 Keep changes as small and isolated as possible. Solve problems through Panda's controller,
 configuration and existing client APIs first. Change Lighthouse source only as a last resort, after

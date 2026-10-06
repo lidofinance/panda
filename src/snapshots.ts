@@ -44,10 +44,12 @@ interface RemovalRecord {
   checksum: string;
 }
 
+function isSnapshotId(value: string): boolean {
+  return /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value);
+}
+
 function snapshotId(value: string): string {
-  if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value)) {
-    throw new Error("Invalid snapshot ID");
-  }
+  if (!isSnapshotId(value)) throw new Error("Invalid snapshot ID");
   return value;
 }
 
@@ -266,20 +268,47 @@ export class SnapshotStore {
     return value;
   }
 
+  /** Exports and imports run only inside the owning controller; call after taking ownership. */
+  async sweepTransfers(): Promise<void> {
+    await this.store.initialize();
+    const parent = await this.store.snapshotsDirectory();
+    const lock = await StateLock.acquire(join(this.store.root, "snapshots.lock"));
+    try {
+      for await (const entry of Deno.readDir(parent)) {
+        if (!/^\.pending-(?:export|import)-/.test(entry.name)) continue;
+        const path = join(parent, entry.name);
+        if (!entry.isDirectory || entry.isSymlink) {
+          // Never follow or delete a foreign entry; startup must not depend on it either.
+          console.error(JSON.stringify({ event: "snapshot-transfer-unexpected", path }));
+          continue;
+        }
+        await Deno.remove(path, { recursive: true });
+      }
+      await syncDirectory(parent);
+    } finally {
+      lock.release();
+    }
+  }
+
   async list(): Promise<SnapshotRef[]> {
     const directory = await this.store.snapshotsDirectory();
     const result: SnapshotRef[] = [];
     for await (const entry of Deno.readDir(directory)) {
       // An interrupted publication is never advertised as a restorable snapshot.
-      if (
-        [".pending-", ".removed-", ".removing-"].some((prefix) => entry.name.startsWith(prefix))
-      ) continue;
+      // Interrupted publications, tombstones and foreign files are never advertised.
+      if (!isSnapshotId(entry.name)) continue;
       try {
         const manifest = await this.metadata(entry.name);
         result.push(manifest.snapshot);
       } catch (error) {
-        // Removal may hide or rename a listed artifact before its manifest is read.
-        if (!(error instanceof Deno.errors.NotFound)) throw error;
+        // Removal may rename an artifact before its manifest is read.
+        if (error instanceof Deno.errors.NotFound) continue;
+        // One damaged artifact must not hide the others; read and restore still reject it.
+        console.error(JSON.stringify({
+          event: "snapshot-unreadable",
+          id: entry.name,
+          error: String(error),
+        }));
       }
     }
     return result.sort((a, b) =>

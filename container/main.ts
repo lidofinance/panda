@@ -1,5 +1,7 @@
 import { StateStore } from "../src/storage.ts";
 import { Controller } from "../src/controller.ts";
+import { configuration } from "../src/config.ts";
+import { Network, snapshotCapable } from "../src/network.ts";
 import { Infrastructure } from "../src/docker.ts";
 import { waitFor } from "../src/http.ts";
 import { profileName, readBake } from "../src/profiles.ts";
@@ -49,15 +51,16 @@ try {
   }
   await Deno.mkdir("/run/panda", { recursive: true });
   await Deno.writeTextFile("/run/panda/id", id, { mode: 0o600 });
+  const selection = { id, profile: bake.profile, bake: bake.tag };
+  if (!snapshotCapable(configuration(selection), bake) && await new StateStore(id).active()) {
+    // Without snapshot support the service contract remains a fresh genesis, as before.
+    await new Network(configuration(selection)).stop();
+  }
   const seed = Deno.env.get("PANDA_SNAPSHOT");
-  const retained = await new StateStore(id).active();
-  controller = retained && retained.phase !== "stopped"
-    ? await Controller.recover({ id, profile: bake.profile, bake: bake.tag })
-    : seed
-    ? await Controller.fromSnapshot(seed, { id, profile: bake.profile, bake: bake.tag }, {
-      sha256: Deno.env.get("PANDA_SNAPSHOT_SHA256"),
-    })
-    : await Controller.start({ id, profile: bake.profile, bake: bake.tag }, "auto");
+  controller = await Controller.launch(
+    selection,
+    seed ? { source: seed, sha256: Deno.env.get("PANDA_SNAPSHOT_SHA256") } : undefined,
+  );
   const upstream = controller.serve(0);
   relays.push(tcpRelay(() => upstream, 8545));
   const beacon = controller.serveClient("beacon");

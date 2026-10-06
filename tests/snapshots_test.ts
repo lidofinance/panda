@@ -6,6 +6,7 @@ import { Infrastructure } from "../src/docker.ts";
 import { canonical, readBake } from "../src/profiles.ts";
 import { type SnapshotManifest, SnapshotStore } from "../src/snapshots.ts";
 import { saveSnapshotStream, snapshotSource } from "../src/snapshot_archive.ts";
+import { SnapshotJournal } from "../src/snapshot_operations.ts";
 import { fileInventory, StateLock, StateStore } from "../src/storage.ts";
 
 async function fixture(
@@ -224,6 +225,12 @@ Deno.test("external snapshot rejection leaves no published or pending artifact",
       }],
       ["unknown config", (h) => {
         Object.assign(h.config, { directory: "/outside" });
+      }],
+      ["numeric creation time", (h) => {
+        Object.assign(h.snapshot, { createdAt: 123 });
+      }],
+      ["unknown snapshot field", (h) => {
+        Object.assign(h.snapshot, { label: "untrusted" });
       }],
       ["format", (h) => {
         h.format = "tar";
@@ -800,5 +807,73 @@ Deno.test("portable snapshots preserve sparse tails without requiring the head a
     } finally {
       await exported.cleanup();
     }
+  });
+});
+
+Deno.test("HTTPS import requests raw bytes and refuses transparently decoded bodies", async () => {
+  const original = globalThis.fetch;
+  const requested: (string | null)[] = [];
+  let encoding: string | undefined;
+  globalThis.fetch = (_input, init) => {
+    requested.push(new Headers(init?.headers).get("accept-encoding"));
+    return Promise.resolve(
+      new Response("archive", { headers: encoding ? { "content-encoding": encoding } : {} }),
+    );
+  };
+  try {
+    const signal = AbortSignal.timeout(5000);
+    assert.equal(
+      await new Response(await snapshotSource("https://example.org/a.gz", signal)).text(),
+      "archive",
+    );
+    assert.deepEqual(requested, ["identity"], "the host may compress or decode the archive");
+    encoding = "gzip";
+    await assert.rejects(snapshotSource("https://example.org/a.gz", signal), /Content-Encoding/);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+Deno.test("listing ignores foreign and damaged entries instead of failing for the owner", async () => {
+  await fixture(async ({ store, snapshots, bake }) => {
+    const kept = await snapshots.capture(bake);
+    const directory = await store.snapshotsDirectory();
+    await Deno.writeTextFile(join(directory, ".DS_Store"), "finder");
+    await Deno.mkdir(join(directory, "notes"));
+    const damaged = crypto.randomUUID();
+    await Deno.mkdir(join(directory, damaged));
+    await Deno.writeTextFile(join(directory, damaged, "manifest.json"), "{");
+    assert.deepEqual((await snapshots.list()).map((value) => value.id), [kept.id]);
+  });
+});
+
+Deno.test("ownership startup removes abandoned import and export copies only", async () => {
+  await fixture(async ({ store, snapshots, bake }) => {
+    const kept = await snapshots.capture(bake);
+    const directory = await store.snapshotsDirectory();
+    const capture = `.pending-${crypto.randomUUID()}`;
+    for (const name of [".pending-export-abc", ".pending-import-def", capture]) {
+      await Deno.mkdir(join(directory, name));
+      await Deno.writeTextFile(join(directory, name, "keys"), "validator secrets");
+    }
+    await snapshots.sweepTransfers();
+    const names = [];
+    for await (const entry of Deno.readDir(directory)) names.push(entry.name);
+    assert.deepEqual(names.sort(), [capture, kept.id].sort(), "journal-owned capture was touched");
+  });
+});
+
+Deno.test("foreign store entries never block startup sweeps or operation listing", async () => {
+  await fixture(async ({ store, snapshots }) => {
+    const directory = await store.snapshotsDirectory();
+    await Deno.writeTextFile(join(directory, ".pending-export-file"), "not a directory");
+    await snapshots.sweepTransfers();
+    await Deno.lstat(join(directory, ".pending-export-file"));
+    const journal = new SnapshotJournal(store);
+    await journal.list();
+    const operations = join(store.root, "operations");
+    await Deno.mkdir(operations, { recursive: true });
+    await Deno.writeTextFile(join(operations, ".DS_Store"), "finder");
+    assert.deepEqual(await journal.list(), []);
   });
 });

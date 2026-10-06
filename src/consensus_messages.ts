@@ -67,6 +67,13 @@ function votes(message: ConsensusMessage): Vote[] {
   });
 }
 
+/** Panda refused a submission before it reached the Beacon node; native state is unchanged. */
+export class ConsensusAdmissionError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
 /** Original signed Beacon submissions needed by a cold network snapshot. */
 export class ConsensusMessages {
   private entries: { message: ConsensusMessage; newest: number; bytes: number }[] = [];
@@ -128,7 +135,9 @@ export class ConsensusMessages {
     }
     this.prune();
     if (this.pending + this.entries.length >= 4096) {
-      return Promise.reject(new Error("Consensus capture capacity exceeded"));
+      return Promise.reject(
+        new ConsensusAdmissionError("Consensus capture capacity exceeded", 503),
+      );
     }
     this.pending++;
     const signal = AbortSignal.any([request.signal, AbortSignal.timeout(defaultTimeoutMs())]);
@@ -153,7 +162,7 @@ export class ConsensusMessages {
     let length = encoder.encode(JSON.stringify(headers)).length;
     try {
       if (length + this.bytes > this.maxBytes) {
-        throw new Error("Consensus capture capacity exceeded");
+        throw new ConsensusAdmissionError("Consensus capture capacity exceeded", 503);
       }
       while (reader) {
         const { value, done } = await reader.read();
@@ -161,13 +170,16 @@ export class ConsensusMessages {
         if (done) break;
         length += value.byteLength;
         if (length + this.bytes > this.maxBytes) {
-          throw new Error("Consensus capture capacity exceeded");
+          throw new ConsensusAdmissionError("Consensus capture capacity exceeded", 503);
         }
         chunks.push(value);
       }
     } catch (error) {
       await reader?.cancel();
-      throw error;
+      // Nothing was forwarded: a failed upload cannot have changed native state.
+      throw error instanceof ConsensusAdmissionError
+        ? error
+        : new ConsensusAdmissionError(`Consensus submission upload failed: ${error}`, 400);
     } finally {
       signal.removeEventListener("abort", cancel);
       reader?.releaseLock();
@@ -180,8 +192,16 @@ export class ConsensusMessages {
     }
     const url = new URL(request.url);
     const entry: ConsensusMessage = { path: url.pathname, headers, body: [...body] };
-    const parsed = votes(entry); // Refuse unsupported capture before it can change native state.
-    signal.throwIfAborted();
+    let parsed: Vote[];
+    try {
+      parsed = votes(entry); // Refuse unsupported capture before it can change native state.
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new ConsensusAdmissionError(message, /unsupported/i.test(message) ? 415 : 400);
+    }
+    if (signal.aborted) {
+      throw new ConsensusAdmissionError(`Consensus submission aborted: ${signal.reason}`, 503);
+    }
     try {
       const response = await fetch(target + url.pathname + url.search, {
         method: "POST",

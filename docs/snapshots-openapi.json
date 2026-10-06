@@ -254,7 +254,7 @@
         "operationId": "snapshotLifecycle",
         "responses": {
           "200": {
-            "description": "Requested result. Unknown snapshotOperation returns {}.",
+            "description": "Requested result.",
             "content": {
               "application/json": { "schema": { "$ref": "#/components/schemas/SnapshotLifecycle" } }
             }
@@ -295,7 +295,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Requested result. Unknown snapshotOperation returns {}.",
+            "description": "Compressed snapshot archive.",
             "content": {
               "application/gzip": { "schema": { "type": "string", "format": "binary" } }
             },
