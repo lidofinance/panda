@@ -15,7 +15,7 @@ const { flags, positional } = argumentsFor(Deno.args, [
   "go-image",
 ], ["replace"]);
 if (positional.length > 1) throw new Error("Usage: deno task bake <hardfork> [--tag <name>]");
-const result = await bake(profileName(positional[0] ?? "pectra"), {
+const result = await bake(profileName(positional[0] ?? "gloas"), {
   tag: flags.tag,
   replace: flags.replace === "true",
   importCl: flags["import-cl"],

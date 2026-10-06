@@ -51,6 +51,70 @@ edit('validator_client/beacon_node_fallback/src/beacon_head_monitor.rs', 'use to
 # Deadline sleeps may legitimately be zero after a head event. They must finish immediately.
 edit('validator_client/validator_services/src/attestation_service.rs', 'sleep(duration_to_deadline).await;', 'sleep_until(instant_now() + duration_to_deadline).await;')
 edit('validator_client/validator_services/src/payload_attestation_service.rs', 'sleep(deadline).await;', 'slot_clock::controlled::sleep_until(slot_clock::controlled::instant_now() + deadline).await;')
+# A target mark allows Panda to keep each slot boundary closed until the timer selects it.
+# Its absolute deadline remains correct if protocol time advances before the first sleep poll.
+p = 'validator_client/validator_services/src/payload_attestation_service.rs'
+edit(p, '        sleep(duration_to_next_slot + payload_attestation_due).await;', '''        if std::env::var_os("PANDA_CLOCK_START_MS").is_some() {
+            let absolute = self.slot_clock.start_of(attestation_slot)?
+                .checked_add(payload_attestation_due)?;
+            slot_clock::controlled::mark("ptc_wait", attestation_slot.as_u64());
+            #[cfg(test)]
+            panda_ptc_before_sleep();
+            slot_clock::controlled::sleep_until(slot_clock::controlled::instant_at(absolute)?).await;
+        } else {
+            sleep(duration_to_next_slot + payload_attestation_due).await;
+        }''')
+edit(p, 'mod tests {\n', 'mod tests {\n    include!("panda_ptc_deadline_test.rs");\n')
+with (root / p).open('a') as file:
+    file.write('''
+#[cfg(test)]
+static PANDA_PTC_BEFORE_SLEEP: std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>> = std::sync::Mutex::new(None);
+#[cfg(test)]
+fn panda_ptc_before_sleep() {
+    let callback = PANDA_PTC_BEFORE_SLEEP.lock().unwrap().take();
+    if let Some(callback) = callback { callback(); }
+}
+''')
+services = root / 'validator_client/validator_services'
+shutil.copyfile('bakes/gloas/native/ptc_deadline_test.rs', services / 'src/panda_ptc_deadline_test.rs')
+(services / 'tests').mkdir(exist_ok=True)
+(services / 'tests/panda_ptc_deadline.rs').write_text('include!("../src/lib.rs");\n')
+# Anchor controlled PTC polling to the slot captured before its HTTP work. The
+# test-only hook can delay sleep registration across that boundary deterministically.
+p = 'validator_client/validator_services/src/duties_service.rs'
+edit(p, '''                    // as the PTC duties service will return early if it deems it already has
+                    // enough information.
+                    if let Some(duration) = duties_service.slot_clock.duration_to_next_slot() {
+                        sleep(duration).await;''', '''                    // as the PTC duties service will return early if it deems it already has
+                    // enough information.
+                    if std::env::var_os("PANDA_CLOCK_START_MS").is_some() {
+                        if let Some(deadline) = duties_service.slot_clock
+                            .start_of(current_slot + 1)
+                            .and_then(slot_clock::controlled::instant_at) {
+                            #[cfg(test)]
+                            panda_ptc_duties_before_sleep();
+                            slot_clock::controlled::sleep_until(deadline).await;
+                        } else {
+                            sleep(duties_service.slot_clock.slot_duration()).await;
+                        }
+                    } else if let Some(duration) = duties_service.slot_clock.duration_to_next_slot() {
+                        sleep(duration).await;''')
+edit(p, 'mod test {\n', 'mod test {\n    include!("panda_ptc_duties_deadline_test.rs");\n')
+with (root / p).open('a') as file:
+    file.write('''
+#[cfg(test)]
+static PANDA_PTC_DUTIES_BEFORE_SLEEP: std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>> = std::sync::Mutex::new(None);
+#[cfg(test)]
+fn panda_ptc_duties_before_sleep() {
+    let callback = PANDA_PTC_DUTIES_BEFORE_SLEEP.lock().unwrap().take();
+    if let Some(callback) = callback { callback(); }
+}
+''')
+shutil.copyfile('bakes/gloas/native/ptc_duties_deadline_test.rs', services / 'src/panda_ptc_duties_deadline_test.rs')
+rig = root / 'testing/validator_test_rig/src'
+shutil.copyfile('bakes/gloas/native/ptc_duties_deadline_mock.rs', rig / 'panda_ptc_duties_deadline_mock.rs')
+with (rig / 'mock_beacon_node.rs').open('a') as file:
+    file.write('\ninclude!("panda_ptc_duties_deadline_mock.rs");\n')
 edit('beacon_node/timer/src/lib.rs', 'beacon_chain.per_slot_task().await;', 'beacon_chain.per_slot_task().await;\n            if let Ok(slot) = beacon_chain.slot() { slot_clock::controlled::mark("slot", slot.as_u64()); }')
 edit('beacon_node/beacon_chain/src/state_advance_timer.rs', '                    is_running.unlock();', '                    is_running.unlock();\n                    slot_clock::controlled::mark("state_advance", current_slot.as_u64());')
 edit('beacon_node/beacon_chain/src/state_advance_timer.rs', '                        // Signal block proposal for the next slot', '                        slot_clock::controlled::mark("fork_choice", next_slot.as_u64() - 1);\n                        // Signal block proposal for the next slot')
@@ -93,7 +157,7 @@ edit('consensus/types/src/state/beacon_state.rs',
     '#[path = "../src/state/panda_weighted_selection.rs"]\nmod selection;\n')
 
 shutil.copyfile('bakes/gloas/native/prepare_skip.rs', root / 'beacon_node/beacon_chain/src/panda_controlled_skip.rs')
-edit('beacon_node/beacon_chain/src/lib.rs', 'mod beacon_chain;', 'mod beacon_chain;\nmod panda_controlled_skip;')
+edit('beacon_node/beacon_chain/src/lib.rs', 'pub mod panda_sync_batch;', 'pub mod panda_sync_batch;\nmod panda_controlled_skip;')
 edit('beacon_node/timer/src/lib.rs', '            beacon_chain.per_slot_task().await;', '''            if let Err(error) = beacon_chain.prepare_controlled_skip().await {
                 warn!(%error, "Controlled skip preparation failed");
                 continue;

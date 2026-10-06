@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { profiles, readBake } from "../src/profiles.ts";
+import { maintainedProfiles, profiles, readBake } from "../src/profiles.ts";
 import {
   assertMissingRevision,
   lighthouseImage,
@@ -83,7 +83,7 @@ Deno.test("Panda release selection takes its version from a Git tag, never manua
     );
     assert.equal(values.revision, "v1.2.3-rc.1");
     assert.deepEqual(JSON.parse(values.matrix), {
-      include: Object.keys(profiles).map((profile) => ({
+      include: maintainedProfiles.map((profile) => ({
         profile,
         image: `ghcr.io/eddort/panda-${profile}:v1.2.3-rc.1`,
       })),

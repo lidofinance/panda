@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { configuration } from "../src/config.ts";
 import { dockerClient, Infrastructure, LABEL, ROLE } from "../src/docker.ts";
 import { Network } from "../src/network.ts";
-import { clockEnvironment, profiles } from "../src/profiles.ts";
+import {
+  clockEnvironment,
+  maintainedProfile,
+  maintainedProfiles,
+  profiles,
+} from "../src/profiles.ts";
 
 function withEnv(values: Record<string, string>, check: () => void): void {
   const previous = Object.fromEntries(
@@ -62,3 +67,55 @@ Deno.test("Panda state and Docker ownership use the project namespace", () => {
   assert.equal(ROLE, "io.panda.role");
   assert.deepEqual(new Infrastructure(id).labels, { "io.panda.id": id });
 });
+
+Deno.test("Gloas is the default and only maintained profile; Pectra stays explicit history", () => {
+  const previous = Deno.env.get("PANDA_PROFILE");
+  Deno.env.delete("PANDA_PROFILE");
+  try {
+    assert.equal(configuration().profile, "gloas");
+  } finally {
+    if (previous !== undefined) Deno.env.set("PANDA_PROFILE", previous);
+  }
+  assert.deepEqual([...maintainedProfiles], ["gloas"]);
+  assert.equal(maintainedProfile("gloas"), "gloas");
+  assert.throws(() => maintainedProfile("pectra"), /not maintained/);
+  assert.equal(configuration({ profile: "pectra" }).profile, "pectra", "history became unusable");
+});
+
+async function ciMatrix(script: string, selection: string) {
+  const output = await Deno.makeTempFile();
+  try {
+    const result = await new Deno.Command(Deno.execPath(), {
+      args: ["run", "-A", script, "matrix", selection],
+      env: {
+        GITHUB_OUTPUT: output,
+        GITHUB_REF: "refs/tags/v9.9.9",
+        GITHUB_REPOSITORY_OWNER: "example",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const text = await Deno.readTextFile(output);
+    const matrix = /^matrix=(.*)$/m.exec(text)?.[1];
+    return {
+      success: result.success,
+      stderr: new TextDecoder().decode(result.stderr),
+      profiles: matrix
+        ? (JSON.parse(matrix).include as { profile: string }[]).map((item) => item.profile)
+        : [],
+    };
+  } finally {
+    await Deno.remove(output);
+  }
+}
+
+for (const script of ["scripts/release_ci.ts", "scripts/lighthouse_ci.ts"]) {
+  Deno.test(`${script} builds and publishes only maintained profiles`, async () => {
+    const all = await ciMatrix(script, "all");
+    assert.equal(all.success, true, all.stderr);
+    assert.deepEqual(all.profiles, ["gloas"]);
+    const pectra = await ciMatrix(script, "pectra");
+    assert.equal(pectra.success, false, "CI accepted the historical Pectra profile");
+    assert.match(pectra.stderr, /not maintained/);
+  });
+}

@@ -1,0 +1,33 @@
+{
+  "profile": "gloas",
+  "bake": "snapshot-minimal-r1",
+  "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
+  "platform": "linux/arm64",
+  "image": "panda-snapshots:local",
+  "imageId": "sha256:afead70c0f37553ba42cb9159fedbe4c7a462071cefb855e80d6b2ae68561594",
+  "passed": true,
+  "elapsedMs": 61990.574792,
+  "source": "Working tree based on 0ea0c8776f1d71f792090abd0d14828201f23938; local image, not a published release.",
+  "snapshot": {
+    "savedSlot": 2,
+    "fullStateSha256": "f61e44608dc0a2942f3997161d6524da27fc94fa59a8919b09d5085f4fd592e2",
+    "restored": true,
+    "archiveSha256": "ebdd7b492f99d0b24551ec151b95d67d09d4fb428015fc49a277559dc682ba3c",
+    "archiveBytes": 542225
+  },
+  "retainedRestart": {
+    "savedSlot": 3,
+    "fullStateSha256": "3928553e7085eda72811fcd3a0d001fb6f96d98ac6ddf98eb66cdd0e25e864ff",
+    "resumedSlot": 4
+  },
+  "coverage": [
+    "CLI capture and export using /data",
+    "HTTP restore after 64-slot fast warp",
+    "Exact execution block, beacon head and full SSZ state",
+    "Stable managed EL/CL/VC endpoints across restore",
+    "Validator token and keys retained",
+    "SIGTERM clean persistence and same-container restart",
+    "Retained snapshots and next-block progress",
+    "Owned container cleanup"
+  ]
+}

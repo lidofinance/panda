@@ -3,19 +3,32 @@ import { profileName } from "./profiles.ts";
 import { Devnet } from "./api.ts";
 import { configuration } from "./config.ts";
 import { Controller } from "./controller.ts";
-import { Infrastructure, LABEL, ROLE } from "./docker.ts";
+import { LABEL, ROLE } from "./docker.ts";
 import { defaultTimeoutMs, json, rpc } from "./http.ts";
 import { Network } from "./network.ts";
+import { stateDirectory, StateStore } from "./storage.ts";
+import { runSnapshotCommand } from "./snapshot_cli.ts";
 
-const { flags, positional } = argumentsFor(Deno.args, ["profile", "bake"]);
+const { flags, positional } = argumentsFor(Deno.args, [
+  "profile",
+  "bake",
+  "snapshot",
+  "sha256",
+  "operation",
+]);
 const [command = "up", argument] = positional;
 const id = Deno.env.get("PANDA_ID") ?? "local";
-const config = configuration({
+const requested = {
+  profile: flags.profile ?? Deno.env.get("PANDA_PROFILE"),
+  bake: flags.bake ?? Deno.env.get("PANDA_BAKE"),
+};
+const selection = {
   id,
-  ...(flags.profile ? { profile: profileName(flags.profile) } : {}),
-  ...(flags.bake ? { bake: flags.bake } : {}),
-});
-const directory = `${Deno.cwd()}/.panda/${id}`;
+  ...(requested.profile ? { profile: profileName(requested.profile) } : {}),
+  ...(requested.bake ? { bake: requested.bake } : {}),
+};
+const config = configuration(selection);
+const directory = stateDirectory(id);
 const endpointFile = `${directory}/controller.json`;
 async function removeIfExists(path: string): Promise<void> {
   try {
@@ -37,42 +50,17 @@ async function down(): Promise<void> {
   const url = await endpoint();
   if (url) {
     try {
-      const response = await json<{ id: string }>(`${url}/control`, {
-        method: "POST",
-        body: JSON.stringify({ method: "status" }),
-      });
-      // The status response is wrapped under result.
-      const status = response as unknown as { result: { id: string } };
-      if (status.result.id !== id) throw new Error("Controller ownership mismatch");
+      const status = await new Devnet(url).lifecycle();
+      if (status.id !== id) throw new Error("Controller ownership mismatch");
       await json(`${url}/control`, {
         method: "POST",
         body: JSON.stringify({ method: "shutdown" }),
       });
-      // The original controller owns graceful shutdown. Wait for all its resources to disappear.
+      // The original controller owns graceful shutdown. Wait until it has released ownership,
+      // then finish removal here: its own close errors are visible only in that process.
       const { waitFor } = await import("./http.ts");
-      const infra = new Infrastructure(id);
-      await waitFor(
-        "controller shutdown",
-        async () => {
-          const filters = { label: [`${LABEL}=${id}`] };
-          const [containers, networks, volumes] = await Promise.all([
-            infra.docker.listContainers({ all: true, filters }),
-            infra.docker.listNetworks({ filters }),
-            infra.docker.listVolumes({ filters }),
-          ]);
-          let locked = true;
-          try {
-            await Deno.stat(`${directory}/controller.lock`);
-          } catch (error) {
-            if (error instanceof Deno.errors.NotFound) locked = false;
-            else throw error;
-          }
-          return !containers.length && !networks.length && !volumes.Volumes?.length && !locked
-            ? true
-            : undefined;
-        },
-      );
-      return;
+      const store = new StateStore(id);
+      await waitFor("controller shutdown", async () => await store.ownerReleased() || undefined);
     } catch (error) {
       if (!(error instanceof TypeError) && !(error instanceof Deno.errors.ConnectionRefused)) {
         throw error;
@@ -85,9 +73,12 @@ async function up(): Promise<void> {
   const old = await endpoint();
   if (old) {
     try {
-      const status = await new Devnet(old).status();
+      const status = await new Devnet(old).lifecycle();
       if (status.id !== id) throw new Error("Controller ownership mismatch");
-      if (status.profile !== config.profile || status.bake !== config.bake) {
+      if (
+        (requested.profile && status.profile !== requested.profile) ||
+        (requested.bake && status.bake !== requested.bake)
+      ) {
         throw new Error(
           `Running ${status.profile}:${status.bake}; requested ${config.profile}:${config.bake}. Use another PANDA_ID or stop this network first.`,
         );
@@ -101,40 +92,22 @@ async function up(): Promise<void> {
     }
   }
   await Deno.mkdir(directory, { recursive: true });
-  const lockPath = `${directory}/controller.lock`;
-  try {
-    const lock = await Deno.open(lockPath, { createNew: true, write: true });
-    await lock.write(new TextEncoder().encode(String(Deno.pid)));
-    lock.close();
-  } catch (error) {
-    if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
-    const pid = Number(await Deno.readTextFile(lockPath));
-    if (!Number.isSafeInteger(pid) || pid <= 0) {
-      throw new Error("Startup lock is incomplete; retry shortly");
-    }
-    let alive = true;
-    try {
-      Deno.kill(pid, 0);
-    } catch (e) {
-      if (e instanceof Deno.errors.NotFound) alive = false;
-      else throw e;
-    }
-    if (alive) throw new Error(`Controller ${pid} is already starting/running`);
-    await Deno.remove(lockPath);
-    return await up();
-  }
   let controller: Controller | undefined;
   const abort = new AbortController();
   const stop = () => abort.abort();
   Deno.addSignalListener("SIGINT", stop);
   Deno.addSignalListener("SIGTERM", stop);
   try {
-    controller = await Controller.start(config);
+    // Only explicit choices are compared with retained state or a seed's own configuration.
+    controller = await Controller.launch(
+      selection,
+      flags.snapshot ? { source: flags.snapshot, sha256: flags.sha256 } : undefined,
+    );
     const port = Number(Deno.env.get("PANDA_PORT") ?? 8545);
     const url = controller.serve(port);
     await Deno.writeTextFile(endpointFile, JSON.stringify({ url, id, pid: Deno.pid }));
     console.log(
-      JSON.stringify({ event: "ready", url, beacon: url, id, time: controller.time.timestamp }),
+      JSON.stringify({ event: "ready", url, beacon: url, id, lifecycle: controller.lifecycle() }),
     );
     if (!abort.signal.aborted) {
       await Promise.race([
@@ -146,17 +119,25 @@ async function up(): Promise<void> {
     }
   } finally {
     try {
-      await controller?.close();
+      await controller?.closePreserving();
     } finally {
       Deno.removeSignalListener("SIGINT", stop);
       Deno.removeSignalListener("SIGTERM", stop);
-      for (const path of [endpointFile, lockPath]) {
+      for (const path of [endpointFile]) {
         await removeIfExists(path);
       }
     }
   }
 }
 switch (command) {
+  case "snapshot": {
+    const url = await endpoint();
+    if (!url) throw new Error("Run deno task up first");
+    const args = positional.slice(1);
+    if (flags.operation) args.push("--operation", flags.operation);
+    console.log(JSON.stringify(await runSnapshotCommand(url, args)));
+    break;
+  }
   case "up":
     await up();
     break;

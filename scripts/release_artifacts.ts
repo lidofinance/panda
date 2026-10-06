@@ -1,5 +1,5 @@
 import { atomicJson } from "../src/artifacts.ts";
-import { profileName, profiles } from "../src/profiles.ts";
+import { maintainedProfiles } from "../src/profiles.ts";
 import { latestPublishedLocks } from "../src/release_artifacts.ts";
 import { type GitHub, GitHubError } from "../src/release_pr.ts";
 
@@ -31,7 +31,7 @@ const locks = await latestPublishedLocks(
   api,
   repository,
   branch,
-  Object.keys(profiles).map(profileName),
+  [...maintainedProfiles],
 );
 await atomicJson(".cache/release-locks/sources.json", locks);
 console.log(JSON.stringify(locks, null, 2));

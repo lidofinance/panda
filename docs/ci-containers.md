@@ -13,15 +13,17 @@ Prereleases keep the existing `latest` tag unchanged.
 | ------------------------- | ------------------------------------------------------- | ---------------- |
 | Patched Pectra Lighthouse | `panda-lighthouse-pectra:v7.1.0-cfb1f7331064-b1-<hash>` | Upstream + baker |
 | Patched Gloas Lighthouse  | `panda-lighthouse-gloas:v8.2.2-2d281dfa1b40-b1-<hash>`  | Upstream + baker |
-| Panda with Pectra clients | `ghcr.io/eddort/panda-pectra:v1.2.3`                    | Git tag `v1.2.3` |
-| Panda with Gloas clients  | `ghcr.io/eddort/panda-gloas:v1.2.3`                     | Git tag `v1.2.3` |
+| Panda with Pectra clients | `ghcr.io/lidofinance/panda-pectra:v1.2.3`               | Git tag `v1.2.3` |
+| Panda with Gloas clients  | `ghcr.io/lidofinance/panda-gloas:v1.2.3`                | Git tag `v1.2.3` |
 
-Lighthouse repositories also live under `ghcr.io/eddort/`. Their tags are derived automatically:
-`v<upstream-version>-<commit-12>-b<baker-version>-<baker-hash-12>`. There is no manually assigned
-client release number. `clVersion`, the pinned `clRef`, and `bakerVersion` are declared in each
-profile recipe. The builder reads the actual upstream Cargo package version and rejects a mismatch.
-The existing pins declare 7.1.0 for Pectra and 8.2.2 for Gloas; the Gloas commit identifies the
-experimental branch even though its Cargo version is shared with other revisions.
+Lighthouse repositories also live under `ghcr.io/lidofinance/`. Their tags are derived
+automatically: `v<upstream-version>-<commit-12>-b<baker-version>-<baker-hash-12>`. There is no
+manually assigned client release number. `clVersion`, the pinned `clRef`, and `bakerVersion` are
+declared in each profile recipe. The builder reads the actual upstream Cargo package version and
+rejects a mismatch. Only Gloas images are built and published now; the Pectra rows document
+historical releases. The existing pins declare 7.1.0 for Pectra and 8.2.2 for Gloas; the Gloas
+commit identifies the experimental branch even though its Cargo version is shared with other
+revisions.
 
 The two inputs that invalidate a Lighthouse image are:
 
@@ -164,7 +166,7 @@ env:
   PANDA_BEACON_URL: http://127.0.0.1:5052
 services:
   panda:
-    image: ghcr.io/eddort/panda-gloas@sha256:<published-digest>
+    image: ghcr.io/lidofinance/panda-gloas@sha256:<published-digest>
     ports:
       - 127.0.0.1:18547:8545
       - 127.0.0.1:5052:5052
@@ -198,7 +200,7 @@ docker run -d --name panda --privileged --stop-timeout 120 \
   -p 127.0.0.1:18547:8545 \
   -p 127.0.0.1:5052:5052 \
   -p 127.0.0.1:5062:5062 \
-  ghcr.io/eddort/panda-gloas@sha256:<published-digest>
+  ghcr.io/lidofinance/panda-gloas@sha256:<published-digest>
 
 curl --fail http://127.0.0.1:5052/eth/v1/beacon/headers/head
 curl --no-buffer 'http://127.0.0.1:5052/eth/v1/events?topics=head'
@@ -247,6 +249,22 @@ before stopping or removing the outer service. In GitHub Actions, use the actual
 Upload these files as workflow artifacts even when tests fail. A log collection error is retained in
 the corresponding file when the service or client has already stopped.
 
+## Retain or seed network state
+
+Images built with snapshot support store active generations and snapshots under `/data`; the default
+owner is `PANDA_ID=service`. Mount a dedicated volume with `-v panda-data:/data` to retain state
+when replacing the outer container. Keep the owner ID and exact compatible bake/platform unchanged.
+Ordinary CI jobs can omit the mount and start fresh each time.
+
+For a fresh volume, set `PANDA_SNAPSHOT` to a mounted file path or raw HTTPS archive URL. Optional
+`PANDA_SNAPSHOT_SHA256` verifies the download. A retained active generation takes precedence over
+its initial seed. Clean state resumes; unclean state requires explicit snapshot restoration. Client
+images are still supplied by the service, so archives must match its exact bake and architecture.
+
+See [snapshots](snapshots.md) for save/restore/export commands, operation recovery and local
+examples. These behaviors require a release containing this feature; an older published `latest` is
+unchanged until the new image is published.
+
 ## Packaging and runtime
 
 The final Panda image contains Deno, the controller and archives of the already published EL/CL and
@@ -258,14 +276,15 @@ requirements than a controller-only image.
 The internal daemon uses a Unix socket and classic `overlay2` storage to preserve baked image IDs.
 TCP relays listen on ports 8545, 5052 and 5062; bind host ports on loopback. Never mount the host
 Docker socket. Controller Host/Origin checks and VC authentication still apply. All resources use
-exact `io.panda.id` ownership. SIGTERM closes API connections, the controller and its resources
-before stopping the private daemon.
+exact `io.panda.id` ownership. SIGTERM closes API connections and preserves controlled Gloas client
+data before stopping the private daemon. Allow sufficient stop time for clean database persistence.
 
-Initial readiness requires block zero, slot zero and automine off. Health probes remain read-only
-while the suite controls time. Restarts start a fresh chain; daemon failure stops the service. Time
-control defaults to honest execution; skipped-slot jumps require explicit `mode: "fast"`. Both modes
-use the same client image. Fast verifier scenarios do not certify economics across the skipped
-interval. Full profile verification retains separate honest, fast and economics scenarios.
+Fresh startup begins at block zero, slot zero and automine off. Restored networks become ready at
+their saved slot. Health probes remain read-only while the suite controls time. Daemon failure stops
+the service. Time control defaults to honest execution; skipped-slot jumps require explicit
+`mode: "fast"`. Both modes use the same client image. Fast verifier scenarios do not certify
+economics across the skipped interval. Full profile verification retains separate honest, fast and
+economics scenarios.
 
 Deno 2.9.7 is inside the service. Base images use digests, direct npm dependencies use exact
 versions, and dependency caching uses `deno.lock` with `--frozen-lockfile`. Runtime uses
@@ -274,7 +293,7 @@ versions, and dependency caching uses `deno.lock` with `--frozen-lockfile`. Runt
 For local packaging of an existing bake (no registry publication):
 
 ```sh
-deno task package:image gloas panda v0.0.0-local.1 eddort "$(git rev-parse HEAD)"
+deno task package:image gloas panda v0.0.0-local.1 lidofinance "$(git rev-parse HEAD)"
 docker build -t panda-ci-gloas:local \
   -f .cache/containers/gloas/v0.0.0-local.1/container/Dockerfile \
   .cache/containers/gloas/v0.0.0-local.1

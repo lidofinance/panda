@@ -1,5 +1,7 @@
 # Panda project plan
 
+Active snapshot work: [minimal design and implementation plan](snapshots-minimal-design.md).
+
 Recorded status as of September 29, 2026. The first working version was implemented and verified on
 macOS arm64 with Docker Desktop. The current priority is to consolidate the selected stable version.
 Further optimization was paused at the user's request; the later stages below remain possible future

@@ -1,0 +1,483 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Panda snapshots",
+    "version": "unreleased",
+    "description": "Snapshot/lifecycle subset. See docs/snapshots.md for usage and startup import."
+  },
+  "servers": [{ "url": "http://127.0.0.1:8545" }],
+  "paths": {
+    "/control": {
+      "post": {
+        "operationId": "snapshotControl",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "method": { "const": "snapshotCreate" },
+                      "params": {
+                        "anyOf": [
+                          { "type": "array", "items": false, "minItems": 0, "maxItems": 0 },
+                          {
+                            "type": "array",
+                            "prefixItems": [{ "type": "string" }],
+                            "items": false,
+                            "minItems": 1,
+                            "maxItems": 1
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": ["method"],
+                    "description": "Save and resume at the same time. Supply an operation UUID to recover a lost response."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "method": { "const": "snapshotList" },
+                      "params": { "type": "array", "items": false, "minItems": 0, "maxItems": 0 }
+                    },
+                    "additionalProperties": false,
+                    "required": ["method"],
+                    "description": "List this network owner's immutable snapshots."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "method": { "const": "snapshotRestore" },
+                      "params": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "prefixItems": [{ "type": "string" }],
+                            "items": false,
+                            "minItems": 1,
+                            "maxItems": 1
+                          },
+                          {
+                            "type": "array",
+                            "prefixItems": [{ "type": "string" }, { "type": "string" }],
+                            "items": false,
+                            "minItems": 2,
+                            "maxItems": 2
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": ["method", "params"],
+                    "description": "Restore a reusable ID, change session and disable automine. Parameters: snapshot ID, operation UUID."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "method": { "const": "snapshotRemove" },
+                      "params": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "prefixItems": [{ "type": "string" }],
+                            "items": false,
+                            "minItems": 1,
+                            "maxItems": 1
+                          },
+                          {
+                            "type": "array",
+                            "prefixItems": [{ "type": "string" }, { "type": "string" }],
+                            "items": false,
+                            "minItems": 2,
+                            "maxItems": 2
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": ["method", "params"],
+                    "description": "Remove only the saved artifact. Parameters: snapshot ID, operation UUID."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "method": { "const": "snapshotOperation" },
+                      "params": {
+                        "type": "array",
+                        "prefixItems": [{ "type": "string" }],
+                        "items": false,
+                        "minItems": 1,
+                        "maxItems": 1
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": ["method", "params"],
+                    "description": "Recover a durable outcome by operation UUID. An unknown operation returns an empty object."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "method": { "const": "lifecycle" },
+                      "params": { "type": "array", "items": false, "minItems": 0, "maxItems": 0 }
+                    },
+                    "additionalProperties": false,
+                    "required": ["method"],
+                    "description": "Inspect readiness and the current session."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "method": { "const": "stop" },
+                      "params": { "type": "array", "items": false, "minItems": 0, "maxItems": 0 }
+                    },
+                    "additionalProperties": false,
+                    "required": ["method"],
+                    "description": "Cleanly stop and preserve the active network at its completed slot."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "method": { "const": "resume" },
+                      "params": { "type": "array", "items": false, "minItems": 0, "maxItems": 0 }
+                    },
+                    "additionalProperties": false,
+                    "required": ["method"],
+                    "description": "Resume the preserved active network and change session."
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Requested result. Unknown snapshotOperation returns {}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": { "result": { "$ref": "#/components/schemas/SnapshotRef" } },
+                      "additionalProperties": false,
+                      "required": ["result"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "array",
+                          "items": { "$ref": "#/components/schemas/SnapshotRef" }
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": ["result"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": { "$ref": "#/components/schemas/SnapshotRestoreResult" }
+                      },
+                      "additionalProperties": false,
+                      "required": ["result"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": { "result": { "$ref": "#/components/schemas/SnapshotRef" } },
+                      "additionalProperties": false,
+                      "required": ["result"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": { "$ref": "#/components/schemas/SnapshotOperationRecord" }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": { "$ref": "#/components/schemas/SnapshotLifecycle" }
+                      },
+                      "additionalProperties": false,
+                      "required": ["result"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": { "$ref": "#/components/schemas/SnapshotLifecycle" }
+                      },
+                      "additionalProperties": false,
+                      "required": ["result"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": { "$ref": "#/components/schemas/SnapshotLifecycle" }
+                      },
+                      "additionalProperties": false,
+                      "required": ["result"]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Foreign Host/Origin.",
+            "content": { "text/plain": { "schema": { "type": "string" } } }
+          },
+          "500": {
+            "description": "Request failed; inspect lifecycle and any recorded operation for current state.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SnapshotControlError" }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed while ingress is closed or not ready.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SnapshotControlError" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lifecycle": {
+      "get": {
+        "operationId": "snapshotLifecycle",
+        "responses": {
+          "200": {
+            "description": "Requested result.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/SnapshotLifecycle" } }
+            }
+          },
+          "403": {
+            "description": "Foreign Host/Origin.",
+            "content": { "text/plain": { "schema": { "type": "string" } } }
+          },
+          "500": {
+            "description": "Request failed; inspect lifecycle and any recorded operation for current state.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SnapshotControlError" }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed while ingress is closed or not ready.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SnapshotControlError" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/snapshots/{id}/archive": {
+      "get": {
+        "operationId": "exportSnapshot",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compressed snapshot archive.",
+            "content": {
+              "application/gzip": { "schema": { "type": "string", "format": "binary" } }
+            },
+            "headers": {
+              "X-Panda-SHA256": {
+                "description": "Compressed-file SHA-256.",
+                "schema": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+              },
+              "Content-Length": {
+                "description": "Compressed byte count.",
+                "schema": { "type": "integer", "minimum": 0 }
+              }
+            }
+          },
+          "403": {
+            "description": "Foreign Host/Origin.",
+            "content": { "text/plain": { "schema": { "type": "string" } } }
+          },
+          "500": {
+            "description": "Request failed; inspect lifecycle and any recorded operation for current state.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SnapshotControlError" }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed while ingress is closed or not ready.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SnapshotControlError" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SnapshotRef": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "createdAt": { "type": "string" },
+          "profile": { "$ref": "#/components/schemas/ProfileName" },
+          "bakeKey": { "type": "string" },
+          "nowMs": { "type": "number", "description": "Protocol time in milliseconds." },
+          "headSlot": { "type": "number" },
+          "headBlockRoot": { "type": "string" }
+        },
+        "additionalProperties": false,
+        "required": ["id", "createdAt", "profile", "bakeKey", "nowMs", "headSlot", "headBlockRoot"]
+      },
+      "ProfileName": { "anyOf": [{ "const": "pectra" }, { "const": "gloas" }] },
+      "SnapshotRestoreResult": {
+        "type": "object",
+        "properties": {
+          "snapshot": { "$ref": "#/components/schemas/SnapshotRef" },
+          "generation": { "type": "string" },
+          "sessionId": {
+            "type": "string",
+            "description": "Reset external providers and indexers for this replacement session."
+          },
+          "nowMs": { "type": "number" }
+        },
+        "additionalProperties": false,
+        "required": ["snapshot", "generation", "sessionId", "nowMs"]
+      },
+      "SnapshotOperationRecord": {
+        "type": "object",
+        "properties": {
+          "schema": { "const": 1 },
+          "owner": { "type": "string" },
+          "id": { "type": "string" },
+          "request": { "$ref": "#/components/schemas/SnapshotRequest" },
+          "state": {
+            "anyOf": [{ "const": "running" }, { "const": "succeeded" }, { "const": "failed" }]
+          },
+          "stage": { "type": "string" },
+          "createdAt": { "type": "string" },
+          "updatedAt": { "type": "string" },
+          "snapshot": { "$ref": "#/components/schemas/SnapshotRef" },
+          "sourceGeneration": { "type": "string" },
+          "candidateGeneration": { "type": "string" },
+          "automine": { "type": "boolean" },
+          "result": {},
+          "error": { "type": "string" },
+          "cleanup": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "anyOf": [{ "const": "pending" }, { "const": "succeeded" }, { "const": "failed" }]
+              },
+              "error": { "type": "string" }
+            },
+            "additionalProperties": false,
+            "required": ["state"]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "owner",
+          "id",
+          "request",
+          "state",
+          "stage",
+          "createdAt",
+          "updatedAt"
+        ],
+        "description": "Stored operation metadata, including partial failure and independent cleanup."
+      },
+      "SnapshotRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "anyOf": [{ "const": "create" }, { "const": "restore" }, { "const": "remove" }]
+          },
+          "snapshotId": { "type": "string" }
+        },
+        "additionalProperties": false,
+        "required": ["kind"]
+      },
+      "SnapshotLifecycle": {
+        "type": "object",
+        "properties": {
+          "phase": {
+            "anyOf": [
+              { "const": "ready" },
+              { "const": "maintenance" },
+              { "const": "parked" },
+              { "const": "faulted" }
+            ]
+          },
+          "ready": { "type": "boolean" },
+          "id": { "type": "string" },
+          "profile": { "$ref": "#/components/schemas/ProfileName" },
+          "bake": { "type": "string" },
+          "generation": { "type": "string" },
+          "sessionId": { "type": "string" },
+          "now": { "type": "number" },
+          "slot": { "type": "number" },
+          "recoveryRequired": { "type": "boolean" },
+          "active": { "type": "number" },
+          "streams": { "type": "number" },
+          "operation": { "type": "string" },
+          "error": { "type": "string" },
+          "cleanup": {
+            "type": "object",
+            "properties": {
+              "state": { "anyOf": [{ "const": "succeeded" }, { "const": "failed" }] },
+              "error": { "type": "string" }
+            },
+            "additionalProperties": false,
+            "required": ["state"]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "phase",
+          "ready",
+          "id",
+          "profile",
+          "bake",
+          "sessionId",
+          "recoveryRequired",
+          "active",
+          "streams"
+        ],
+        "description": "Inspect readiness without requiring live clients."
+      },
+      "SnapshotControlError": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" },
+          "operation": { "$ref": "#/components/schemas/SnapshotOperationRecord" }
+        },
+        "additionalProperties": false,
+        "required": ["error"],
+        "description": "A failed operation may still contain a published snapshot or authoritative generation."
+      }
+    }
+  }
+}

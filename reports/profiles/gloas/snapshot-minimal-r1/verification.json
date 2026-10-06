@@ -1,0 +1,31 @@
+{
+  "profile": "gloas",
+  "tag": "snapshot-minimal-r1",
+  "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
+  "runId": "eb7f2ea2-e754-4b1d-bd2b-a187d65587cc",
+  "suiteHash": "454ed9d9bccaf5cdfa88c889847b85bf5c8b87ad9e28f84d324b428dd880136b",
+  "startedAt": "2026-10-06T11:50:14.539Z",
+  "scenarios": [
+    "baseline",
+    "lifecycle",
+    "e2e",
+    "warp",
+    "warp-fast",
+    "warp-economics",
+    "protocol",
+    "withdrawal",
+    "deploy",
+    "gloas",
+    "snapshot-replay",
+    "snapshots",
+    "snapshot-external",
+    "snapshot-recovery",
+    "snapshot-deposits",
+    "snapshot-withdrawals",
+    "snapshot-blobs"
+  ],
+  "finishedAt": "2026-10-06T12:16:11.302Z",
+  "elapsedMs": 1556767.228708,
+  "passed": true,
+  "status": "passed"
+}

@@ -1,5 +1,5 @@
 import { type PublishedClients, readPublishedClients } from "../src/client_release.ts";
-import { profileName, profiles } from "../src/profiles.ts";
+import { maintainedProfile, maintainedProfiles } from "../src/profiles.ts";
 import {
   type GitHub,
   GitHubError,
@@ -45,9 +45,7 @@ const api: GitHub = {
 const allClients = async () =>
   Object.fromEntries(
     await Promise.all(
-      Object.keys(profiles).map(async (
-        name,
-      ) => [name, await readPublishedClients(profileName(name))]),
+      maintainedProfiles.map(async (name) => [name, await readPublishedClients(name)]),
     ),
   );
 if (command === "tag") {
@@ -73,18 +71,16 @@ if (command === "tag") {
     throw new Error("Start a Lighthouse release from the repository default branch");
   }
   const selection = Deno.env.get("PROFILE") ?? "all";
-  const selected = selection === "all"
-    ? Object.keys(profiles).map(profileName)
-    : [profileName(selection)];
+  const selected = selection === "all" ? maintainedProfiles : [maintainedProfile(selection)];
   if (command === "check") {
     await requireUnusedTag(api, repository, version);
-    // A first release needs all profiles; later releases can update just one.
-    for (const name of Object.keys(profiles).map(profileName)) {
+    // A first release needs every maintained profile; later releases can update just one.
+    for (const name of maintainedProfiles) {
       if (!selected.includes(name)) await readPublishedClients(name);
     }
   } else {
     const clients: Record<string, PublishedClients> = {};
-    for (const name of Object.keys(profiles).map(profileName)) {
+    for (const name of maintainedProfiles) {
       clients[name] = selected.includes(name)
         ? JSON.parse(
           await Deno.readTextFile(`.cache/release-locks/lighthouse-lock-${name}/clients.lock.json`),

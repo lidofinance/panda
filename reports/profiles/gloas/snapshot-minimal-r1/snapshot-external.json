@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "local": {
+    "passed": true,
+    "savedSlot": 3,
+    "finalSlot": 6,
+    "retainedSeedPrecedence": true,
+    "elapsedMs": 21522.657166
+  },
+  "https": {
+    "passed": true,
+    "savedSlot": 3,
+    "finalSlot": 128,
+    "retainedSeedPrecedence": false,
+    "elapsedMs": 29513.868625
+  },
+  "archiveBytes": 563683,
+  "archiveSha256": "c06cdb326cb67ea2c5a2fd0c0b67d868ca0394183bd1928fac7bfe9b9a2aa4c5",
+  "elapsedMs": 74518.389542,
+  "profile": "gloas",
+  "bake": "snapshot-minimal-r1",
+  "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
+  "runId": "eb7f2ea2-e754-4b1d-bd2b-a187d65587cc",
+  "recordedAt": "2026-10-06T12:08:34.990Z"
+}

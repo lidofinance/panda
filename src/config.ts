@@ -28,7 +28,7 @@ export interface Config {
   consolidationChurnLimitQuotient: number;
 }
 export function configuration(input: Partial<Config> = {}): Config {
-  const profile = profileName(input.profile ?? Deno.env.get("PANDA_PROFILE") ?? "pectra");
+  const profile = profileName(input.profile ?? Deno.env.get("PANDA_PROFILE") ?? "gloas");
   const result: Config = {
     profile,
     bake: bakeTag(input.bake ?? Deno.env.get("PANDA_BAKE") ?? "default"),

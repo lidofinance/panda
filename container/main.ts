@@ -1,4 +1,7 @@
+import { StateStore } from "../src/storage.ts";
 import { Controller } from "../src/controller.ts";
+import { configuration } from "../src/config.ts";
+import { Network, snapshotCapable } from "../src/network.ts";
 import { Infrastructure } from "../src/docker.ts";
 import { waitFor } from "../src/http.ts";
 import { profileName, readBake } from "../src/profiles.ts";
@@ -13,7 +16,8 @@ if (
 ) {
   throw new Error("Packaged release metadata does not match the bake");
 }
-const id = `ci-${crypto.randomUUID().slice(0, 8)}`;
+const id = Deno.env.get("PANDA_ID") ?? "service";
+Deno.env.set("PANDA_DATA_DIR", Deno.env.get("PANDA_DATA_DIR") ?? "/data");
 const infra = new Infrastructure(id);
 const abort = new AbortController();
 const stop = () => abort.abort();
@@ -47,18 +51,22 @@ try {
   }
   await Deno.mkdir("/run/panda", { recursive: true });
   await Deno.writeTextFile("/run/panda/id", id, { mode: 0o600 });
-  controller = await Controller.start({ id, profile: bake.profile, bake: bake.tag });
-  const upstream = controller.serve(0);
-  const initial = await controller.status();
-  if (
-    initial.slot !== 0 || initial.automine ||
-    BigInt((initial.el as { number: string }).number) !== 0n
-  ) {
-    throw new Error("Service must expose fresh genesis");
+  const selection = { id, profile: bake.profile, bake: bake.tag };
+  if (!snapshotCapable(configuration(selection), bake) && await new StateStore(id).active()) {
+    // Without snapshot support the service contract remains a fresh genesis, as before.
+    await new Network(configuration(selection)).stop();
   }
+  const seed = Deno.env.get("PANDA_SNAPSHOT");
+  controller = await Controller.launch(
+    selection,
+    seed ? { source: seed, sha256: Deno.env.get("PANDA_SNAPSHOT_SHA256") } : undefined,
+  );
+  const upstream = controller.serve(0);
   relays.push(tcpRelay(() => upstream, 8545));
-  relays.push(tcpRelay(() => controller!.manifest.beacon, 5052));
-  relays.push(tcpRelay(() => controller!.manifest.vc, 5062));
+  const beacon = controller.serveClient("beacon");
+  const validator = controller.serveClient("vc");
+  relays.push(tcpRelay(() => beacon, 5052));
+  relays.push(tcpRelay(() => validator, 5062));
   console.log(JSON.stringify({
     event: "ready",
     id,
@@ -83,7 +91,7 @@ try {
   stop();
   await Promise.allSettled(relays.map((relay) => relay.close()));
   try {
-    await controller?.close();
+    await controller?.closePreserving();
   } finally {
     if (!daemonExited) daemon.kill("SIGTERM");
     const timeout = setTimeout(() => {

@@ -19,6 +19,8 @@ export interface Recipe {
   clockWait?: boolean;
   /** Complete, verified sync contributions are delivered locally without gossip aggregators. */
   directSync?: boolean;
+  /** Absolute PTC deadline selection marks and Panda's validator bootstrap gates. */
+  ptcReadiness?: boolean;
   patch: string;
   sourceFiles?: string[];
   nativeTests?: { package: string; target: string }[];
@@ -47,6 +49,19 @@ export interface Recipe {
 export function profileName(value: string): ProfileName {
   if (!Object.hasOwn(profiles, value)) throw new Error(`Unknown hardfork profile: ${value}`);
   return value as ProfileName;
+}
+/** Gloas is developed, verified and released. Pectra stays registered only as history. */
+export const maintainedProfiles: readonly ProfileName[] = ["gloas"];
+export function maintainedProfile(value: string): ProfileName {
+  const profile = profileName(value);
+  if (!maintainedProfiles.includes(profile)) {
+    throw new Error(
+      `Profile ${profile} is kept for history and is not maintained; use ${
+        maintainedProfiles.join(", ")
+      }`,
+    );
+  }
+  return profile;
 }
 /** Use the namespace declared by the bake; never guess a compiled clock ABI. */
 export function clockEnvironment(recipe: Recipe): { startMs: string; port: string } {

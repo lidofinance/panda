@@ -2,10 +2,23 @@
 
 Branding and mascot notes: [docs/branding.md](docs/branding.md).
 
-One Deno controller drives dockerode, Geth, Lighthouse BN/VC and a one-shot genesis container. The
-profiles are named by hardfork: Pectra (Prague/Electra) and Gloas (Amsterdam/Gloas), mainnet preset,
-12-second slots. Protocol time is explicit; sockets, RPC deadlines, watchdogs and profiling use real
-time. Never substitute a mock EL, signature bypass or a fabricated finalized checkpoint.
+One Deno controller drives dockerode, Geth, Lighthouse BN/VC and a one-shot genesis container.
+Profiles are named by hardfork. **Gloas (Amsterdam/Gloas) is the only developed, verified and
+released profile** (mainnet preset, 12-second slots) and the default. Pectra (Prague/Electra) stays
+in the repository only as history: do not maintain, verify, build or release it, and do not delete
+it. CI rejects it. Protocol time is explicit; sockets, RPC deadlines, watchdogs and profiling use
+real time. Never substitute a mock EL, signature bypass or a fabricated finalized checkpoint.
+
+## Working approach
+
+Start from the user's current goal; reuse established findings and keep plans current. Prefer the
+smallest maintainable solution across Panda and its clients. Solve problems through Panda,
+infrastructure, configuration and existing APIs first. Change Lighthouse only when those cannot
+reliably meet a concrete requirement, after independent subagent review, and keep the patch minimal.
+Have reviewers challenge alternatives and counterexamples together before implementing a design;
+justifying the current code does not establish that its architecture is necessary. Count injected
+helpers in the client diff. Explain the idea and tradeoffs plainly, preserve useful evidence, and
+distinguish source-reviewed proposals from executed verification.
 
 Requires Deno 2.9.7 on `PATH` and a running local Docker daemon.
 
@@ -15,12 +28,18 @@ Tasks use the installed `deno` command. Client builds are separate from `up`: us
 `deno task bake <hardfork> --tag <tag>`, then `deno task test:profile <hardfork> --bake <tag>` and
 `deno task up --profile <hardfork> --bake <tag>`.
 
-Use `.agents/skills/maintain-bakes/SKILL.md` for hardfork profiles, client versions, patches, tags
-and bake verification. Use `.agents/skills/develop-feature/SKILL.md` for implementation,
-`test-change/SKILL.md` for validation, `review-changes/SKILL.md` for review, `debug-devnet/SKILL.md`
-for stalled chains, and `profile-resources/SKILL.md` for measurements. Read the selected skill,
-execute its relevant commands, and record actual results. Never report an unexecuted integration
-scenario as passing.
+Use `skills/maintain-bakes/SKILL.md` for hardfork profiles, client versions, patches, tags and bake
+verification. Use `skills/develop-feature/SKILL.md` for implementation,
+`skills/test-change/SKILL.md` for validation, `skills/review-changes/SKILL.md` for review,
+`skills/debug-devnet/SKILL.md` for stalled chains, and `skills/profile-resources/SKILL.md` for
+measurements. Read the selected skill, execute its relevant commands, and record actual results.
+Never report an unexecuted integration scenario as passing.
+
+Skills live once in `skills/` as portable SKILL.md: frontmatter is only `name` and `description`, no
+runner-specific fields. `.agents/skills`, `.claude/skills` and `.codex/skills` are symlinks to it,
+and `CLAUDE.md` is a symlink to this file, so Claude Code and Codex read the same instructions. Link
+repository files from a skill with root-relative paths such as `/docs/bakes.md`; sibling skills use
+`../<name>/SKILL.md`.
 
 TDD is mandatory: define observable acceptance criteria and add a failing regression before
 implementing or optimizing the affected behavior, then make it pass and refactor with the same

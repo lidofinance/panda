@@ -10,11 +10,18 @@ Deno.test({
     const id = `rollback-${crypto.randomUUID().slice(0, 8)}`;
     const infra = new Infrastructure(id);
     const foreign = new Infrastructure(`other-${crypto.randomUUID().slice(0, 8)}`);
-    const collision = `panda-${id}-bn`;
+    const collision = `panda-${id}`;
     assert.deepEqual(infra.labels, { "io.panda.id": id });
-    await foreign.docker.createVolume({ Name: collision, Labels: foreign.labels });
+    await foreign.docker.createNetwork({
+      Name: collision,
+      Labels: foreign.labels,
+      Driver: "bridge",
+    });
     try {
-      await assert.rejects(new Network(configuration({ id })).start(), /Foreign volume/);
+      const network = new Network(configuration({ id }));
+      await assert.rejects(network.start(), /already exists/);
+      // A failed fresh start must not leave a generation that forces recovery.
+      assert.equal(await network.store.active(), undefined);
       await infra.cleanup();
       await infra.cleanup();
       assert.equal(
@@ -26,7 +33,10 @@ Deno.test({
           ?.length ?? 0,
         0,
       );
-      assert.equal((await foreign.docker.getVolume(collision).inspect()).Labels[LABEL], foreign.id);
+      assert.equal(
+        (await foreign.docker.getNetwork(collision).inspect()).Labels![LABEL],
+        foreign.id,
+      );
     } finally {
       await infra.cleanup();
       await foreign.cleanup();

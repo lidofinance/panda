@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { clientLockPath, type PublishedClients } from "../src/client_release.ts";
 import { lighthouseBuild, lighthouseTag } from "../src/lighthouse_build.ts";
-import { canonical, profiles, readBake } from "../src/profiles.ts";
+import { canonical, maintainedProfiles, profiles, readBake } from "../src/profiles.ts";
 import { lighthouseImage } from "../src/release.ts";
 import {
   type GitHub,
@@ -20,9 +20,11 @@ const merged = "b".repeat(40);
 const branchCommit = "c".repeat(40);
 const version = "v0.1.0";
 
-async function clients(): Promise<Record<string, PublishedClients>> {
+async function clients(
+  selected: readonly (keyof typeof profiles)[] = maintainedProfiles,
+): Promise<Record<string, PublishedClients>> {
   const result: Record<string, PublishedClients> = {};
-  for (const profile of Object.keys(profiles) as (keyof typeof profiles)[]) {
+  for (const profile of selected) {
     const bake = await readBake(profile, "panda");
     bake.recipe.clVersion = profiles[profile].clVersion;
     bake.recipe.bakerVersion = profiles[profile].bakerVersion;
@@ -130,9 +132,10 @@ function event(): ReleaseMerge {
 Deno.test("release PR carries all published client pins and the intended tag, without publishing Panda", async () => {
   const selected = await clients();
   const release = await prepareRelease(version, source, selected);
-  for (const profile of Object.keys(profiles) as (keyof typeof profiles)[]) {
+  for (const profile of maintainedProfiles) {
     assert.deepEqual(JSON.parse(release.files[clientLockPath(profile)]), selected[profile]);
   }
+  assert.equal(release.files[clientLockPath("pectra")], undefined, "Pectra was released");
   assert.equal(JSON.parse(release.files[releasePlanPath]).version, version);
   const api = new FakeGitHub();
   const url = await openReleasePullRequest(api, repository, "main", release);
@@ -151,7 +154,10 @@ Deno.test("release preparation rejects missing profiles, mutable clients and inv
     await assert.rejects(() => prepareRelease(invalid, source, selected));
   }
   await assert.rejects(() => prepareRelease(version, "main", selected));
-  await assert.rejects(() => prepareRelease(version, source, { gloas: selected.gloas }));
+  await assert.rejects(() => prepareRelease(version, source, {}));
+  // Pectra is kept for history only; a release must not carry its clients.
+  const historical = await clients(["gloas", "pectra"]);
+  await assert.rejects(() => prepareRelease(version, source, historical), /maintained/);
   selected.gloas.lighthouse.digest = "ghcr.io/eddort/panda-lighthouse-gloas:latest";
   await assert.rejects(() => prepareRelease(version, source, selected));
 });
@@ -239,7 +245,7 @@ Deno.test("release trigger rejects unmerged, foreign or changed PR data before c
     if (kind === "branch") changedEvent.pull_request.head.ref = "feature/unrelated";
     if (kind === "sha") changedEvent.pull_request.merge_commit_sha = "main";
     if (kind === "locks") changedClients.gloas.bake.createdAt = "changed after publication";
-    if (kind === "profiles") delete changedClients.pectra;
+    if (kind === "profiles") Object.assign(changedClients, await clients(["pectra"]));
     const api = new FakeGitHub();
     await assert.rejects(() => releaseMergedPullRequest(api, changedEvent, plan, changedClients));
     assert.equal(api.calls.length, 0, kind);

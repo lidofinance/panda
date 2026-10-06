@@ -1,6 +1,7 @@
 # Bake profiles and client versions
 
-Profiles are named after hardforks: `pectra` or `gloas`. Each profile can contain multiple builds
+Profiles are named after hardforks: `gloas` is the only maintained profile; `pectra` is kept as
+history and is not maintained, built or released by CI. Each profile can contain multiple builds
 with arbitrary tags. For example, `gloas:default` and `gloas:experiment-2` use the same protocol but
 may contain different EL/CL versions.
 
@@ -58,7 +59,7 @@ await net.setAutomine(true);
 ```
 
 `PANDA_PROFILE` and `PANDA_BAKE` select the same settings through the environment, including for
-individual `e2e:*` tasks. Explicit API/CLI options take precedence. The default is `pectra:default`.
+individual `e2e:*` tasks. Explicit API/CLI options take precedence. The default is `gloas:default`.
 The validator lifecycle commands `test:protocol`, `e2e:protocol` and `e2e:withdrawal` instead cover
 all registered hardfork profiles when `PANDA_PROFILE` is unset, using the selected bake tag for
 each. See the [readable protocol suites](../bakes/shared/tests/README.md) for their steps and
