@@ -565,3 +565,81 @@ Deno.test("restored consensus capture rejects malformed and over-capacity archiv
   );
   assert.deepEqual(buffer.snapshot(), []);
 });
+
+Deno.test("current-slot sync votes reach the Beacon node only after their block is its head", async (t) => {
+  // Lighthouse publishes the SSE head event before updating its cached head; the controlled
+  // sync barrier reads that cached head, so an earlier vote batch could never complete it.
+  const sync = "/eth/v1/beacon/pool/sync_committees";
+  const vote = (root: string) =>
+    publication(
+      sync,
+      JSON.stringify([{ slot: "6", validator_index: "0", beacon_block_root: root }]),
+    );
+  for (
+    const [name, root, initialHead, flips, waits] of [
+      ["new block not yet head", "0xbb", "0xaa", true, true],
+      ["block already head", "0xbb", "0xbb", false, false],
+      ["vote for an earlier block in an empty slot", "0xaa", "0xaa", false, false],
+      ["unknown block", "0xcc", "0xaa", false, false],
+    ] as const
+  ) {
+    await t.step(name, async () => {
+      let head = initialHead;
+      let delivered: string | undefined;
+      const started = performance.now();
+      await receiver(async (request) => {
+        const path = new URL(request.url).pathname;
+        const header = (root: string, slot: string) =>
+          Response.json({ data: { root, header: { message: { slot } } } });
+        if (path === "/eth/v1/beacon/headers/head") {
+          return header(head, head === "0xbb" ? "6" : "5");
+        }
+        if (path === "/eth/v1/beacon/headers/0xbb") return header("0xbb", "6");
+        if (path === "/eth/v1/beacon/headers/0xaa") return header("0xaa", "5");
+        if (path.startsWith("/eth/v1/beacon/headers/")) return new Response(null, { status: 404 });
+        await request.arrayBuffer();
+        delivered = head;
+        return new Response(null);
+      }, async (url) => {
+        if (flips) setTimeout(() => head = "0xbb", 150);
+        const buffer = new ConsensusMessages(() => 6);
+        assert.equal((await buffer.forward(vote(root), url)).status, 200);
+        assert.equal(buffer.snapshot().length, 1);
+      });
+      assert.equal(delivered, waits ? "0xbb" : initialHead, "vote raced the cached head update");
+      if (!waits) assert(performance.now() - started < 100, "a vote waited without a pending head");
+    });
+  }
+});
+
+Deno.test("cancelling held sync votes forwards nothing and keeps snapshots available", async () => {
+  const sync = "/eth/v1/beacon/pool/sync_committees";
+  let posts = 0;
+  await receiver(async (request) => {
+    const path = new URL(request.url).pathname;
+    const header = (root: string, slot: string) =>
+      Response.json({ data: { root, header: { message: { slot } } } });
+    if (path === "/eth/v1/beacon/headers/head") return header("0xaa", "5");
+    if (path === "/eth/v1/beacon/headers/0xbb") return header("0xbb", "6");
+    await request.arrayBuffer();
+    posts++;
+    return new Response(null);
+  }, async (url) => {
+    const buffer = new ConsensusMessages(() => 6);
+    const abort = new AbortController();
+    const pending = buffer.forward(
+      new Request(
+        publication(
+          sync,
+          JSON.stringify([{ slot: "6", validator_index: "0", beacon_block_root: "0xbb" }]),
+        ),
+        { signal: abort.signal },
+      ),
+      url,
+    );
+    setTimeout(() => abort.abort(new Error("validator stopped")), 100);
+    await assert.rejects(pending, /aborted/);
+    assert.equal(posts, 0, "a cancelled held vote reached the Beacon node");
+    assert.deepEqual(buffer.snapshot(), [], "an unsent vote refused later snapshots");
+  });
+});

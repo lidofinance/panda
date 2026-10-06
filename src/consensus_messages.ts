@@ -1,4 +1,10 @@
-import { defaultTimeoutMs } from "./http.ts";
+import { defaultTimeoutMs, json, waitFor } from "./http.ts";
+
+/**
+ * Real-time bound for Lighthouse's cached-head update after it announced a new head (observed:
+ * about 30 ms after a cold state load). It stays well below the VC's 12 s HTTP timeout.
+ */
+const headWaitMs = 5_000;
 
 export interface ConsensusMessage {
   path: string;
@@ -202,6 +208,13 @@ export class ConsensusMessages {
     if (signal.aborted) {
       throw new ConsensusAdmissionError(`Consensus submission aborted: ${signal.reason}`, 503);
     }
+    if (url.pathname === sync) {
+      await this.awaitHead(body, target, signal);
+      // The hold forwarded nothing; a cancellation during it cannot have changed native state.
+      if (signal.aborted) {
+        throw new ConsensusAdmissionError(`Consensus submission aborted: ${signal.reason}`, 503);
+      }
+    }
     try {
       const response = await fetch(target + url.pathname + url.search, {
         method: "POST",
@@ -227,6 +240,56 @@ export class ConsensusMessages {
     } catch (error) {
       this.failure = "Unresolved consensus submission: response lost";
       throw error;
+    }
+  }
+
+  /**
+   * Lighthouse publishes the SSE head event while importing a block, before it updates the cached
+   * head. The VC signs sync votes on that event, but the controlled sync barrier only completes
+   * while the votes' root is the cached head. Hold current-slot votes for a block of this slot
+   * until it is the head; any other vote (earlier block, unknown root, lookup error) is unchanged.
+   */
+  private async awaitHead(body: Uint8Array, target: string, signal: AbortSignal): Promise<void> {
+    let root: unknown;
+    try {
+      const items = JSON.parse(new TextDecoder().decode(body));
+      root = items[0]?.beacon_block_root;
+      if (
+        typeof root !== "string" ||
+        !items.every((item: { slot?: unknown; beacon_block_root?: unknown }) =>
+          item?.slot === String(this.slot()) && item?.beacon_block_root === root
+        )
+      ) return;
+      const block = await json<{ data: { header: { message: { slot: string } } } }>(
+        `${target}/eth/v1/beacon/headers/${root}`,
+        { signal },
+      );
+      if (block.data.header.message.slot !== String(this.slot())) return;
+    } catch {
+      return;
+    }
+    const started = performance.now();
+    let held = false;
+    try {
+      await waitFor("Beacon head for current sync votes", async () => {
+        if (signal.aborted) return true; // Forwarding reports the cancellation itself.
+        const head = await json<{ data: { root: string } }>(
+          `${target}/eth/v1/beacon/headers/head`,
+          { signal },
+        );
+        if (head.data.root === root) return true;
+        held = true;
+      }, headWaitMs);
+    } catch {
+      // A competing head is ordinary consensus; forward unchanged rather than stall the client.
+    }
+    if (held) {
+      console.log(JSON.stringify({
+        event: "sync-votes-held-for-head",
+        root,
+        slot: this.slot(),
+        elapsedMs: performance.now() - started,
+      }));
     }
   }
 

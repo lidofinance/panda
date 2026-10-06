@@ -3,24 +3,29 @@
   "savedSlot": 3,
   "restores": [
     {
-      "elapsedMs": 26475.251167
+      "elapsedMs": 25390.827459000004
     },
     {
-      "elapsedMs": 26048.997250000008
+      "elapsedMs": 26543.86129200001
     }
   ],
   "savedSszBytes": 3144225,
-  "savedSszSha256": "f63441722584fb93dd3d9f16d9f5c1ba45ce355af1dbff1a8c9706cd13ca6c90",
+  "savedSszSha256": "e664c899395b1292f4973a69507ebcd5201a89b672e923fb0be29d3b14b02d83",
   "stableFrontends": [
     "el",
     "cl",
     "vc"
   ],
-  "finalizedEpoch": "2",
-  "elapsedMs": 85065.64995899999,
+  "restoredContractExecutes": true,
+  "fastWarpAfterRestore": {
+    "from": 128,
+    "to": 8320
+  },
+  "finalizedEpoch": "260",
+  "elapsedMs": 101407.709542,
   "profile": "gloas",
   "bake": "snapshot-minimal-r1",
   "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
-  "runId": "e065f41f-06f7-48c3-a9ab-26729bf0f9cf",
-  "recordedAt": "2026-10-06T09:46:50.370Z"
+  "runId": "eb7f2ea2-e754-4b1d-bd2b-a187d65587cc",
+  "recordedAt": "2026-10-06T12:07:18.967Z"
 }

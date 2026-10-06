@@ -44,6 +44,33 @@ export async function snapshotTransaction(net: Devnet, transaction: TransactionR
   return { hash, receipt };
 }
 
+/** Writes a 32-byte call into slot 0; an empty call returns slot 0. */
+export const snapshotContract = {
+  runtime: "0x3615600c57600035600055005b60005460005260206000f3",
+  deploy: "0x6018600c60003960186000f33615600c57600035600055005b60005460005260206000f3",
+};
+
+/** The restored contract must still exist, read its storage and execute a new write. */
+export async function assertContractWorks(net: Devnet, contract: string, stored: bigint) {
+  assert.equal(await net.rpc("eth_getCode", [contract, "latest"]), snapshotContract.runtime);
+  const read = async () =>
+    BigInt(await net.rpc<string>("eth_call", [{ to: contract, data: "0x" }, "latest"]));
+  assert.equal(await read(), stored, "restored contract returned a different value");
+  const written = stored + 1000n;
+  const call = await snapshotTransaction(net, {
+    to: contract,
+    value: 0n,
+    data: toBeHex(written, 32),
+    gasLimit: 12_000_000,
+  });
+  assert.equal(await read(), written, "restored contract did not execute a new write");
+  assert.equal(
+    BigInt(await net.rpc<string>("eth_getStorageAt", [contract, "0x0", "latest"])),
+    written,
+  );
+  return call;
+}
+
 export async function snapshotBeaconState(url: string) {
   const response = await fetch(`${url}/eth/v2/debug/beacon/states/head`, {
     headers: { accept: "application/octet-stream" },
@@ -111,12 +138,11 @@ if (import.meta.main) {
         },
       );
     };
-    const runtime = "0x60003560005500";
     const deployment = await snapshotTransaction(net, {
       to: null,
       value: 0n,
       gasLimit: 12_000_000,
-      data: `0x6007600c60003960076000f3${runtime.slice(2)}`,
+      data: snapshotContract.deploy,
     });
     const contract = deployment.receipt.contractAddress;
     assert(contract);
@@ -190,7 +216,8 @@ if (import.meta.main) {
       const immediate = await net.createSnapshot();
       await net.removeSnapshot(immediate);
       await assertSaved();
-      const next = await snapshotTransaction(net);
+      // The first block after restore executes the restored contract, not just a transfer.
+      const next = await assertContractWorks(net, contract, 42n);
       assert.equal(Number(BigInt(next.receipt.blockNumber)), Number(BigInt(before.el.number)) + 1);
       await assertSnapshotPtc(net, before.slot + 1);
       await net.advanceSlots(1);
@@ -204,6 +231,22 @@ if (import.meta.main) {
     }
     await net.advanceUntil(
       async () => BigInt((await net.status()).finality.data.finalized.epoch) >= 2n,
+      { maxSlots: 160, timeoutMs: 240_000 },
+    );
+    // A restored network must survive a sync-committee-period fast warp (VC replacement) and
+    // keep executing the restored contract and finalizing afterwards.
+    const warpedFrom = await net.status();
+    await net.advanceTime(8192 * 12, { mode: "fast" });
+    const warped = await net.status();
+    assert(warped.slot >= warpedFrom.slot + 8192, "fast warp after restore did not advance");
+    await assertContractWorks(
+      net,
+      contract,
+      BigInt(await net.rpc<string>("eth_getStorageAt", [contract, "0x0", "latest"])),
+    );
+    const warpedFinality = BigInt(warped.finality.data.finalized.epoch);
+    await net.advanceUntil(
+      async () => BigInt((await net.status()).finality.data.finalized.epoch) > warpedFinality,
       { maxSlots: 160, timeoutMs: 240_000 },
     );
     const final = await net.status();
@@ -223,6 +266,8 @@ if (import.meta.main) {
       savedSszBytes: state.length,
       savedSszSha256: await sha256(state),
       stableFrontends: ["el", "cl", "vc"],
+      restoredContractExecutes: true,
+      fastWarpAfterRestore: { from: warpedFrom.slot, to: warped.slot },
       finalizedEpoch: final.finality.data.finalized.epoch,
       elapsedMs: performance.now() - started,
     });

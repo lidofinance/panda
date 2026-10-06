@@ -9,7 +9,13 @@ import { Infrastructure, LABEL } from "../../../src/docker.ts";
 import { sha256 } from "../../../src/profiles.ts";
 import { StateStore } from "../../../src/storage.ts";
 import { profileReport } from "../../shared/tests/report.ts";
-import { assertSnapshotPtc, snapshotBeaconState, snapshotTransaction } from "./snapshots.ts";
+import {
+  assertContractWorks,
+  assertSnapshotPtc,
+  snapshotBeaconState,
+  snapshotContract,
+  snapshotTransaction,
+} from "./snapshots.ts";
 
 type Expected = {
   status: Awaited<ReturnType<Devnet["status"]>>;
@@ -43,12 +49,8 @@ async function verifyImport(source: string, directory: string, id: string, retai
       BigInt(await net.rpc<string>("eth_getStorageAt", [expected.contract, "0x0", "latest"])),
       42n,
     );
-    const next = await snapshotTransaction(net, {
-      to: expected.contract,
-      value: 0n,
-      data: toBeHex(99, 32),
-      gasLimit: 12_000_000,
-    });
+    // The imported network executes the archived contract, not just a transfer.
+    const next = await assertContractWorks(net, expected.contract, 42n);
     assert.equal(Number(BigInt(next.receipt.blockNumber)), Number(BigInt(saved.el.number)) + 1);
     await assertSnapshotPtc(net, saved.slot + 1);
     await net.advanceSlots(1);
@@ -67,7 +69,8 @@ async function verifyImport(source: string, directory: string, id: string, retai
       assert.equal(resumed.el.hash, retained.el.hash);
       assert.equal(
         BigInt(await net.rpc<string>("eth_getStorageAt", [expected.contract, "0x0", "latest"])),
-        99n,
+        1042n,
+        "a clean restart lost the post-import contract write",
       );
       await net.stepSlot();
     } else {
@@ -233,7 +236,7 @@ if (import.meta.main) {
         to: null,
         value: 0n,
         gasLimit: 12_000_000,
-        data: "0x6007600c60003960076000f360003560005500",
+        data: snapshotContract.deploy,
       });
       const contract = deployment.receipt.contractAddress;
       assert(contract);

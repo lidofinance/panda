@@ -7,7 +7,8 @@ import { runPtcBootstrap } from "./ptc_bootstrap.ts";
 
 const started = performance.now();
 const bake = await readBake("gloas", Deno.env.get("PANDA_BAKE") ?? "default");
-await runColdRestart([3], undefined, true, 226, true);
+// Slot 3 plus both sides of the first epoch boundary; the complete matrix stays explicit.
+await runColdRestart([3, 31, 32], undefined, true, 226, true);
 await runNaiveReplay(false);
 await runNaiveReplay(false, undefined, true);
 await runPtcBootstrap();
@@ -17,7 +18,7 @@ await profileReport(
   {
     event: "snapshot-replay-passed",
     elapsedMs: performance.now() - started,
-    restoredCut: 3,
+    restoredCuts: [3, 31, 32],
     continuedThrough: 226,
     naiveAttestationCut: 32,
     sparseNaiveAttestationCut: 35,

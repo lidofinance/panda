@@ -1,6 +1,6 @@
 {
   "event": "lifecycle-passed",
-  "elapsedMs": 35499.572542,
+  "elapsedMs": 35388.808999999994,
   "repeatedUp": true,
   "repeatedDown": true,
   "resetGenesis": "0x0ba7a8ae75439088094d035dfa9d54b49eb6e9c4de716f356d8dc0d97fdb9886",
@@ -13,6 +13,6 @@
   "profile": "gloas",
   "bake": "snapshot-minimal-r1",
   "bakeKey": "89bb12c933c97836a5d0b943fd8f8445f168468ce677980fc8d175a9b72f8d61",
-  "runId": "e065f41f-06f7-48c3-a9ab-26729bf0f9cf",
-  "recordedAt": "2026-10-06T09:33:41.846Z"
+  "runId": "eb7f2ea2-e754-4b1d-bd2b-a187d65587cc",
+  "recordedAt": "2026-10-06T11:51:27.760Z"
 }
